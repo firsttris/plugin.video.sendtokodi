@@ -9,9 +9,10 @@
 
 #### [Postman](https://www.getpostman.com/) to Test HTTP Request
 
-
-http://kodi:kodi@20.1.0.138:8080/jsonrpc
-
+- create new HTTP Request POST
+- add your endpoint e.g. http://kodi:kodi@20.1.0.138:8080/jsonrpc
+- set body to raw (application/json)
+- add request to body
 ```
 {
 	"jsonrpc": "2.0",
