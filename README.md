@@ -1,5 +1,9 @@
 ### plugin.video.sendtokodi
 
+plays various stream urls on kodi
+
+[Supported Sites](https://rg3.github.io/youtube-dl/supportedsites.html)
+
 - addon gets stream url from JSONRPC request (example below)
 - parse stream url using youtube-dl
 - add title and thumbnail to xbmc.player()
