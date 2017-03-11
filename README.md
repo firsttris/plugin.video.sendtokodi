@@ -30,6 +30,22 @@ plays various stream urls on kodi
 }
 ```
 
+### Create Playlist
+```
+#EXTM3U
+#EXTINF:1,[Youtube] Booka Shade - Body Language
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=TLNdBIRTNM4
+
+#EXTINF:2,[Youtube] Booka Shade - Mardarine Girl
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=BfEa04s8s7M
+
+#EXTINF:3,[Soundcloud] Sam Feldt - Show Me Love
+plugin://plugin.video.sendtokodi?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1
+ 
+#EXTINF:4,[Youtube] Chop Hop
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=bn3ebh3wkOA
+```
+
 ###Sources
 (it was neceassary to get add the newest version of youtube-dl to ruuk's kodi module)
 - https://github.com/ruuk/script.module.youtube.dl

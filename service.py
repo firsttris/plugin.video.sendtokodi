@@ -4,7 +4,13 @@ import sys
 import xbmc
 import xbmcaddon
 import xbmcgui
+import xbmcplugin
 import YDStreamExtractor
+
+# Get the plugin url in plugin:// notation.
+__url__ = sys.argv[0]
+# Get the plugin handle as an integer number.
+__handle__ = int(sys.argv[1])
 
 def debug(content):
     log(content, xbmc.LOGDEBUG)
@@ -34,7 +40,10 @@ vid = YDStreamExtractor.getVideoInfo(strparams)
 title = vid.selectedStream()['title']
 thumbnail = vid.selectedStream()['thumbnail']
 stream_url = vid.streamURL()
-listitem = xbmcgui.ListItem(title)
-listitem.setInfo(type='Video', infoLabels={'Title':title})
-listitem.setArt({'thumb': thumbnail})
-xbmc.Player().play(stream_url, listitem)
+play_item = xbmcgui.ListItem(title, path=stream_url)
+play_item.setInfo(type='Video', infoLabels={'Title':title})
+play_item.setArt({'thumb': thumbnail})
+# xbmc.Player().play(stream_url, play_item)
+# Pass the item to the Kodi player.
+showInfoNotification("Playing... " +title)
+xbmcplugin.setResolvedUrl(__handle__, True, listitem=play_item)
