@@ -2,7 +2,7 @@
 <addon id="plugin.video.sendtokodi" name="sendtokodi" version="0.0.1" provider-name="firsttris">
   <requires>
     <import addon="xbmc.python" version="2.19.0"/>
-    <import addon="script.module.youtube.dl" version="16.1026.0"/>
+    <import addon="script.module.youtube.dl" version="17.310.0"/>
   </requires>
   <extension point="xbmc.subtitle.module"
              library="service.py" />
