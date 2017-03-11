@@ -18,7 +18,7 @@ http://kodi:kodi@20.1.0.138:8080/jsonrpc
 	"method": "Player.Open",
 	"params": {
 		"item": {
-			"file": "plugin://plugin.video.sendtokodi/?https://www.youtube.com/playlist?list=PL1Xboz_BLw9kKLvXlN7fpGVrBmJlTrSGo"
+			"file": "plugin://plugin.video.sendtokodi/?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
 		}
 	},
 	"id": 1
