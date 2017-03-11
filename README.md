@@ -47,6 +47,6 @@ plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=bn3ebh3wkOA
 ```
 
 ###Sources
-(it was neceassary to get add the newest version of youtube-dl to ruuk's kodi module)
+
 - https://github.com/ruuk/script.module.youtube.dl
 - https://github.com/rg3/youtube-dl
