@@ -2,10 +2,10 @@
 
 :tv: [SendToKodi](https://teufel-it.de/sendtokodi)
 
-- plays various stream [Sites](https://rg3.github.io/youtube-dl/supportedsites.html) links on kodi using [youtube-dl](https://github.com/rg3/youtube-dl)
-- create a m3u playlist for your streams
+- plays various stream [sites](https://rg3.github.io/youtube-dl/supportedsites.html) on kodi using [youtube-dl](https://github.com/rg3/youtube-dl)
+- create a m3u playlist containing your links
 - send stream & playlist links via json-rpc to kodi
-- if you send a playlist it will automatically create a playlist in kodi (and starts playing)
+- if you send a playlist it will automatically create a playlist and starts playing
 
 ### Example Request
 ```
