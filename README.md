@@ -1,22 +1,12 @@
 ### plugin.video.sendtokodi
 
-plays various stream urls on kodi
+- plays various stream [Sites](https://rg3.github.io/youtube-dl/supportedsites.html) links on kodi using [youtube-dl](https://github.com/rg3/youtube-dl)
 
-[Supported Sites](https://rg3.github.io/youtube-dl/supportedsites.html)
-
-- addon gets stream url from JSONRPC request (example below)
-- parse stream url using youtube-dl
-- add title and thumbnail to xbmc.player()
-- play stream
+- create a m3u playlist for your streams
+- send stream & playlist links via json-rpc to kodi
+- if you send a playlist it will automatically create a playlist in kodi (and starts playing)
 
 ### Example Request
-
-#### [Postman](https://www.getpostman.com/) to Test HTTP Request
-
-- create new HTTP Request POST
-- add your endpoint e.g. http://kodi:kodi@20.1.0.138:8080/jsonrpc
-- set body to raw (application/json)
-- add request to body
 ```
 {
 	"jsonrpc": "2.0",
@@ -29,8 +19,15 @@ plays various stream urls on kodi
 	"id": 1
 }
 ```
+#### Test with [Postman](https://www.getpostman.com/)
 
-### Create Playlist
+- create new HTTP Request (POST)
+- add your endpoint e.g. http://kodi:kodi@192.168.0.138:8080/jsonrpc
+- set body to raw - application/json
+- add request to body & send
+
+### m3u playlist example
+forge your own custom playlist
 ```
 #EXTM3U
 #EXTINF:1,[Youtube] Booka Shade - Body Language
@@ -47,6 +44,5 @@ plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=bn3ebh3wkOA
 ```
 
 ###Sources
-
-- https://github.com/ruuk/script.module.youtube.dl
 - https://github.com/rg3/youtube-dl
+- https://github.com/ruuk/script.module.youtube.dl

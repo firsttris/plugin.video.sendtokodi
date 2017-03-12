@@ -5,7 +5,12 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-import YDStreamExtractor
+from youtube_dl import YoutubeDL
+
+class replacement_stderr(sys.stderr.__class__):
+    def isatty(self): return False
+
+sys.stderr.__class__ = replacement_stderr
 
 # Get the plugin url in plugin:// notation.
 __url__ = sys.argv[0]
@@ -35,15 +40,39 @@ def getParams():
     return cleanedparams
 
 params = getParams()
-strparams = str(params)
-vid = YDStreamExtractor.getVideoInfo(strparams)
-title = vid.selectedStream()['title']
-thumbnail = vid.selectedStream()['thumbnail']
-stream_url = vid.streamURL()
-play_item = xbmcgui.ListItem(title, path=stream_url)
-play_item.setInfo(type='Video', infoLabels={'Title':title})
-play_item.setArt({'thumb': thumbnail})
-# xbmc.Player().play(stream_url, play_item)
-# Pass the item to the Kodi player.
-showInfoNotification("Playing... " +title)
-xbmcplugin.setResolvedUrl(__handle__, True, listitem=play_item)
+url = str(params)
+ydl = YoutubeDL()
+ydl.add_default_info_extractors()
+
+
+with ydl:
+    result = ydl.extract_info(url, download=False)
+if 'entries' in result:
+    # Can be a playlist or a list of videos
+    pl = xbmc.PlayList(1)
+    pl.clear()
+    for video in result['entries']:
+        debug('Video #%d: %s' % (video['playlist_index'], video['title']))
+        url = video['formats'][-1]['url']
+        thumbnail = video['thumbnail']
+        title = video['title']
+        play_item = xbmcgui.ListItem(title, path=url)
+        play_item.setInfo(type='Video', infoLabels={'Title': title})
+        play_item.setArt({'thumb': thumbnail})
+        xbmc.PlayList(1).add(url, play_item)
+    xbmc.Player().play(pl)
+else:
+    # Just a video
+    debug(result)
+    title = result['title']
+    debug("Title: " + title)
+    thumbnail = result['thumbnail']
+    debug("Thumbnail: " + thumbnail)
+    url = result['formats'][-1]['url']
+    debug("Url: " + url)
+    play_item = xbmcgui.ListItem(title, path=url)
+    play_item.setInfo(type='Video', infoLabels={'Title': title})
+    play_item.setArt({'thumb': thumbnail})
+    # Pass the item to the Kodi player.
+    showInfoNotification("Playing... " + title)
+    xbmcplugin.setResolvedUrl(__handle__, True, listitem=play_item)
