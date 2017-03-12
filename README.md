@@ -1,7 +1,8 @@
-### plugin.video.sendtokodi
+# plugin.video.sendtokodi
+
+:tv: [SendToKodi](https://teufel-it.de/sendtokodi)
 
 - plays various stream [Sites](https://rg3.github.io/youtube-dl/supportedsites.html) links on kodi using [youtube-dl](https://github.com/rg3/youtube-dl)
-
 - create a m3u playlist for your streams
 - send stream & playlist links via json-rpc to kodi
 - if you send a playlist it will automatically create a playlist in kodi (and starts playing)
@@ -26,7 +27,7 @@
 - set body to raw - application/json
 - add request to body & send
 
-### m3u playlist example
+### Example m3u playlist
 forge your own custom playlist
 ```
 #EXTM3U
@@ -43,6 +44,6 @@ plugin://plugin.video.sendtokodi?https://soundcloud.com/spinnin-deep/sam-feldt-s
 plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=bn3ebh3wkOA
 ```
 
-###Sources
+### Sources
 - https://github.com/rg3/youtube-dl
 - https://github.com/ruuk/script.module.youtube.dl
