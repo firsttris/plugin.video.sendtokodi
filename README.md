@@ -7,6 +7,12 @@
 - send stream & playlist links via json-rpc to kodi
 - if you send a playlist it will automatically create a playlist and starts playing
 
+### Install
+
+1. Click Download or Clone
+2. Download Zip
+3. (kodi) Install Addon via Zip
+
 ### Example Request
 ```
 {
