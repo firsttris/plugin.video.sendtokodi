@@ -9,9 +9,9 @@
 
 ### Install
 
-1. Click Download or Clone
-2. Download Zip
-3. (kodi) Install Addon via Zip
+1. Click "Clone or Download" in the upper right corner
+2. Click "Download ZIP"
+3. (in Kodi) Install Addon via Zip File
 
 ### Example Request
 ```
@@ -37,17 +37,17 @@
 forge your own custom playlist
 ```
 #EXTM3U
-#EXTINF:1,[Youtube] Booka Shade - Body Language
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=TLNdBIRTNM4
+#EXTINF:1,[Youtube] Track1
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 
-#EXTINF:2,[Youtube] Booka Shade - Mardarine Girl
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=BfEa04s8s7M
+#EXTINF:2,[Youtube] Track2
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 
-#EXTINF:3,[Soundcloud] Sam Feldt - Show Me Love
-plugin://plugin.video.sendtokodi?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1
+#EXTINF:3,[Soundcloud] Track3
+plugin://plugin.video.sendtokodi?https://soundcloud.com/<url>
  
-#EXTINF:4,[Youtube] Chop Hop
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=bn3ebh3wkOA
+#EXTINF:4,[Youtube] Track4
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 ```
 
 ### Sources
