@@ -53,3 +53,7 @@ plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 ### Sources
 - https://github.com/rg3/youtube-dl
 - https://github.com/ruuk/script.module.youtube.dl
+
+## License
+
+[MIT](http://opensource.org/licenses/MIT)
