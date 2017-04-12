@@ -55,5 +55,4 @@ plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 - https://github.com/ruuk/script.module.youtube.dl
 
 ## License
-
-[MIT](http://opensource.org/licenses/MIT)
+See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
