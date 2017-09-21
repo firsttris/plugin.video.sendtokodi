@@ -5,6 +5,7 @@ env:
   global:
     - GH_USER_EMAIL="tristanteufel@googlemail.com"
     - GH_USER_NAME="firsttris"
+    - GH_REF="github.com/firsttris/repository.sendtokodi.git"
 script:
 - rm -rf .git/
 - zip -r plugin.video.sendtokodi.zip *
@@ -13,12 +14,4 @@ script:
 - cd repository.sendtokodi/
 - git add .
 - git commit -m "Travis-CI Update"
-- git push
-before_install:
-- openssl aes-256-cbc -K $encrypted_085db88b3643_key -iv $encrypted_085db88b3643_iv
-  -in deploy_rsa.enc -out ~/.ssh/id_rsa -d
-- eval "$(ssh-agent -s)"
-- chmod 600 ~/.ssh/id_rsa
-- ssh-add ~/.ssh/id_rsa
-- echo -e "Host github.com\n\tIdentityFile ~/.ssh/id_rsa\n" >> ~/.ssh/config
-- cat ~/.ssh/config
+- git push --force --quiet "https://${GH_TOKEN}@${GH_REF}" master > /dev/null 2>&1
