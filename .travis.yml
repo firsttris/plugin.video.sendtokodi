@@ -11,7 +11,7 @@ script:
 - zip -r plugin.video.sendtokodi-${VERSION}.zip *
 - git clone https://github.com/firsttris/repository.sendtokodi.git
 - cp addon.xml repository.sendtokodi/plugin.video.sendtokodi/
-- cp plugin.video.sendtokodi.zip repository.sendtokodi/plugin.video.sendtokodi/
+- cp plugin.video.sendtokodi-${VERSION}.zip repository.sendtokodi/plugin.video.sendtokodi/
 - cd repository.sendtokodi/
 - git add .
 - git commit -m "Travis-CI Update"
