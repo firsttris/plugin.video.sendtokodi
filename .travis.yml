@@ -9,8 +9,8 @@ script:
 - cd repository.sendtokodi/
 - eval "$(ssh-agent -s)"
 - ssh-add ${TRAVIS_BUILD_DIR}/deploy_rsa
-- git config user.name "Travis-CI"
-- git config user.email "travis@teufel-it.de"
+- git config user.name "firsttris"
+- git config user.email "tristanteufel@googlemail.com"
 - git add .
 - git commit -m "Travis-CI Update"
 - git push
