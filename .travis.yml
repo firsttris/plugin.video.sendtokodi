@@ -1,6 +1,5 @@
-language: python
-python:
-  - "2.6"
+language: node_js
+node_js: node
 env:
   global:
   - GH_REF: github.com/knode/node-meatspace.git
@@ -10,13 +9,8 @@ script:
   - zip -r plugin.video.sendtokodi.zip *
   - git clone https://github.com/firsttris/repository.sendtokodi.git
   - cp plugin.video.sendtokodi.zip repository.sendtokodi/plugin.video.sendtokodi/
-  - cd repository.sendtokodi/
-  - git config user.name "Travis-CI"
-  - git config user.email "travis@teufel-it.de"
-  - eval "$(ssh-agent -s)" #start the ssh agent
-  - chmod 600 .travis/deploy_key.pem # this key should have push access
-  - cat $GH_TOKEN > .travis/deploy_key.pem
-  - ssh-add .travis/deploy_key.pem
-  - git add .
-  - git commit -m "Travis-CI Update"
-  - git push
+deploy:
+  provider: script
+  script: deploy.sh
+  on:
+    branch: master
