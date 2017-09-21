@@ -5,3 +5,8 @@ script:
   - rm -rf .git/
   - zip -r plugin.video.sendtokodi.zip *
   - git clone https://github.com/firsttris/repository.sendtokodi.git
+  - cp plugin.video.sendtokodi.zip repository.sendtokodi/plugin.video.sendtokodi/
+  - cd repository.sendtokodi/
+  - git add .
+  - git commit -m "Travis Addon Update"
+  - git push
