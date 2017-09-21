@@ -1,15 +1,16 @@
 language: python
 python:
-- '2.6'
+- '3.5'
 env:
   global:
-    - GH_USER_EMAIL="tristanteufel@googlemail.com"
-    - GH_USER_NAME="firsttris"
     - GH_REF="github.com/firsttris/repository.sendtokodi.git"
+    - VERSION=0.0.${TRAVIS_JOB_NUMBER}
 script:
 - rm -rf .git/
-- zip -r plugin.video.sendtokodi.zip *
+- envsubst < "addon.template.xml" > "addon.xml"
+- zip -r plugin.video.sendtokodi-${VERSION}.zip *
 - git clone https://github.com/firsttris/repository.sendtokodi.git
+- cp addon.xml repository.sendtokodi/plugin.video.sendtokodi/
 - cp plugin.video.sendtokodi.zip repository.sendtokodi/plugin.video.sendtokodi/
 - cd repository.sendtokodi/
 - git add .
