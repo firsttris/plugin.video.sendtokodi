@@ -1,16 +1,21 @@
-language: node_js
-node_js: node
+language: python
+python:
+  - "2.6"
 env:
   global:
-  - GH_REF: github.com/knode/node-meatspace.git
   - secure: "wmTYgZ5uS10x2Aun5IosLJxROHu+Myb+sjAFjcZGjj1umx3CH/Va1+6rAvOZ52v5CgzlpKZM4juGLMu1TV6OV72URWoY6nnCLnk4Nm18eLqP3AWy0Al6mBHXPi9uM9GWB7Qc1Hg2fbIwZvUovbGQXvkZZzuj3LHOPCGYSEHL9kD6FEbfGFPezFbuEy1cO61N8tmoZEfyXeqvMrK00LROFa1PnACvGysRH0yfaXu5vOT0MRgll29BMz6k8+Edwc5TyrOJLPKfFOJ/UJnathSmoW4VeiexJQ9ER+DWoW9LfRHfbytWkile05I/yuKy2VCV7kVNrnUokLqeaKJuSwYB59S85ZUrmjrVIfufSpQXfOWcNsIi8oPek1/0rnH0rMgwVrJJisoY9p5Xmh4XuXV2AaLaLUn2xU80q9zfGb23Vnq2RkVfLdj8sMSnN7UGd8MI8OgJ2mXa82CBeJEEta3MBTPeY242kfJbCYRqB5vdn8b+OdppxTiz8wzjaHfc91Dw5ng/pBF5N5Qw9Zm131UD7W1lwAIt9YdIVR/EUnBvva4SVfRaTtixCPefzQjVC3onyZXjIrGdcWnkGGtmb7rGV6BMymPdYtLi2+hgMSr4VLXoBrDQUmbMPjYsZsW/CSb1eUiSv23tAuLckNidXtuyI3NNRWd52Rzhwcx29OoGRf4="
 script:
   - rm -rf .git/
   - zip -r plugin.video.sendtokodi.zip *
   - git clone https://github.com/firsttris/repository.sendtokodi.git
   - cp plugin.video.sendtokodi.zip repository.sendtokodi/plugin.video.sendtokodi/
-deploy:
-  provider: script
-  script: deploy.sh
-  on:
-    branch: master
+  - cd repository.sendtokodi/
+  - eval "$(ssh-agent -s)"
+  - echo "$GH_TOKEN" > deploy_key.pem
+  - chmod 600 deploy_key.pem
+  - ssh-add deploy_key.pem
+  - git config user.name "Travis-CI"
+  - git config user.email "travis@teufel-it.de"
+  - git add .
+  - git commit -m "Travis-CI Update"
+  - git push
