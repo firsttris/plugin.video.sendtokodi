@@ -8,11 +8,13 @@ env:
 script:
 - rm -rf .git/
 - envsubst < "addon.template.xml" > "addon.xml"
-- zip -r plugin.video.sendtokodi-${VERSION}.zip *
+- zip -r plugin.video.sendtokodi-${VERSION}.zip ${TRAVIS_BUILD_DIR}
 - git clone https://github.com/firsttris/repository.sendtokodi.git
 - cp addon.xml repository.sendtokodi/plugin.video.sendtokodi/
 - cp plugin.video.sendtokodi-${VERSION}.zip repository.sendtokodi/plugin.video.sendtokodi/
 - cd repository.sendtokodi/
+- envsubst < "addon.template.xml" > "addon.xml"
+- md5sum addon.xml > addon.xml.md5
 - git add .
 - git commit -m "Travis-CI Update"
 - git push --force --quiet "https://${GH_TOKEN}@${GH_REF}" master > /dev/null 2>&1
