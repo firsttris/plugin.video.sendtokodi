@@ -8,9 +8,10 @@ env:
 script:
 - rm -rf .git/
 - envsubst < "addon.template.xml" > "addon.xml"
-- zip -r plugin.video.sendtokodi-${VERSION}.zip ${TRAVIS_BUILD_DIR}
+- cd ..
+- zip -r plugin.video.sendtokodi-${VERSION}.zip plugin.video.sendtokodi
 - git clone https://github.com/firsttris/repository.sendtokodi.git
-- cp addon.xml repository.sendtokodi/plugin.video.sendtokodi/
+- cp plugin.video.sendtokodi/addon.xml repository.sendtokodi/plugin.video.sendtokodi/
 - cp plugin.video.sendtokodi-${VERSION}.zip repository.sendtokodi/plugin.video.sendtokodi/
 - cd repository.sendtokodi/
 - envsubst < "addon.template.xml" > "addon.xml"
