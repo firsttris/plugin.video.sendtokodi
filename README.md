@@ -7,8 +7,8 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 ### Features
 
 - use :tv: [SendToKodi (iOS App)](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) or :tv: [SendToKodi (Chrome Addon)](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) to send almost any link or playlist to kodi
-- [create a m3u playlist containing your links](#Example-m3u-playlist)
-- [send stream & playlists via json-rpc to kodi](#Development)
+- [create a m3u playlist containing your links](#example-m3u-playlist)
+- [send stream & playlists via json-rpc to kodi](#development)
 
 ### Install
 
@@ -32,6 +32,7 @@ plugin://plugin.video.sendtokodi?https://soundcloud.com/<url>
 #EXTINF:4,[Youtube] Track4
 plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
 ```
+[playlist-example.m3u](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 
 ### Development
 #### Example JSON Request
