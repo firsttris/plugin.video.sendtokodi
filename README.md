@@ -1,19 +1,40 @@
 # plugin.video.sendtokodi
 
-:tv: [SendToKodi](https://teufel-it.de/sendtokodi)
+resolves various video streams using [youtube-dl](https://github.com/rg3/youtube-dl) to play them on kodi
 
-- plays various stream [sites](https://rg3.github.io/youtube-dl/supportedsites.html) on kodi using [youtube-dl](https://github.com/rg3/youtube-dl)
-- create a m3u playlist containing your links
-- send stream & playlist links via json-rpc to kodi
-- if you send a playlist it will automatically create a playlist and starts playing
+[Supported Sites](https://rg3.github.io/youtube-dl/supportedsites.html)
+
+### Features
+
+- use :tv: [SendToKodi (iOS App)](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) or :tv: [SendToKodi (Chrome Addon)](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) to send almost any link or playlist to kodi
+- [create a m3u playlist containing your links](#Example-m3u-playlist)
+- [send stream & playlists via json-rpc to kodi](#Development)
 
 ### Install
 
-1. Click "Clone or Download" in the upper right corner
-2. Click "Download ZIP"
-3. (in Kodi) Install Addon via Zip File
+Install latest Version:
+[Download Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
+*Addon is updated continously to always have the latest youtube_dl version*
 
-### Example Request
+### Example m3u playlist
+forge your own custom playlist
+```
+#EXTM3U
+#EXTINF:1,[Youtube] Track1
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
+
+#EXTINF:2,[Youtube] Track2
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
+
+#EXTINF:3,[Soundcloud] Track3
+plugin://plugin.video.sendtokodi?https://soundcloud.com/<url>
+ 
+#EXTINF:4,[Youtube] Track4
+plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
+```
+
+### Development
+#### Example JSON Request
 ```
 {
 	"jsonrpc": "2.0",
@@ -33,26 +54,14 @@
 - set body to raw - application/json
 - add request to body & send
 
-### Example m3u playlist
-forge your own custom playlist
-```
-#EXTM3U
-#EXTINF:1,[Youtube] Track1
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
+### Continuous integration
 
-#EXTINF:2,[Youtube] Track2
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
+[![Build Status](https://travis-ci.org/firsttris/plugin.video.sendtokodi.svg?branch=master)](https://travis-ci.org/firsttris/plugin.video.sendtokodi) 
 
-#EXTINF:3,[Soundcloud] Track3
-plugin://plugin.video.sendtokodi?https://soundcloud.com/<url>
- 
-#EXTINF:4,[Youtube] Track4
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
-```
+:dizzy_face:
 
 ### Sources
 - https://github.com/rg3/youtube-dl
-- https://github.com/ruuk/script.module.youtube.dl
 
 ## Donate
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KEAR9ZC228YCL)

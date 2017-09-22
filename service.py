@@ -45,9 +45,13 @@ def getParams():
     cleanedparams = paramstring[1:]
     return cleanedparams
 
+ydl_opts = {
+    'format': 'best'
+}
+
 params = getParams()
 url = str(params)
-ydl = YoutubeDL()
+ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
 
@@ -59,7 +63,7 @@ if 'entries' in result:
     pl.clear()
     for video in result['entries']:
         debug('Video #%d: %s' % (video['playlist_index'], video['title']))
-        url = video['formats'][-1]['url']
+        url = video['url']
         thumbnail = video['thumbnail']
         title = video['title']
         play_item = xbmcgui.ListItem(title, path=url)
@@ -74,7 +78,7 @@ else:
     debug("Title: " + title)
     thumbnail = result['thumbnail']
     debug("Thumbnail: " + thumbnail)
-    url = result['formats'][-1]['url']
+    url = result['url']
     debug("Url: " + url)
     play_item = xbmcgui.ListItem(title, path=url)
     play_item.setInfo(type='Video', infoLabels={'Title': title})
