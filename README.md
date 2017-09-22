@@ -13,25 +13,13 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 ### Install
 
 Install latest Version:
+
 [Download Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
+
 *Addon is updated continously to always have the latest youtube_dl version*
 
 ### Example m3u playlist
 forge your own custom playlist
-```
-#EXTM3U
-#EXTINF:1,[Youtube] Track1
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
-
-#EXTINF:2,[Youtube] Track2
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
-
-#EXTINF:3,[Soundcloud] Track3
-plugin://plugin.video.sendtokodi?https://soundcloud.com/<url>
- 
-#EXTINF:4,[Youtube] Track4
-plugin://plugin.video.sendtokodi?https://www.youtube.com/watch?v=<url>
-```
 [playlist-example.m3u](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 
 ### Development
