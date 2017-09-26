@@ -11,11 +11,10 @@ env:
 script:
 - rm -rf .git/
 - envsubst < "addon.template.xml" > "addon.xml"
+- cd ..
 - wget ${YOUTUBE_DL}
 - unzip master.zip
-- rm master.zip
-- mv youtube-dl-master/ youtube-dl
-- cd ..
+- cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
 - zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME}
 - git clone https://${GH_REPO}
 - cp ${ADDON_NAME}/addon.xml ${REPO_NAME}/${ADDON_NAME}/

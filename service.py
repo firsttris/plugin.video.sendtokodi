@@ -5,11 +5,6 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-
-my_addon = xbmcaddon.Addon('plugin.video.sendtokodi')
-addon_dir = xbmc.translatePath(my_addon.getAddonInfo('path'))
-sys.path.append(os.path.join(addon_dir, 'youtube-dl'))
-
 from youtube_dl import YoutubeDL
 
 
