@@ -17,7 +17,7 @@ script:
 - mv youtube-dl-master/ youtube-dl
 - cd ..
 - zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME}
-- git clone ${GH_REPO}
+- git clone https://${GH_REPO}
 - cp ${ADDON_NAME}/addon.xml ${REPO_NAME}/${ADDON_NAME}/
 - cp ${ADDON_NAME}-${VERSION}.zip ${REPO_NAME}/${ADDON_NAME}/
 - cd ${REPO_NAME}/
