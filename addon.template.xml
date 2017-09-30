@@ -3,16 +3,14 @@
   <requires>
     <import addon="xbmc.python" version="2.19.0"/>
   </requires>
-  <extension point="xbmc.python.pluginsource" library="service.py">
-    <provides>video</provides>
-  </extension>
+  <extension point="xbmc.service" library="service.py" start="login" />
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SendToKodi</summary>
     <description lang="en">SendToKodi</description>
     <description lang="de">SendToKodi</description>
     <disclaimer lang="en"></disclaimer>
     <platform>all</platform>
-    <license>GNU GENERAL PUBLIC LICENSE. Version 2, June 1991</license>
+    <license>MIT License</license>
     <website>https://teufel-it.de/</website>
     <email>info@teufel-it.de</email>
     <source>https://github.com/firsttris/</source>
