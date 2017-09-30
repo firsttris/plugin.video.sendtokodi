@@ -3,7 +3,7 @@
   <requires>
     <import addon="xbmc.python" version="2.19.0"/>
   </requires>
-  <extension point="xbmc.service" library="service.py" start="login" />
+  <extension point="xbmc.python.pluginsource" library="service.py" />
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SendToKodi</summary>
     <description lang="en">SendToKodi</description>
