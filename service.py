@@ -52,11 +52,14 @@ def getParams():
 def getPlayItemFromVideo(video):
     debug(video)
     url = video['url']
-    thumbnail = video['thumbnail']
+    thumbnail = video.get('thumbnail')
     title = video['title']
     play_item = xbmcgui.ListItem(title, path=url)
     play_item.setInfo(type='Video', infoLabels={'Title': title})
-    play_item.setArt({'thumb': thumbnail})
+
+    if thumbnail is not None:
+        play_item.setArt({'thumb': thumbnail})
+
     return play_item
 
 
