@@ -49,20 +49,6 @@ def getParams():
     return cleanedparams
 
 
-def getPlayItemFromVideo(video):
-    debug(video)
-    url = video['url']
-    thumbnail = video.get('thumbnail')
-    title = video['title']
-    play_item = xbmcgui.ListItem(title, path=url)
-    play_item.setInfo(type='Video', infoLabels={'Title': title})
-
-    if thumbnail is not None:
-        play_item.setArt({'thumb': thumbnail})
-
-    return play_item
-
-
 ydl_opts = {
     'format': 'best'
 }
@@ -76,16 +62,30 @@ ydl.add_default_info_extractors()
 with ydl:
     showInfoNotification("resolving stream(s)")
     result = ydl.extract_info(url, download=False)
-
 if 'entries' in result:
     # Playlist
     pl = xbmc.PlayList(1)
     pl.clear()
     for video in result['entries']:
-        xbmc.PlayList(1).add(url, getPlayItemFromVideo(video))
+        debug(video)
+        url = video['url']
+        thumbnail = video['thumbnail']
+        title = video['title']
+        play_item = xbmcgui.ListItem(title, path=url)
+        play_item.setInfo(type='Video', infoLabels={'Title': title})
+        play_item.setArt({'thumb': thumbnail})
+        xbmc.PlayList(1).add(url, play_item)
     xbmc.Player().play(pl)
     showInfoNotification("playing playlist " + result['title'])
 else:
-    # Just a video, pass the item to the Kodi player.
-    showInfoNotification("playing title " + result['title'])
-    xbmcplugin.setResolvedUrl(__handle__, True, listitem=getPlayItemFromVideo(result))
+    # Just a video
+    debug(result)
+    title = result['title']
+    thumbnail = result['thumbnail']
+    url = result['url']
+    play_item = xbmcgui.ListItem(title, path=url)
+    play_item.setInfo(type='Video', infoLabels={'Title': title})
+    play_item.setArt({'thumb': thumbnail})
+    # Pass the item to the Kodi player.
+    showInfoNotification("playing title " + title)
+    xbmcplugin.setResolvedUrl(__handle__, True, listitem=play_item)
