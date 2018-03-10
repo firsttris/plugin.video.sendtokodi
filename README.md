@@ -22,6 +22,12 @@ Install latest Version:
 forge your own custom playlist
 [playlist-example.m3u](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 
+### Pyhton Exception
+```
+TypeError: attribute of type 'NoneType' is not callable
+```
+[read about cause and workaround](https://github.com/firsttris/repository.sendtokodi/issues/1)
+
 ### Development
 #### Example JSON Request
 ```
