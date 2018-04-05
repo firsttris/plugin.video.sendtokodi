@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import shlex
 import sys
 import xbmc
 import xbmcaddon
@@ -14,10 +15,6 @@ class replacement_stderr(sys.stderr.__class__):
 
 sys.stderr.__class__ = replacement_stderr
 
-# Get the plugin url in plugin:// notation.
-__url__ = sys.argv[0]
-# Get the plugin handle as an integer number.
-__handle__ = int(sys.argv[1])
 
 
 def debug(content):
@@ -43,10 +40,42 @@ def showErrorNotification(message):
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
 
 
+# Get the plugin url in plugin:// notation.
+__url__ = sys.argv[0]
+# Get the plugin handle as an integer number.
+__handle__ = int(sys.argv[1])
+
+
 def getParams():
+    allowedArgs = {
+        '--password': 'password',
+        '-p': 'password',
+        '--username': 'username',
+        '-u': 'username',
+    }
     paramstring = sys.argv[2]
-    cleanedparams = paramstring[1:]
-    return cleanedparams
+    additionalArgsIndex = paramstring.find(' ')
+    if additionalArgsIndex == -1:
+        cleanUrl = paramstring[1:]
+        additionalArgsString = ''
+    else:
+        cleanUrl = paramstring[1:additionalArgsIndex]
+        additionalArgsString = paramstring[additionalArgsIndex:]
+    additionalArgs = shlex.split(additionalArgsString) # shlex will get --username USERNAME --password "PASS WORD" and return ["--username", "USERNAME", "--password", "PASS WORD"]. if you provide shlex "   "(empty string), shlex will return empty array
+    result = {
+        'url': cleanUrl
+    }
+    argName = None
+    for arg in additionalArgs:
+        if argName is None:
+            if arg in allowedArgs:
+                argName = allowedArgs[arg]
+            else:
+                raise ValueError(arg + ' arg is not a valid argument. allowed arguments: [' + ', '.join(allowedArgs.keys()) + ']')
+        else:
+            result[argName] = arg
+            argName = None
+    return result
 
 
 def createListItemFromVideo(video):
@@ -68,7 +97,11 @@ ydl_opts = {
 }
 
 params = getParams()
-url = str(params)
+url = str(params['url'])
+if 'username' in params:
+    ydl_opts['username'] = params['username']
+if 'password' in params:
+    ydl_opts['password'] = params['password']
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
