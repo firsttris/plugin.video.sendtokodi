@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+import json
 import os
-import shlex
 import sys
 import xbmc
 import xbmcaddon
@@ -47,34 +47,17 @@ __handle__ = int(sys.argv[1])
 
 
 def getParams():
-    allowedArgs = {
-        '--password': 'password',
-        '-p': 'password',
-        '--username': 'username',
-        '-u': 'username',
-    }
+    result = {}
     paramstring = sys.argv[2]
-    additionalArgsIndex = paramstring.find(' ')
-    if additionalArgsIndex == -1:
-        cleanUrl = paramstring[1:]
-        additionalArgsString = ''
+    additionalParamsIndex = paramstring.find(' ')
+    if additionalParamsIndex == -1:
+        result['url'] = paramstring[1:]
+        result['ydlOpts'] = {}
     else:
-        cleanUrl = paramstring[1:additionalArgsIndex]
-        additionalArgsString = paramstring[additionalArgsIndex:]
-    additionalArgs = shlex.split(additionalArgsString) # shlex will get --username USERNAME --password "PASS WORD" and return ["--username", "USERNAME", "--password", "PASS WORD"]. if you provide shlex "   "(empty string), shlex will return empty array
-    result = {
-        'url': cleanUrl
-    }
-    argName = None
-    for arg in additionalArgs:
-        if argName is None:
-            if arg in allowedArgs:
-                argName = allowedArgs[arg]
-            else:
-                raise ValueError(arg + ' arg is not a valid argument. allowed arguments: [' + ', '.join(allowedArgs.keys()) + ']')
-        else:
-            result[argName] = arg
-            argName = None
+        result['url'] = paramstring[1:additionalParamsIndex]
+        additionalParamsString = paramstring[additionalParamsIndex:]
+        additionalParams = json.loads(additionalParamsString)
+        result['ydlOpts'] = additionalParams['ydlOpts']
     return result
 
 
@@ -98,10 +81,7 @@ ydl_opts = {
 
 params = getParams()
 url = str(params['url'])
-if 'username' in params:
-    ydl_opts['username'] = params['username']
-if 'password' in params:
-    ydl_opts['password'] = params['password']
+ydl_opts.update(params['ydlOpts'])
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
