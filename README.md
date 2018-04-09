@@ -42,6 +42,20 @@ TypeError: attribute of type 'NoneType' is not callable
 	"id": 1
 }
 ```
+#### Example JSON Request with youtube-dl authentication
+```
+{
+	"jsonrpc": "2.0",
+	"method": "Player.Open",
+	"params": {
+		"item": {
+			"file": "plugin://plugin.video.sendtokodi/?https://vk.com/video-124136901_456239025 {\"ydlOpts\":{\"username\":\"user@email.com\",\"password\":\"password with spaces\"}}"
+		}
+	},
+	"id": 1
+}
+```
+Note: ydlOpts object will be passed directly to youtube-dl, so you can pass any [options](https://github.com/rg3/youtube-dl#options) that youtube-dl provides.
 #### Test with [Postman](https://www.getpostman.com/)
 
 - create new HTTP Request (POST)
