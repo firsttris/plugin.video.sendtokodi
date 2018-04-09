@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 import sys
 import xbmc
@@ -14,10 +15,6 @@ class replacement_stderr(sys.stderr.__class__):
 
 sys.stderr.__class__ = replacement_stderr
 
-# Get the plugin url in plugin:// notation.
-__url__ = sys.argv[0]
-# Get the plugin handle as an integer number.
-__handle__ = int(sys.argv[1])
 
 
 def debug(content):
@@ -43,10 +40,25 @@ def showErrorNotification(message):
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
 
 
+# Get the plugin url in plugin:// notation.
+__url__ = sys.argv[0]
+# Get the plugin handle as an integer number.
+__handle__ = int(sys.argv[1])
+
+
 def getParams():
+    result = {}
     paramstring = sys.argv[2]
-    cleanedparams = paramstring[1:]
-    return cleanedparams
+    additionalParamsIndex = paramstring.find(' ')
+    if additionalParamsIndex == -1:
+        result['url'] = paramstring[1:]
+        result['ydlOpts'] = {}
+    else:
+        result['url'] = paramstring[1:additionalParamsIndex]
+        additionalParamsString = paramstring[additionalParamsIndex:]
+        additionalParams = json.loads(additionalParamsString)
+        result['ydlOpts'] = additionalParams['ydlOpts']
+    return result
 
 
 def createListItemFromVideo(video):
@@ -68,7 +80,8 @@ ydl_opts = {
 }
 
 params = getParams()
-url = str(params)
+url = str(params['url'])
+ydl_opts.update(params['ydlOpts'])
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
