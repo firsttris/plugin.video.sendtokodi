@@ -6,10 +6,16 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 
 ### Features
 
-- use :tv: [SendToKodi (iOS App)](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) or :tv: [SendToKodi (Chrome Addon)](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) or :tv: [SendToKodi (MacOS Share Extension)](https://github.com/maxgrass/SendToKodi/releases) to send almost any link or playlist to kodi
+- send almost any link or playlist to kodi
 - [create a m3u playlist containing your links](#example-m3u-playlist)
 - [send stream & playlists via json-rpc to kodi](#development)
 
+### Apps
+- [iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Tristan Teufel](https://github.com/firsttris)
+- [Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)
+- [Google Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
+- [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
+	
 ### Install
 
 Install latest Version:
