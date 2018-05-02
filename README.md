@@ -7,7 +7,7 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 ### Features
 
 - send almost any link or playlist to kodi
-- [create a m3u playlist containing your links](#example-m3u-playlist)
+- [create a .m3u playlist containing your links](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 - [send stream & playlists via json-rpc to kodi](#development)
 
 ### Apps
@@ -23,10 +23,6 @@ Install latest Version:
 [Download Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
 
 *Addon is updated continously to always have the latest youtube_dl version*
-
-### Example m3u playlist
-forge your own custom playlist
-[playlist-example.m3u](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 
 ### Pyhton Exception
 ```
@@ -62,6 +58,7 @@ TypeError: attribute of type 'NoneType' is not callable
 }
 ```
 Note: ydlOpts object will be passed directly to youtube-dl, so you can pass any [options](https://github.com/rg3/youtube-dl#options) that youtube-dl provides.
+
 #### Test with [Postman](https://www.getpostman.com/)
 
 - create new HTTP Request (POST)
