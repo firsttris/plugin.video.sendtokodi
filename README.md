@@ -9,6 +9,10 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 - send almost any link or playlist to kodi
 - [create a .m3u playlist containing your links](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
 - [send stream & playlists via json-rpc to kodi](#development)
+- call from your Kodi addon
+```
+xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
+```
 
 ### Apps
 - [iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Tristan Teufel](https://github.com/firsttris)
