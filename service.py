@@ -34,21 +34,21 @@ from xbmcvfs import File
 # fixes python caching bug in youtube-dl
 def patchYoutubeDL():
     
-    toBePatched = """for expression in date_formats(day_first):
-        try:
-            upload_date = datetime.datetime.strptime(date_str, expression).strftime('%Y%m%d')
+    # if there is no comment between `ValueError:` and `pass` then we haven't patched this section before
+    toBePatched = """
         except ValueError:
             pass
-    if upload_date is None:""" # last line ensures we won't patch it repeatedly
+""" 
 
-    patch = """for expression in date_formats(day_first):
-        try:
-            upload_date = datetime.datetime.strptime(date_str, expression).strftime('%Y%m%d')
+    # The comment between `ValueError:` and `pass` ensures we won't patch it repeatedly
+    patch = """
         except ValueError:
+            # Start: patched by SendToKodi
             pass
-        except:
+        except TypeError:
             pass
-    if upload_date is None:""" # last line ensures we won't patch it repeatedly
+            # End: patched by SendToKodi
+"""
 
     addonPath = xbmcaddon.Addon().getAddonInfo('path') 
     youtubeDlPath = addonPath + "/youtube_dl"
