@@ -19,6 +19,7 @@ xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<st
 - [Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)
 - [Google Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
 - [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
+- [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) by [Andreas Öhrén](https://github.com/anohren) forked from Max Grass
 	
 ### Install
 
