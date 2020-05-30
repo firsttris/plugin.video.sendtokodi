@@ -27,10 +27,6 @@ def log(msg, level=xbmc.LOGNOTICE):
 
 
 
-
-from contextlib import closing
-from xbmcvfs import File
-
 # fixes python caching bug in youtube-dl, borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
 def patchYoutubeDL():
     import datetime
