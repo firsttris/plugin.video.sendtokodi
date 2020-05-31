@@ -27,41 +27,18 @@ def log(msg, level=xbmc.LOGNOTICE):
 
 
 
-
-from contextlib import closing
-from xbmcvfs import File
-
-# fixes python caching bug in youtube-dl
+# fixes python caching bug in youtube-dl, borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
 def patchYoutubeDL():
-    
-    # if there is no comment between `ValueError:` and `pass` then we haven't patched this section before
-    toBePatched = """
-        except ValueError:
-            pass
-""" 
+    import datetime
 
-    # The comment between `ValueError:` and `pass` ensures we won't patch it repeatedly
-    patch = """
-        except ValueError:
-            # Start: patched by SendToKodi
-            pass
-        except TypeError:
-            pass
-            # End: patched by SendToKodi
-"""
+    #fix for datatetime.strptime returns None
+    class proxydt(datetime.datetime):
+        @staticmethod
+        def strptime(date_string, format):
+            import time
+            return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
 
-    addonPath = xbmcaddon.Addon().getAddonInfo('path') 
-    youtubeDlPath = addonPath + "/youtube_dl"
-    utilsPyPath = youtubeDlPath + '/utils.py'
-
-    # Borrowed from https://forum.kodi.tv/showthread.php?tid=315590
-    with closing(File(utilsPyPath, 'r')) as fo:
-	    fileData = fo.read()
-
-    dataToWrite = fileData.replace(toBePatched, patch)
-
-    with closing(File(utilsPyPath, 'w')) as fo:
-	    fo.write(dataToWrite)
+    datetime.datetime = proxydt
 
 patchYoutubeDL()
 
