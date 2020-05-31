@@ -111,13 +111,42 @@ def createListItemFromVideo(video):
 
     return list_item
 
+def createListItemFromFlatPlaylistItem(video):
+    import urllib
+    escapedUrl = urllib.quote_plus(video['url'])
+    listItemUrl = __url__ + "?" + escapedUrl
+    title = video['url']
 
+    listItem = xbmcgui.ListItem(
+        path            = listItemUrl,
+        label           = title
+    )
 
-ydl_opts = {
-    'format': 'best'
-}
+    listItem.setIsFolder(False)
+
+    listItem.setInfo(
+        type        = 'Video', # not really known at this time, but required
+        infoLabels  = {'Title': title }
+    )
+
+    # both `true` and `false` are recommended here...
+    listItem.setProperty("IsPlayable","true")
+
+    return listItem
+
 
 params = getParams()
+
+#     extract_flat:      Do not resolve URLs, return the immediate result.
+#                       Pass in 'in_playlist' to only show this behavior for
+#                       playlist items.
+ydl_opts = {
+    'format': 'best',
+    'extract_flat': 'in_playlist'
+}
+
+from youtube_dl import YoutubeDL
+
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 ydl = YoutubeDL(ydl_opts)
@@ -128,13 +157,23 @@ with ydl:
     result = ydl.extract_info(url, download=False)
 
 if 'entries' in result:
-    # Playlist
+    # more than one video
     pl = xbmc.PlayList(1)
     pl.clear()
-    for video in result['entries']:
-        list_item = createListItemFromVideo(video);
-        xbmc.PlayList(1).add(list_item.getPath(), list_item)
-    xbmc.Player().play(pl)
+
+    # make sure first ListItem has a resolved url, to avoid recursion and Kodi crashes
+    firstVideoUrl = result['entries'][0]['url']
+    firstItem = createListItemFromVideo(ydl.extract_info(firstVideoUrl, download=False))
+    pl.add(firstItem.getPath(), firstItem)
+	
+    for video in result['entries'][1:]:
+        list_item = createListItemFromFlatPlaylistItem(video)
+        pl.add(list_item.getPath(), list_item)
+
+    #xbmc.Player().play(pl) # this probably works again
+    # ...but start playback the same way the Youtube plugin does it:
+    xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', 0))
+
     showInfoNotification("playing playlist " + result['title'])
 else:
     # Just a video, pass the item to the Kodi player.
