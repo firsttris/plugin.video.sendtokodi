@@ -13,7 +13,7 @@ script:
 - envsubst < "addon.template.xml" > "addon.xml"
 - cd ..
 - wget ${YOUTUBE_DL}
-- unzip master.zip
+- unzip youtube-dl-master.zip
 - cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
 - zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME}
 - git clone https://${GH_REPO}
