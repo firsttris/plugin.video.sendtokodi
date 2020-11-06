@@ -4,7 +4,7 @@ python:
 env:
   global:
     - GH_REPO="github.com/firsttris/repository.sendtokodi.git"
-    - YOUTUBE_DL="https://github.com/rg3/youtube-dl/archive/master.zip"
+    - YOUTUBE_DL="https://gitlab.com/ytdl-org/youtube-dl/-/archive/master/youtube-dl-master.zip"
     - VERSION=0.0.${TRAVIS_JOB_NUMBER}
     - ADDON_NAME="plugin.video.sendtokodi"
     - REPO_NAME="repository.sendtokodi"
