@@ -17,10 +17,10 @@ def debug(content):
 
 
 def notice(content):
-    log(content, xbmc.LOGNOTICE)
+    log(content, xbmc.LOGINFO)
 
 
-def log(msg, level=xbmc.LOGNOTICE):
+def log(msg, level=xbmc.LOGINFO):
     addon = xbmcaddon.Addon()
     addonID = addon.getAddonInfo('id')
     xbmc.log('%s: %s' % (addonID, msg), level)
