@@ -4,7 +4,7 @@ python:
 env:
   global:
     - GH_REPO="github.com/firsttris/repository.sendtokodi.git"
-    - YOUTUBE_DL="https://gitlab.com/ytdl-org/youtube-dl/-/archive/master/youtube-dl-master.zip"
+    - YOUTUBE_DL="https://github.com/rg3/youtube-dl/archive/master.zip"
     - VERSION=0.0.${TRAVIS_JOB_NUMBER}
     - ADDON_NAME="plugin.video.sendtokodi"
     - REPO_NAME="repository.sendtokodi"
@@ -13,7 +13,7 @@ script:
 - envsubst < "addon.template.xml" > "addon.xml"
 - cd ..
 - wget ${YOUTUBE_DL}
-- unzip youtube-dl-master.zip
+- unzip master.zip
 - cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
 - zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME}
 - git clone https://${GH_REPO}
