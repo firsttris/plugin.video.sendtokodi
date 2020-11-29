@@ -10,6 +10,7 @@ env:
     - ADDON_NAME_PYTHON3="plugin.video.sendtokodi.python3"
     - REPO_NAME="repository.sendtokodi"
     - NAME_PYTHON3="sendtokodi-python3"
+    - NAME="sendtokodi"
 script:
 - rm -rf .git/
 - envsubst < "addon.template.xml" > "addon.xml"
