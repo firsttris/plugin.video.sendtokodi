@@ -112,10 +112,15 @@ def createListItemFromVideo(video):
     return list_item
 
 def createListItemFromFlatPlaylistItem(video):
-    import urllib
-    escapedUrl = urllib.quote_plus(video['url'])
+    import sys
+    if sys.version_info >= (3, 0):
+        import urllib.parse
+        escapedUrl = urllib.parse.quote_plus(video['url'])
+    else:
+        import urllib
+        escapedUrl = urllib.quote_plus(video['url'])
     listItemUrl = __url__ + "?" + escapedUrl
-    title = video['url']
+    title = video['title']
 
     listItem = xbmcgui.ListItem(
         path            = listItemUrl,
@@ -125,7 +130,7 @@ def createListItemFromFlatPlaylistItem(video):
     listItem.setIsFolder(False)
 
     listItem.setInfo(
-        type        = 'Video', # not really known at this time, but required
+        type        = 'Video', # not really known at this point, but required
         infoLabels  = {'Title': title }
     )
 
@@ -165,7 +170,7 @@ if 'entries' in result:
     firstVideoUrl = result['entries'][0]['url']
     firstItem = createListItemFromVideo(ydl.extract_info(firstVideoUrl, download=False))
     pl.add(firstItem.getPath(), firstItem)
-	
+    
     for video in result['entries'][1:]:
         list_item = createListItemFromFlatPlaylistItem(video)
         pl.add(list_item.getPath(), list_item)
