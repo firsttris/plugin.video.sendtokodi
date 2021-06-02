@@ -25,7 +25,9 @@ xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<st
 
 Install latest Version:
 
-[Download Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
+[Download Python 2 Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
+
+[Download Python 3 Repository](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
 
 *Addon is updated continously to always have the latest youtube_dl version*
 
