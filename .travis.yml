@@ -35,7 +35,7 @@ script:
 - git add .
 - git commit -m "Travis-CI Update"
 - git push --force --quiet "https://${GH_TOKEN}@${GH_REPO}" master > /dev/null 2>&1
-##
+## go back one folder
 - cd ..
 # commit & push to python 3 repo
 - cd ${REPO_NAME_PYTHON3}/
