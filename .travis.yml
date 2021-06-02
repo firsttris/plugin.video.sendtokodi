@@ -15,13 +15,13 @@ script:
 - rm -rf .git/
 # LATER - envsubst < "addon.template.xml" > "addon.xml"
 - cd ..
-# clone repo
-- git clone https://${GH_REPO}
-- git clone https://${GH_REPO_PYTHON3}
 # youtube_dl
 - wget ${YOUTUBE_DL}
 - unzip master.zip
 - cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
+# clone repo
+- git clone https://${GH_REPO}
+- git clone https://${GH_REPO_PYTHON3}
 # create addon
 - envsubst < "${REPO_NAME}/${ADDON_NAME}/addon.template.xml" > "${REPO_NAME}/${ADDON_NAME}/addon.xml" #python 2 version
 - envsubst < "${REPO_NAME_PYTHON3}/${ADDON_NAME}/addon.template.xml" > "${REPO_NAME_PYTHON3}/${ADDON_NAME}/addon.xml" #python 3 version
