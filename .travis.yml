@@ -4,42 +4,44 @@ python:
 env:
   global:
     - GH_REPO="github.com/firsttris/repository.sendtokodi.git"
+    - GH_REPO_PYTHON3="github.com/firsttris/repository.sendtokodi.python3.git"
     - YOUTUBE_DL="https://github.com/rg3/youtube-dl/archive/master.zip"
     - VERSION=0.0.${TRAVIS_JOB_NUMBER}
     - ADDON_NAME="plugin.video.sendtokodi"
-    - ADDON_NAME_PYTHON3="plugin.video.sendtokodi.python3"
+    #- ADDON_NAME_PYTHON3="plugin.video.sendtokodi.python3"
     - REPO_NAME="repository.sendtokodi"
-    - NAME_PYTHON3="sendtokodi-python3"
+    - REPO_NAME_PYTHON3="repository.sendtokodi"
+    #- NAME_PYTHON3="sendtokodi-python3"
     - NAME="sendtokodi"
 script:
 - rm -rf .git/
-- envsubst < "addon.template.xml" > "addon.xml"
+# LATER - envsubst < "addon.template.xml" > "addon.xml"
 - cd ..
 # clone repo
 - git clone https://${GH_REPO}
+- git clone https://${GH_REPO_PYTHON3}
 # youtube_dl
 - wget ${YOUTUBE_DL}
 - unzip master.zip
 - cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
-# create python 2 version
-- zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME}
-- mkdir -p ${REPO_NAME}/${ADDON_NAME}/
-- cp ${ADDON_NAME}/addon.xml ${REPO_NAME}/${ADDON_NAME}/
-- cp ${ADDON_NAME}-${VERSION}.zip ${REPO_NAME}/${ADDON_NAME}/
-# create python 3 addon.xml
-- cd ${ADDON_NAME}
-- rm addon.xml
-- envsubst < "addon.template.python3.xml" > "addon.xml"
-- cd ..
-# create python 3 version
-- zip -r ${ADDON_NAME_PYTHON3}-${VERSION}.zip ${ADDON_NAME}
-- mkdir -p ${REPO_NAME}/${ADDON_NAME_PYTHON3}/
-- cp ${ADDON_NAME}/addon.xml ${REPO_NAME}/${ADDON_NAME_PYTHON3}/
-- cp ${ADDON_NAME_PYTHON3}-${VERSION}.zip ${REPO_NAME}/${ADDON_NAME_PYTHON3}/
-# commit to repository
+# create addon
+- envsubst < "${REPO_NAME}/${ADDON_NAME}/addon.template.xml" > "${REPO_NAME}/${ADDON_NAME}/addon.xml" #python 2 version
+- envsubst < "${REPO_NAME_PYTHON3}/${ADDON_NAME}/addon.template.xml" > "${REPO_NAME_PYTHON3}/${ADDON_NAME}/addon.xml" #python 3 version
+- zip -r ${ADDON_NAME}-${VERSION}.zip ${ADDON_NAME} # create zip
+- cp ${ADDON_NAME}-${VERSION}.zip ${REPO_NAME}/${ADDON_NAME}/ # copy source code to python 2 repo
+- cp ${ADDON_NAME}-${VERSION}.zip ${REPO_NAME_PYTHON3}/${ADDON_NAME}/ # copy source code to python 3 repo
+# commit & push to python 2 repo
 - cd ${REPO_NAME}/
 - envsubst < "addon.template.xml" > "addon.xml"
 - md5sum addon.xml > addon.xml.md5
 - git add .
 - git commit -m "Travis-CI Update"
 - git push --force --quiet "https://${GH_TOKEN}@${GH_REPO}" master > /dev/null 2>&1
+- cd ..
+# commit & push to python 3 repo
+- cd ${REPO_NAME_PYTHON3}/
+- envsubst < "addon.template.xml" > "addon.xml"
+- md5sum addon.xml > addon.xml.md5
+- git add .
+- git commit -m "Travis-CI Update"
+- git push --force --quiet "https://${GH_TOKEN}@${REPO_NAME_PYTHON3}" master > /dev/null 2>&1
