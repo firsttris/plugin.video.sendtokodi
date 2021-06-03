@@ -14,16 +14,17 @@ resolves various video streams using [youtube-dl](https://github.com/rg3/youtube
 xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
 ```
 
-### Apps
+### Supported Apps
+- [Kore](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US) by [kodi](https://github.com/xbmc/Kore)
 - [iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Tristan Teufel](https://github.com/firsttris)
-- [Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)
 - [Google Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
-- [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
 - [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) by [Andreas Öhrén](https://github.com/anohren) forked from Max Grass
-	
-### Install
 
-Install latest Version:
+#### Not Maintained Contributor
+- <s>[MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)</s>
+- <s>[Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)</s>
+	
+### Install Repository
 
 [Download Python 2 Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
 
