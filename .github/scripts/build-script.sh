@@ -27,8 +27,8 @@ cd ${REPO_NAME}/
 envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
-git commit -m "Travis-CI Update"
-git push "https://${TOKEN}@${GH_REPO}" master
+git commit -m "CI Update"
+git push
 # go back one folder
 cd ..
 # commit & push to python 3 repo
@@ -36,5 +36,5 @@ cd ${REPO_NAME_PYTHON3}/
 envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
-git commit -m "Travis-CI Update"
-git push "https://${TOKEN}@${GH_REPO_PYTHON3}" master
+git commit -m "CI Update"
+git push
