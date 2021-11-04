@@ -4,15 +4,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      GH_REPO: github.com/firsttris/repository.sendtokodi.git
-      GH_REPO_PYTHON3: github.com/firsttris/repository.sendtokodi.python3.git
+      GH_REPO: "github.com/firsttris/repository.sendtokodi.git"
+      GH_REPO_PYTHON3: "github.com/firsttris/repository.sendtokodi.python3.git"
       YOUTUBE_DL: https://github.com/rg3/youtube-dl/archive/master.zip
       VERSION: 0.1.${github.run_id}
       ADDON_NAME: plugin.video.sendtokodi
       REPO_NAME: repository.sendtokodi
       REPO_NAME_PYTHON3: repository.sendtokodi.python3
       NAME: sendtokodi"
-      TOKEN: ${secrets.GITHUB_TOKEN}
+      TOKEN: ${{secrets.GITHUB_TOKEN}}
     steps:
       - uses: actions/checkout@v2
       - run: chmod +x ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
