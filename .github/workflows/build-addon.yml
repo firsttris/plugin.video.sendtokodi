@@ -12,7 +12,7 @@ jobs:
       REPO_NAME: repository.sendtokodi
       REPO_NAME_PYTHON3: repository.sendtokodi.python3
       NAME: sendtokodi"
-      TOKEN: ${{secrets.GITHUB_TOKEN}}
+      TOKEN: ${{secrets.PAT}}
     steps:
       - uses: actions/checkout@v2
       - run: chmod +x ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
