@@ -1,5 +1,6 @@
 name: build-addon
-on: [push]
+on:
+  push:
   schedule:
     - cron:  '0 0 * * SUN'
 jobs:
