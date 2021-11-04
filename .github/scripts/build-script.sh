@@ -23,7 +23,6 @@ cp ${ADDON_NAME}-${VERSION}.zip ${REPO_NAME_PYTHON3}/${ADDON_NAME}/ # copy sourc
 cd ${REPO_NAME}/
 envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
-git config --global user.email "tristanteufel@googlemail.com"
 git add .
 git commit -m "Travis-CI Update"
 git push "https://${GH_REPO}" master
@@ -33,7 +32,6 @@ cd ..
 cd ${REPO_NAME_PYTHON3}/
 envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
-git config --global user.email "tristanteufel@googlemail.com"
 git add .
 git commit -m "Travis-CI Update"
 git push "https://${GH_REPO_PYTHON3}" master
