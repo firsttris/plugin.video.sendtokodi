@@ -1,5 +1,8 @@
 rm -rf .git/
 # LATER envsubst < "addon.template.xml" > "addon.xml"
+git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+git config --global user.name "github-actions[bot]"
+
 cd ..
 # youtube_dl
 wget ${YOUTUBE_DL}
@@ -25,7 +28,7 @@ envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
 git commit -m "Travis-CI Update"
-git push "https://${GH_REPO}" master
+git push "https://${secrets.GITHUB_TOKEN}@${GH_REPO}" master
 # go back one folder
 cd ..
 # commit & push to python 3 repo
@@ -34,4 +37,4 @@ envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
 git commit -m "Travis-CI Update"
-git push "https://${GH_REPO_PYTHON3}" master
+git push "https://${secrets.GITHUB_TOKEN}@${GH_REPO_PYTHON3}" master
