@@ -28,7 +28,7 @@ envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
 git commit -m "CI Update"
-git push "https://firsttris:${TOKEN}@${GH_REPO}" master
+git push --force --quiet "https://firsttris:${{secrets.GITHUB_TOKEN}}@${GH_REPO}" master
 # go back one folder
 cd ..
 # commit & push to python 3 repo
@@ -37,4 +37,4 @@ envsubst < "addon.template.xml" > "addon.xml"
 md5sum addon.xml > addon.xml.md5
 git add .
 git commit -m "CI Update"
-git push "https://firsttris:${TOKEN}@${GH_REPO_PYTHON3}" master
+git push --force --quiet "https://firsttris:${{secrets.GITHUB_TOKEN}}@${GH_REPO_PYTHON3}" master
