@@ -14,4 +14,5 @@ jobs:
       NAME: sendtokodi"
     steps:
       - uses: actions/checkout@v2
-      - run: sh ./build-script.sh
+      - run: chmod +x ./build-script.sh
+      - run: ./build-script.sh
