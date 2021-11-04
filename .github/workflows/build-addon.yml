@@ -14,5 +14,5 @@ jobs:
       NAME: sendtokodi"
     steps:
       - uses: actions/checkout@v2
-      - run: chmod +x ${GITHUB_WORKSPACE}/.github/build-script.sh
-      - run: ${GITHUB_WORKSPACE}/.github/build-script.sh
+      - run: chmod +x ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
+      - run: ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
