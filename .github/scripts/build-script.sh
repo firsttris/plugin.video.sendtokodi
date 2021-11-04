@@ -1,7 +1,7 @@
 rm -rf .git/
 # LATER envsubst < "addon.template.xml" > "addon.xml"
-git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git config --global user.name "github-actions[bot]"
+git config --global user.email "tristanteufel@googlemail.com"
+git config --global user.name "firsttris"
 
 cd ..
 # youtube_dl
