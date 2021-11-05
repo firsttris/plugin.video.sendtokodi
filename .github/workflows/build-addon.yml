@@ -14,7 +14,7 @@ jobs:
       ADDON_NAME: plugin.video.sendtokodi
       REPO_NAME: repository.sendtokodi
       REPO_NAME_PYTHON3: repository.sendtokodi.python3
-      NAME: sendtokodi"
+      NAME: sendtokodi
       TOKEN: ${{secrets.PAT}}
     steps:
       - uses: actions/checkout@v2
