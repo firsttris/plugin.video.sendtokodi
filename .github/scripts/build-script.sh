@@ -1,5 +1,5 @@
-$REPO_NAME=$1
-$REPO_URL=$2
+REPO_NAME=$1
+REPO_URL=$2
 
 cd ..
 # clone repo
