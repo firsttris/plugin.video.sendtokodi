@@ -4,10 +4,6 @@ git config --global user.email "tristanteufel@googlemail.com"
 git config --global user.name "firsttris"
 
 cd ..
-# youtube_dl
-wget ${YOUTUBE_DL}
-unzip master.zip
-cp -R youtube-dl-master/youtube_dl ${ADDON_NAME}
 # clone repo
 git clone https://${GH_REPO}
 git clone https://${GH_REPO_PYTHON3}
