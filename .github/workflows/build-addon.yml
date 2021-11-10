@@ -17,5 +17,7 @@ jobs:
       TOKEN: ${{secrets.PAT}}
     steps:
       - uses: actions/checkout@v2
+        with: 
+          submodules: recursive 
       - run: chmod +x ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
       - run: ${GITHUB_WORKSPACE}/.github/scripts/build-script.sh
