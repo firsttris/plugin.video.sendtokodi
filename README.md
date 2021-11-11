@@ -2,20 +2,19 @@
 
 ![workflow](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-addon.yml/badge.svg)
 
-resolves almost any stream using [youtube-dl](https://github.com/rg3/youtube-dl) and play them on [kodi](https://github.com/xbmc/xbmc)
+resolves almost any stream using [youtube-dl](https://github.com/rg3/youtube-dl) and plays them on [kodi](https://github.com/xbmc/xbmc)
 
+[download python 2 repo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
 
-[Install Python 2 Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
-
-[Install Python 3 Repository](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
+[download python 3 repo](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
 
 ## Features
 
-- [Supported Streams](https://rg3.github.io/youtube-dl/supportedsites.html)
+- [supported sites](https://rg3.github.io/youtube-dl/supportedsites.html)
 - [create a .m3u playlist](./playlist-example.m3u)
 - [send streams or playlists via json-rpc](./docs/DEVELOPMENT.md)
 - [call SendToKodi from your Kodi addon](./docs/DEVELOPMENT.md)
-- Addon is updated continously to always have the latest youtube_dl version
+- addon is updated automatically
 
 
 ## Supported Apps
