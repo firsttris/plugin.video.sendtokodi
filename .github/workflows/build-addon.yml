@@ -21,6 +21,5 @@ jobs:
           submodules: recursive 
       - run: git config --global user.email "tristanteufel@googlemail.com"
       - run: git config --global user.name "firsttris"    
-      - run: chmod +x $GITHUB_WORKSPACE/.github/scripts/build-script.sh
       - run: $GITHUB_WORKSPACE/.github/scripts/build-script.sh $REPO_NAME_PYTHON2 $REPO_URL_PYTHON2
       - run: $GITHUB_WORKSPACE/.github/scripts/build-script.sh $REPO_NAME_PYTHON3 $REPO_URL_PYTHON3
