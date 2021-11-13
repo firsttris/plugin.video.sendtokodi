@@ -8,7 +8,7 @@ git clone https://$REPO_URL
 # package addon
 envsubst < "$REPO_NAME/$ADDON_NAME/addon.template.xml" > "$REPO_NAME/$ADDON_NAME/addon.xml" # addon.xml
 cp $REPO_NAME/$ADDON_NAME/addon.xml $ADDON_NAME # copy addon.xml to addon folder
-zip -r $ADDON_NAME-$VERSION.zip $ADDON_NAME # create zip
+zip -r $ADDON_NAME-$VERSION.zip $ADDON_NAME  -x "*.git*" # create zip
 cp $ADDON_NAME-$VERSION.zip $REPO_NAME/$ADDON_NAME/ # copy source code to repo
 
 # commit & push
