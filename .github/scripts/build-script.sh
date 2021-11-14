@@ -3,6 +3,10 @@ REPO_URL=$2
 
 set -e # if one command fails, abort the whole build and release process
 
+# create init in libs 
+touch lib/youtubeDL/__init__.py
+touch lib/ytDLP/__init__.py
+
 # clone repo
 cd ..
 git clone https://$REPO_URL
