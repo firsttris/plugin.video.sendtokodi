@@ -1,6 +1,8 @@
 REPO_NAME=$1
 REPO_URL=$2
 
+touch lib/youtubeDL/__init__.py
+
 cd ..
 # clone repo
 git clone https://$REPO_URL
