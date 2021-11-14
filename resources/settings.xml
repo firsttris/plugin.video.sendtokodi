@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<settings version="1">
+	<section id="plugin.video.sendtokodi">
+		<category id="general" label="TestCat1" help="">
+			<group id="1" label="TestGroup1">
+                <setting id="usedlp" type="boolean" label="32001" help="">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+			</group>
+		</category>
+	</section>
+</settings>

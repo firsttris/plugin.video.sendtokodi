@@ -42,7 +42,10 @@ def patchYoutubeDL():
 
 patchYoutubeDL()
 
-from lib.youtubeDL.youtube_dl import YoutubeDL
+if xbmcplugin.getSetting(int(sys.argv[1]),"usedlp"):
+    from lib.ytDLP.yt_dlp import YoutubeDL
+else:
+    from lib.youtubeDL.youtube_dl import YoutubeDL
 
 
 def showInfoNotification(message):
