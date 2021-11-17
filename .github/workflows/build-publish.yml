@@ -1,0 +1,32 @@
+name: build-publish-addon
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REPO_NAME_PYTHON2: repository.sendtokodi
+      REPO_URL_PYTHON2: "github.com/firsttris/repository.sendtokodi.git"
+      REPO_NAME_PYTHON3: repository.sendtokodi.python3
+      REPO_URL_PYTHON3: "github.com/firsttris/repository.sendtokodi.python3.git"
+      VERSION: 0.1.${{github.run_id}}
+      ADDON_NAME: plugin.video.sendtokodi
+      TOKEN: ${{secrets.PAT}}
+    steps:
+      - uses: actions/checkout@v2 
+      - run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh $REPO_NAME_PYTHON2 $REPO_URL_PYTHON2
+      - run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh $REPO_NAME_PYTHON3 $REPO_URL_PYTHON3      
+      - name: Publish if on master
+        if: github.ref == 'refs/heads/master'
+      - run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh $REPO_NAME_PYTHON3 $REPO_URL_PYTHON3
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-python2
+          path: "/home/runner/work/${{ github.event.repository.name }}/${{ env.REPO_NAME_PYTHON2 }}/${{ env.ADDON_NAME }}/*${{ env.VERSION }}.zip"
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-python3
+          path: "/home/runner/work/${{ github.event.repository.name }}/${{ env.REPO_NAME_PYTHON3 }}/${{ env.ADDON_NAME }}/*${{ env.VERSION }}.zip"
