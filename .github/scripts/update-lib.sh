@@ -24,7 +24,7 @@ else
 
     # commit here and push outside (one push for all changes, so the following build workflow will only be triggered once)
     git add lib/${LIB_NAME}
-    git commit -m "[CI] Scheduled auto update lib/${LIB_NAME}"
+    git commit -m "[CI] auto updated lib/${LIB_NAME} to upstream commit $commit_upstream"
     echo -n $commit_upstream > $LIB_VERSION_FILE
     echo "$LIB_NAME succesfully upgraded to upstream commit $commit_upstream and staged for push"
 fi
