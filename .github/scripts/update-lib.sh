@@ -21,10 +21,11 @@ else
     git clone $LIB_GIT_URL /tmp/$LIB_NAME
     rm -r ${GITHUB_WORKSPACE}/lib/${LIB_NAME}
     mv /tmp/${LIB_NAME}/${LIB_NAME} ${GITHUB_WORKSPACE}/lib/${LIB_NAME}
+    echo -n $commit_upstream > $LIB_VERSION_FILE
 
     # commit here and push outside (one push for all changes, so the following build workflow will only be triggered once)
     git add lib/${LIB_NAME}
     git commit -m "[CI] auto updated lib/${LIB_NAME} to upstream commit $commit_upstream"
-    echo -n $commit_upstream > $LIB_VERSION_FILE
+
     echo "$LIB_NAME succesfully upgraded to upstream commit $commit_upstream and staged for push"
 fi
