@@ -3,17 +3,13 @@ on:
   push:
     branches:
       - master
+env:
+  VERSION: 'undefined'
 jobs:
-  build:
+  versioning:
     runs-on: ubuntu-latest
-    env:
-      REPO_NAME_PYTHON2: repository.sendtokodi
-      REPO_URL_PYTHON2: "github.com/firsttris/repository.sendtokodi.git"
-      REPO_NAME_PYTHON3: repository.sendtokodi.python3
-      REPO_URL_PYTHON3: "github.com/firsttris/repository.sendtokodi.python3.git"
-      ADDON_NAME: plugin.video.sendtokodi
-      NAME: sendtokodi
-      TOKEN: ${{secrets.PAT}}
+    outputs:
+      VERSION: ${{ steps.tag_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v2
       - name: Bump version and push tag
@@ -21,28 +17,48 @@ jobs:
         uses: mathieudutour/github-tag-action@v5.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Write new version to environment variable
-        run: echo "VERSION=${{ steps.tag_version.outputs.new_version }}" >> $GITHUB_ENV
-      - uses: actions/checkout@v2
-      - name: Build python2 addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh $REPO_NAME_PYTHON2 $REPO_URL_PYTHON2
-      - name: Build python3 addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh $REPO_NAME_PYTHON3 $REPO_URL_PYTHON3      
-      - name: Upload python2 artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: Addon-artifacts-python2
-          path: "/home/runner/work/${{ github.event.repository.name }}/${{ env.REPO_NAME_PYTHON2 }}/${{ env.ADDON_NAME }}/*${{ env.VERSION }}.zip"
-      - name: Upload python3 artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: Addon-artifacts-python3
-          path: "/home/runner/work/${{ github.event.repository.name }}/${{ env.REPO_NAME_PYTHON3 }}/${{ env.ADDON_NAME }}/*${{ env.VERSION }}.zip"
-  publish:
-    needs: build
+          release_branches: master
+  build-leia:
+    needs: versioning
     runs-on: ubuntu-latest
     steps:
-      - name: Publish python2 addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh $REPO_NAME_PYTHON2 $REPO_URL_PYTHON2
-      - name: Publish python3 addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh $REPO_NAME_PYTHON3 $REPO_URL_PYTHON3
+      - uses: actions/checkout@v2
+      - name: Build addon
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }} Leia
+      - name: Upload Addon-artifacts-Leia
+        uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-Leia
+          path: "${{ runner.temp }}/Leia/*.zip"
+  build-matrix:
+    needs: versioning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build addon
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }} Matrix     
+      - name: Upload Addon-artifacts-Matrix
+        uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-Matrix
+          path: "${{ runner.temp }}/Matrix/*.zip"
+  publish-leia:
+    needs: [versioning, build-leia]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: Addon-artifacts-Leia
+      - name: Publish addon
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.git" 
+  publish-matrix:
+    needs: [versioning, build-matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: Addon-artifacts-Matrix
+      - name: Publish addon
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.python3.git" 
