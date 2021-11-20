@@ -5,6 +5,7 @@ on:
       - master
 env:
   VERSION: 'undefined'
+  TOKEN: ${{secrets.PAT}}
 jobs:
   versioning:
     runs-on: ubuntu-latest
