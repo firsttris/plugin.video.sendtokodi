@@ -259,6 +259,16 @@ def parseOpts(overrideArguments=None):
         action='store_false', dest='extract_flat',
         help='Extract the videos of a playlist')
     general.add_option(
+        '--wait-for-video',
+        dest='wait_for_video', metavar='MIN[-MAX]', default=None,
+        help=(
+            'Wait for scheduled streams to become available. '
+            'Pass the minimum number of seconds (or range) to wait between retries'))
+    general.add_option(
+        '--no-wait-for-video',
+        dest='wait_for_video', action='store_const', const=None,
+        help='Do not wait for scheduled streams (default)')
+    general.add_option(
         '--mark-watched',
         action='store_true', dest='mark_watched', default=False,
         help='Mark videos watched (even with --simulate). Currently only supported for YouTube')
@@ -449,6 +459,14 @@ def parseOpts(overrideArguments=None):
         '--break-on-reject',
         action='store_true', dest='break_on_reject', default=False,
         help='Stop the download process when encountering a file that has been filtered out')
+    selection.add_option(
+        '--break-per-input',
+        action='store_true', dest='break_per_url', default=False,
+        help='Make --break-on-existing and --break-on-reject act only on the current input URL')
+    selection.add_option(
+        '--no-break-per-input',
+        action='store_false', dest='break_per_url',
+        help='--break-on-existing and --break-on-reject terminates the entire download queue')
     selection.add_option(
         '--skip-playlist-after-errors', metavar='N',
         dest='skip_playlist_after_errors', default=None, type=int,
