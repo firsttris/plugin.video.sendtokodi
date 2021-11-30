@@ -566,6 +566,8 @@ class YoutubeDL(object):
 
         for msg in self.params.get('_warnings', []):
             self.report_warning(msg)
+        for msg in self.params.get('_deprecation_warnings', []):
+            self.deprecation_warning(msg)
 
         if 'list-formats' in self.params.get('compat_opts', []):
             self.params['listformats_table'] = False
@@ -848,7 +850,7 @@ class YoutubeDL(object):
 
     class Styles(Enum):
         HEADERS = 'yellow'
-        EMPHASIS = 'blue'
+        EMPHASIS = 'light blue'
         ID = 'green'
         DELIM = 'blue'
         ERROR = 'red'
@@ -863,7 +865,7 @@ class YoutubeDL(object):
             if fallback is not None and text != original_text:
                 text = fallback
         if isinstance(f, self.Styles):
-            f = f._value_
+            f = f.value
         return format_text(text, f) if allow_colors else text if fallback is None else fallback
 
     def _format_screen(self, *args, **kwargs):
@@ -885,6 +887,12 @@ class YoutubeDL(object):
             if self.params.get('no_warnings'):
                 return
             self.to_stderr(f'{self._format_err("WARNING:", self.Styles.WARNING)} {message}', only_once)
+
+    def deprecation_warning(self, message):
+        if self.params.get('logger') is not None:
+            self.params['logger'].warning('DeprecationWarning: {message}')
+        else:
+            self.to_stderr(f'{self._format_err("DeprecationWarning:", self.Styles.ERROR)} {message}', True)
 
     def report_error(self, message, tb=None):
         '''
@@ -1178,12 +1186,8 @@ class YoutubeDL(object):
             # https://github.com/blackjack4494/youtube-dlc/issues/85
             trim_file_name = self.params.get('trim_file_name', False)
             if trim_file_name:
-                fn_groups = filename.rsplit('.')
-                ext = fn_groups[-1]
-                sub_ext = ''
-                if len(fn_groups) > 2:
-                    sub_ext = fn_groups[-2]
-                filename = join_nonempty(fn_groups[0][:trim_file_name], sub_ext, ext, delim='.')
+                no_ext, *ext = filename.rsplit('.', 2)
+                filename = join_nonempty(no_ext[:trim_file_name], *ext, delim='.')
 
             return filename
         except ValueError as err:
@@ -3223,15 +3227,19 @@ class YoutubeDL(object):
     def _format_note(self, fdict):
         res = ''
         if fdict.get('ext') in ['f4f', 'f4m']:
-            res += '(unsupported) '
+            res += '(unsupported)'
         if fdict.get('language'):
             if res:
                 res += ' '
-            res += '[%s] ' % fdict['language']
+            res += '[%s]' % fdict['language']
         if fdict.get('format_note') is not None:
-            res += fdict['format_note'] + ' '
+            if res:
+                res += ' '
+            res += fdict['format_note']
         if fdict.get('tbr') is not None:
-            res += '%4dk ' % fdict['tbr']
+            if res:
+                res += ', '
+            res += '%4dk' % fdict['tbr']
         if fdict.get('container') is not None:
             if res:
                 res += ', '

@@ -25,18 +25,17 @@ from .cookies import SUPPORTED_BROWSERS
 from .utils import (
     DateRange,
     decodeOption,
+    DownloadCancelled,
     DownloadError,
     error_to_compat_str,
-    ExistingVideoReached,
     expand_path,
+    GeoUtils,
     float_or_none,
     int_or_none,
     match_filter_func,
-    MaxDownloadsReached,
     parse_duration,
     preferredencoding,
     read_batch_urls,
-    RejectedVideoReached,
     render_table,
     SameFileError,
     setproctitle,
@@ -73,7 +72,7 @@ def _real_main(argv=None):
     setproctitle('yt-dlp')
 
     parser, opts, args = parseOpts(argv)
-    warnings = []
+    warnings, deprecation_warnings = [], []
 
     # Set user agent
     if opts.user_agent is not None:
@@ -195,7 +194,7 @@ def _real_main(argv=None):
     if opts.overwrites:  # --yes-overwrites implies --no-continue
         opts.continue_dl = False
     if opts.concurrent_fragment_downloads <= 0:
-        raise ValueError('Concurrent fragments must be positive')
+        parser.error('Concurrent fragments must be positive')
     if opts.wait_for_video is not None:
         mobj = re.match(r'(?P<min>\d+)(?:-(?P<max>\d+))?$', opts.wait_for_video)
         if not mobj:
@@ -231,9 +230,9 @@ def _real_main(argv=None):
             parser.error('invalid http chunk size specified')
         opts.http_chunk_size = numeric_chunksize
     if opts.playliststart <= 0:
-        raise ValueError('Playlist start must be positive')
+        raise parser.error('Playlist start must be positive')
     if opts.playlistend not in (-1, None) and opts.playlistend < opts.playliststart:
-        raise ValueError('Playlist end must be greater than playlist start')
+        raise parser.error('Playlist end must be greater than playlist start')
     if opts.extractaudio:
         opts.audioformat = opts.audioformat.lower()
         if opts.audioformat not in ['best'] + list(FFmpegExtractAudioPP.SUPPORTED_EXTS):
@@ -257,12 +256,17 @@ def _real_main(argv=None):
     if opts.convertthumbnails is not None:
         if opts.convertthumbnails not in FFmpegThumbnailsConvertorPP.SUPPORTED_EXTS:
             parser.error('invalid thumbnail format specified')
-
     if opts.cookiesfrombrowser is not None:
         opts.cookiesfrombrowser = [
             part.strip() or None for part in opts.cookiesfrombrowser.split(':', 1)]
         if opts.cookiesfrombrowser[0].lower() not in SUPPORTED_BROWSERS:
             parser.error('unsupported browser specified for cookies')
+    geo_bypass_code = opts.geo_bypass_ip_block or opts.geo_bypass_country
+    if geo_bypass_code is not None:
+        try:
+            GeoUtils.random_ipv4(geo_bypass_code)
+        except Exception:
+            parser.error('unsupported geo-bypass country or ip-block')
 
     if opts.date is not None:
         date = DateRange.day(opts.date)
@@ -538,7 +542,7 @@ def _real_main(argv=None):
             'add_metadata': opts.addmetadata,
             'add_infojson': opts.embed_infojson,
         })
-    # Note: Deprecated
+    # Deprecated
     # This should be above EmbedThumbnail since sponskrub removes the thumbnail attachment
     # but must be below EmbedSubtitle and FFmpegMetadata
     # See https://github.com/yt-dlp/yt-dlp/issues/204 , https://github.com/faissaloo/SponSkrub/issues/29
@@ -551,6 +555,7 @@ def _real_main(argv=None):
             'cut': opts.sponskrub_cut,
             'force': opts.sponskrub_force,
             'ignoreerror': opts.sponskrub is None,
+            '_from_cli': True,
         })
     if opts.embedthumbnail:
         already_have_thumbnail = opts.writethumbnail or opts.write_all_thumbnails
@@ -589,6 +594,19 @@ def _real_main(argv=None):
         report_args_compat('--post-processor-args', 'post-processors')
         opts.postprocessor_args.setdefault('sponskrub', [])
         opts.postprocessor_args['default'] = opts.postprocessor_args['default-compat']
+
+    def report_deprecation(val, old, new=None):
+        if not val:
+            return
+        deprecation_warnings.append(
+            f'{old} is deprecated and may be removed in a future version. Use {new} instead' if new
+            else f'{old} is deprecated and may not work as expected')
+
+    report_deprecation(opts.sponskrub, '--sponskrub', '--sponsorblock-mark or --sponsorblock-remove')
+    report_deprecation(not opts.prefer_ffmpeg, '--prefer-avconv', 'ffmpeg')
+    report_deprecation(opts.include_ads, '--include-ads')
+    # report_deprecation(opts.call_home, '--call-home')  # We may re-implement this in future
+    # report_deprecation(opts.writeannotations, '--write-annotations')  # It's just that no website has it
 
     final_ext = (
         opts.recodevideo if opts.recodevideo in FFmpegVideoConvertorPP.SUPPORTED_EXTS
@@ -758,11 +776,12 @@ def _real_main(argv=None):
         'geo_bypass_country': opts.geo_bypass_country,
         'geo_bypass_ip_block': opts.geo_bypass_ip_block,
         '_warnings': warnings,
+        '_deprecation_warnings': deprecation_warnings,
         'compat_opts': compat_opts,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
-        actual_use = len(all_urls) or opts.load_info_filename
+        actual_use = all_urls or opts.load_info_filename
 
         # Remove cache dir
         if opts.rm_cachedir:
@@ -791,7 +810,7 @@ def _real_main(argv=None):
                 retcode = ydl.download_with_info_file(expand_path(opts.load_info_filename))
             else:
                 retcode = ydl.download(all_urls)
-        except (MaxDownloadsReached, ExistingVideoReached, RejectedVideoReached):
+        except DownloadCancelled:
             ydl.to_screen('Aborting remaining downloads')
             retcode = 101
 
