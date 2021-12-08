@@ -1,6 +1,6 @@
 # plugin.video.sendtokodi
 
-![workflow](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-addon.yml/badge.svg)
+[![build-publish-addon](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml)
 
 resolves almost any stream using [youtube-dl](https://github.com/rg3/youtube-dl) and plays them on [kodi](https://github.com/xbmc/xbmc)
 
