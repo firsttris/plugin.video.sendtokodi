@@ -42,7 +42,7 @@ def patchYoutubeDL():
 
 patchYoutubeDL()
 
-from lib.youtubeDL.youtube_dl import YoutubeDL
+from lib.youtube_dl import YoutubeDL
 
 
 def showInfoNotification(message):

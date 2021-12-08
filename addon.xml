@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<addon id="plugin.video.sendtokodi" name="sendtokodi" version="100.0.0" provider-name="firsttris">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0" />
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="service.py" />
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en">SendToKodi</summary>
+    <description lang="en">SendToKodi</description>
+    <description lang="de">SendToKodi</description>
+    <disclaimer lang="en">The sent URLs are resoved with an external library. In case a website/stream does not work, check if youtube-dl or youtube-dlp can download them outside of kodi before opening a bug.</disclaimer>
+    <platform>all</platform>
+    <license>MIT License</license>
+    <website>https://teufel-it.de/</website>
+    <email>info@teufel-it.de</email>
+    <source>https://github.com/firsttris/</source>
+  </extension>
+</addon>
