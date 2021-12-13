@@ -4,11 +4,19 @@
     <import addon="xbmc.python" version="3.0.0" />
   </requires>
   <extension point="xbmc.python.pluginsource" library="service.py" />
+  <!-- Export lib so that users of youtube-dl and yt-dlp can access them.
+       Normally, it would be cleaner to have these two libs in separate addon,
+       since this extension point makes them shared with other addons, while
+       the rest of the code (service.py) is not.
+       However, since this addon's code is contained in a single short file,
+       AND the exported directory (lib) completely contains only the shared
+       code, then it seems it may be a bit much to split this into two addons. -->
+  <extension point="xbmc.python.module" library="lib" />
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SendToKodi</summary>
     <description lang="en">SendToKodi</description>
     <description lang="de">SendToKodi</description>
-    <disclaimer lang="en">The sent URLs are resoved with an external library. In case a website/stream does not work, check if youtube-dl or youtube-dlp can download them outside of kodi before opening a bug.</disclaimer>
+    <disclaimer lang="en">The sent URLs are resolved with an external library. In case a website/stream does not work, check if youtube-dl or youtube-dlp can download them outside of kodi before opening a bug.</disclaimer>
     <platform>all</platform>
     <license>MIT License</license>
     <website>https://teufel-it.de/</website>
