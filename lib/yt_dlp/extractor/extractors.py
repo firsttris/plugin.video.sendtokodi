@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from .abc import (
     ABCIE,
     ABCIViewIE,
+    ABCIViewShowSeriesIE,
 )
 from .abcnews import (
     AbcNewsIE,
@@ -434,6 +435,7 @@ from .eyedotv import EyedoTVIE
 from .facebook import (
     FacebookIE,
     FacebookPluginsVideoIE,
+    FacebookRedirectURLIE,
 )
 from .fancode import (
     FancodeVodIE,
@@ -562,6 +564,10 @@ from .hrfensehen import HRFernsehenIE
 from .hrti import (
     HRTiIE,
     HRTiPlaylistIE,
+)
+from .hse import (
+    HSEShowIE,
+    HSEProductIE,
 )
 from .huajiao import HuajiaoIE
 from .huffpost import HuffPostIE
@@ -1357,6 +1363,7 @@ from .soundcloud import (
     SoundcloudEmbedIE,
     SoundcloudIE,
     SoundcloudSetIE,
+    SoundcloudRelatedIE,
     SoundcloudUserIE,
     SoundcloudTrackStationIE,
     SoundcloudPlaylistIE,
