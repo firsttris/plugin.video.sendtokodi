@@ -357,6 +357,7 @@ from .dplay import (
     AnimalPlanetIE,
     DiscoveryPlusIndiaIE,
     DiscoveryNetworksDeIE,
+    DiscoveryPlusItalyIE,
     DiscoveryPlusItalyShowIE,
     DiscoveryPlusIndiaShowIE,
 )
@@ -511,6 +512,14 @@ from .gab import (
 )
 from .gaia import GaiaIE
 from .gameinformer import GameInformerIE
+from .gamejolt import (
+    GameJoltIE,
+    GameJoltUserIE,
+    GameJoltGameIE,
+    GameJoltGameSoundtrackIE,
+    GameJoltCommunityIE,
+    GameJoltSearchIE,
+)
 from .gamespot import GameSpotIE
 from .gamestar import GameStarIE
 from .gaskrank import GaskrankIE
@@ -1039,6 +1048,10 @@ from .onionstudios import OnionStudiosIE
 from .ooyala import (
     OoyalaIE,
     OoyalaExternalIE,
+)
+from .opencast import (
+    OpencastIE,
+    OpencastPlaylistIE,
 )
 from .openrec import (
     OpenRecIE,
