@@ -1126,6 +1126,10 @@ from .pinterest import (
     PinterestIE,
     PinterestCollectionIE,
 )
+from .pixivsketch import (
+    PixivSketchIE,
+    PixivSketchUserIE,
+)
 from .pladform import PladformIE
 from .planetmarathi import PlanetMarathiIE
 from .platzi import (
@@ -1534,6 +1538,9 @@ from .threeqsdn import ThreeQSDNIE
 from .tiktok import (
     TikTokIE,
     TikTokUserIE,
+    TikTokSoundIE,
+    TikTokEffectIE,
+    TikTokTagIE,
     DouyinIE,
 )
 from .tinypic import TinyPicIE
