@@ -40,12 +40,13 @@ def patchYoutubeDL():
 
     datetime.datetime = proxydt
 
-patchYoutubeDL()
 
-if xbmcplugin.getSetting(int(sys.argv[1]),"usedlp"):
-    from lib.yt_dlp import YoutubeDL
-else:
+# Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
+if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
+    patchYoutubeDL()
     from lib.youtube_dl import YoutubeDL
+else:
+    from lib.yt_dlp import YoutubeDL
 
 
 def showInfoNotification(message):
