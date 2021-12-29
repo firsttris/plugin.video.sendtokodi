@@ -24,15 +24,6 @@ msgctxt "#32001"
 msgid "URL Resolver"
 msgstr ""
 
-msgctxt "#32002"
-msgid "Use youtube-dlp"
-msgstr ""
-
-msgctxt "#32007"
-msgid "Dummy"
-msgstr ""
-
-
 msgctxt "#32020"
 msgid "Resolve with"
 msgstr ""
