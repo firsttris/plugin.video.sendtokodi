@@ -621,6 +621,7 @@ from .instagram import (
     InstagramIOSIE,
     InstagramUserIE,
     InstagramTagIE,
+    InstagramStoryIE,
 )
 from .internazionale import InternazionaleIE
 from .internetvideoarchive import InternetVideoArchiveIE
@@ -1691,6 +1692,7 @@ from .dlive import (
     DLiveVODIE,
     DLiveStreamIE,
 )
+from .drooble import DroobleIE
 from .umg import UMGDeIE
 from .unistra import UnistraIE
 from .unity import UnityIE
