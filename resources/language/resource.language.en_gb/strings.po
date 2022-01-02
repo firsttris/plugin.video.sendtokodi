@@ -1,0 +1,37 @@
+# Kodi Media Center language file
+# Addon Name: sendtokodi
+# Addon id: plugin.video.sendtokodi
+# Addon Provider: firsttris, nullket
+msgid ""
+msgstr ""
+"Project-Id-Version: Kodi Addons\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"POT-Creation-Date: 2021-12-29 13:00+0000\n"
+"PO-Revision-Date: 2021-12-29 13:00+0000\n"
+"Last-Translator: nullket\n"
+"Language-Team: English\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_GB\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#32000"
+msgid "General"
+msgstr ""
+
+msgctxt "#32001"
+msgid "URL Resolver"
+msgstr ""
+
+msgctxt "#32020"
+msgid "Resolve with"
+msgstr ""
+
+msgctxt "#32021"
+msgid "youtube-dl"
+msgstr ""
+
+msgctxt "#32022"
+msgid "youtube-dlp"
+msgstr ""
