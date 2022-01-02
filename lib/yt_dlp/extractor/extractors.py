@@ -621,6 +621,7 @@ from .instagram import (
     InstagramIOSIE,
     InstagramUserIE,
     InstagramTagIE,
+    InstagramStoryIE,
 )
 from .internazionale import InternazionaleIE
 from .internetvideoarchive import InternetVideoArchiveIE
@@ -655,6 +656,7 @@ from .kankan import KankanIE
 from .karaoketv import KaraoketvIE
 from .karrierevideos import KarriereVideosIE
 from .keezmovies import KeezMoviesIE
+from .kelbyone import KelbyOneIE
 from .ketnet import KetnetIE
 from .khanacademy import (
     KhanAcademyIE,
@@ -1691,6 +1693,7 @@ from .dlive import (
     DLiveVODIE,
     DLiveStreamIE,
 )
+from .drooble import DroobleIE
 from .umg import UMGDeIE
 from .unistra import UnistraIE
 from .unity import UnityIE
