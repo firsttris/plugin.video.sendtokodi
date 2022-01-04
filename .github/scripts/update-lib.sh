@@ -4,11 +4,11 @@ set -e
 # In case the remote commit is different, this script clones the remote repo and adds just the desired folder to our repo. 
 LIB_NAME=$1    
 LIB_GIT_URL=$2
-LIB_UPSTREAM_FOLDER=$3
+LIB_BRANCH=$3
 LIB_VERSION_FILE=${GITHUB_WORKSPACE}/lib/${LIB_NAME}_version
 
 
-commit_upstream=$(git ls-remote $LIB_GIT_URL HEAD | awk '{ print $1 }')
+commit_upstream=$(git ls-remote $LIB_GIT_URL $LIB_BRANCH | awk '{ print $1 }')
 commit_local=$(<${LIB_VERSION_FILE})
 
 
@@ -23,9 +23,10 @@ else
     mv /tmp/${LIB_NAME}/${LIB_NAME} ${GITHUB_WORKSPACE}/lib/${LIB_NAME}
     echo -n $commit_upstream > $LIB_VERSION_FILE
 
-    # commit here and push outside (one push for all changes, so the following build workflow will only be triggered once)
+    # commit changes to libs here but push outside of this script
+    # (one push for all libs thus the build workflow will only be triggered once)
     git add lib/${LIB_NAME} $LIB_VERSION_FILE
-    git commit -m "[CI] auto updated lib/${LIB_NAME} to upstream commit $commit_upstream"
+    git commit -m "[CI] auto update ${LIB_NAME} to upstream commit $commit_upstream"
 
     echo "$LIB_NAME succesfully upgraded to upstream commit $commit_upstream and staged for push"
 fi
