@@ -33,5 +33,5 @@ msgid "youtube-dl"
 msgstr ""
 
 msgctxt "#32022"
-msgid "youtube-dlp"
+msgid "yt-dlp (kodi 19+ only)"
 msgstr ""
