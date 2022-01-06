@@ -18,7 +18,7 @@ else
     echo "$LIB_NAME will be updated"
     echo "$commit_local"
     echo "$commit_upstream"
-    git clone $LIB_GIT_URL /tmp/$LIB_NAME
+    git clone --branch $LIB_BRANCH --depth 1 $LIB_GIT_URL /tmp/$LIB_NAME
     rm -r ${GITHUB_WORKSPACE}/lib/${LIB_NAME}
     mv /tmp/${LIB_NAME}/${LIB_NAME} ${GITHUB_WORKSPACE}/lib/${LIB_NAME}
     echo -n $commit_upstream > $LIB_VERSION_FILE
