@@ -12,6 +12,6 @@ jobs:
           token: ${{ secrets.PAT }}
       - run: git config --global user.name "github-actions[bot]"
       - run: git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      - run: $GITHUB_WORKSPACE/.github/scripts/update-lib.sh yt_dlp https://github.com/yt-dlp/yt-dlp.git HEAD
+      - run: $GITHUB_WORKSPACE/.github/scripts/update-lib.sh yt_dlp https://github.com/yt-dlp/yt-dlp.git master
       - run: $GITHUB_WORKSPACE/.github/scripts/update-lib.sh youtube_dl https://github.com/nullket/youtube-dl df-youtube-unthrottle-patch
       - run: git push
