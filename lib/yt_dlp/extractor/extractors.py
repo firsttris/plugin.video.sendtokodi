@@ -380,6 +380,7 @@ from .duboku import (
 )
 from .dumpert import DumpertIE
 from .defense import DefenseGouvFrIE
+from .digitalconcerthall import DigitalConcertHallIE
 from .discovery import DiscoveryIE
 from .discoverygo import (
     DiscoveryGoIE,
@@ -1232,9 +1233,10 @@ from .rai import (
     RaiPlayIE,
     RaiPlayLiveIE,
     RaiPlayPlaylistIE,
+    RaiPlaySoundIE,
+    RaiPlaySoundLiveIE,
+    RaiPlaySoundPlaylistIE,
     RaiIE,
-    RaiPlayRadioIE,
-    RaiPlayRadioPlaylistIE,
 )
 from .raywenderlich import (
     RayWenderlichIE,
