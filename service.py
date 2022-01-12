@@ -26,9 +26,10 @@ def log(msg, level=xbmc.LOGINFO):
     xbmc.log('%s: %s' % (addonID, msg), level)
 
 
-
-# fixes python caching bug in youtube-dl, borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
-def patchYoutubeDL():
+# python embedded (as used in kodi) has a known bug for second calls of strptime. 
+# The python bug is docmumented here https://bugs.python.org/issue27400 
+# The following workaround patch is borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
+def patch_strptime():
     import datetime
 
     #fix for datatetime.strptime returns None
@@ -39,14 +40,6 @@ def patchYoutubeDL():
             return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
 
     datetime.datetime = proxydt
-
-
-# Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
-if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
-    patchYoutubeDL()
-    from lib.youtube_dl import YoutubeDL
-else:
-    from lib.yt_dlp import YoutubeDL
 
 
 def showInfoNotification(message):
@@ -93,6 +86,14 @@ def createListItemFromVideo(video):
     return list_item
 
 
+# Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
+if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
+    from lib.youtube_dl import YoutubeDL
+else:
+    from lib.yt_dlp import YoutubeDL
+    
+# patch broken strptime (see above)
+patch_strptime()
 
 ydl_opts = {
     'format': 'best'
