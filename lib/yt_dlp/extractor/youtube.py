@@ -839,7 +839,7 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
             'uploader': uploader,
             'channel_id': channel_id,
             'thumbnails': thumbnails,
-            'upload_date': strftime_or_none(timestamp, '%Y%m%d'),
+            #  'upload_date': strftime_or_none(timestamp, '%Y%m%d'),
             'live_status': ('is_upcoming' if scheduled_timestamp is not None
                             else 'was_live' if 'streamed' in time_text.lower()
                             else 'is_live' if overlay_style is not None and overlay_style == 'LIVE' or 'live now' in badges
@@ -864,7 +864,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                             youtube\.googleapis\.com)/                        # the various hostnames, with wildcard subdomains
                          (?:.*?\#/)?                                          # handle anchor (#/) redirect urls
                          (?:                                                  # the various things that can precede the ID:
-                             (?:(?:v|embed|e|shorts)/(?!videoseries))         # v/ or embed/ or e/ or shorts/
+                             (?:(?:v|embed|e|shorts)/(?!videoseries|live_stream))  # v/ or embed/ or e/ or shorts/
                              |(?:                                             # or the v= param in all its forms
                                  (?:(?:watch|movie)(?:_popup)?(?:\.php)?/?)?  # preceding watch(_popup|.php) or nothing (like /?v=xxxx)
                                  (?:\?|\#!?)                                  # the params delimiter ? or # or #!
@@ -3058,9 +3058,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
     def _extract_storyboard(self, player_responses, duration):
         spec = get_first(
             player_responses, ('storyboards', 'playerStoryboardSpecRenderer', 'spec'), default='').split('|')[::-1]
-        if not spec:
+        base_url = url_or_none(urljoin('https://i.ytimg.com/', spec.pop() or None))
+        if not base_url:
             return
-        base_url = spec.pop()
         L = len(spec) - 1
         for i, args in enumerate(spec):
             args = args.split('#')
@@ -5139,8 +5139,24 @@ class YoutubeYtBeIE(InfoExtractor):
             }), ie=YoutubeTabIE.ie_key(), video_id=playlist_id)
 
 
+class YoutubeLivestreamEmbedIE(InfoExtractor):
+    IE_DESC = 'YouTube livestream embeds'
+    _VALID_URL = r'https?://(?:\w+\.)?youtube\.com/embed/live_stream/?\?(?:[^#]+&)?channel=(?P<id>[^&#]+)'
+    _TESTS = [{
+        'url': 'https://www.youtube.com/embed/live_stream?channel=UC2_KI6RB__jGdlnK6dvFEZA',
+        'only_matching': True,
+    }]
+
+    def _real_extract(self, url):
+        channel_id = self._match_id(url)
+        return self.url_result(
+            f'https://www.youtube.com/channel/{channel_id}/live',
+            ie=YoutubeTabIE.ie_key(), video_id=channel_id)
+
+
 class YoutubeYtUserIE(InfoExtractor):
     IE_DESC = 'YouTube user videos; "ytuser:" prefix'
+    IE_NAME = 'youtube:user'
     _VALID_URL = r'ytuser:(?P<id>.+)'
     _TESTS = [{
         'url': 'ytuser:phihag',
