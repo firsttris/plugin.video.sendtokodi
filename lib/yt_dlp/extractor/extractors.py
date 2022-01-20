@@ -636,7 +636,11 @@ from .iprima import (
     IPrimaIE,
     IPrimaCNNIE
 )
-from .iqiyi import IqiyiIE
+from .iqiyi import (
+    IqiyiIE,
+    IqIE,
+    IqAlbumIE
+)
 from .ir90tv import Ir90TvIE
 from .itv import (
     ITVIE,
@@ -1678,6 +1682,10 @@ from .tvnow import (
     TVNowSeasonIE,
     TVNowAnnualIE,
     TVNowShowIE,
+)
+from .tvopengr import (
+    TVOpenGrWatchIE,
+    TVOpenGrEmbedIE,
 )
 from .tvp import (
     TVPEmbedIE,
