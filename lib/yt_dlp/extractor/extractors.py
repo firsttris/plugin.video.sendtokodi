@@ -304,6 +304,10 @@ from .cozytv import CozyTVIE
 from .cracked import CrackedIE
 from .crackle import CrackleIE
 from .crooksandliars import CrooksAndLiarsIE
+from .crowdbunker import (
+    CrowdBunkerIE,
+    CrowdBunkerChannelIE,
+)
 from .crunchyroll import (
     CrunchyrollIE,
     CrunchyrollShowPlaylistIE,
@@ -735,7 +739,6 @@ from .limelight import (
     LimelightChannelListIE,
 )
 from .line import (
-    LineTVIE,
     LineLiveIE,
     LineLiveChannelIE,
 )
@@ -752,7 +755,10 @@ from .livestream import (
     LivestreamOriginalIE,
     LivestreamShortenerIE,
 )
-from .lnkgo import LnkGoIE
+from .lnkgo import (
+    LnkGoIE,
+    LnkIE,
+)
 from .localnews8 import LocalNews8IE
 from .lovehomeporn import LoveHomePornIE
 from .lrt import LRTIE
@@ -951,6 +957,7 @@ from .newgrounds import (
     NewgroundsUserIE,
 )
 from .newstube import NewstubeIE
+from .newsy import NewsyIE
 from .nextmedia import (
     NextMediaIE,
     NextMediaActionNewsIE,
@@ -1209,6 +1216,13 @@ from .puhutv import (
 from .presstv import PressTVIE
 from .projectveritas import ProjectVeritasIE
 from .prosiebensat1 import ProSiebenSat1IE
+from .prx import (
+    PRXStoryIE,
+    PRXSeriesIE,
+    PRXAccountIE,
+    PRXStoriesSearchIE,
+    PRXSeriesSearchIE
+)
 from .puls4 import Puls4IE
 from .pyvideo import PyvideoIE
 from .qqmusic import (

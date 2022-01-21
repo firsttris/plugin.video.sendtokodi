@@ -261,6 +261,7 @@ class InfoExtractor(object):
                     fields. This depends on a particular extractor.
     channel_id:     Id of the channel.
     channel_url:    Full URL to a channel webpage.
+    channel_follower_count: Number of followers of the channel.
     location:       Physical location where the video was filmed.
     subtitles:      The available subtitles as a dictionary in the format
                     {tag: subformats}. "tag" is usually a language code, and
@@ -3503,8 +3504,6 @@ class InfoExtractor(object):
 
     def _int(self, v, name, fatal=False, **kwargs):
         res = int_or_none(v, **kwargs)
-        if 'get_attr' in kwargs:
-            print(getattr(v, kwargs['get_attr']))
         if res is None:
             msg = 'Failed to extract %s: Could not parse value %r' % (name, v)
             if fatal:

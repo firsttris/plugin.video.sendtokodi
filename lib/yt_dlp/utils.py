@@ -145,7 +145,7 @@ std_headers = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Encoding': 'gzip, deflate',
     'Accept-Language': 'en-us,en;q=0.5',
-    'Sec-Fetch-Mode': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
 }
 
 
@@ -997,6 +997,8 @@ def make_HTTPS_handler(params, **kwargs):
     opts_check_certificate = not params.get('nocheckcertificate')
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = opts_check_certificate
+    if params.get('legacyserverconnect'):
+        context.options |= 4  # SSL_OP_LEGACY_SERVER_CONNECT
     context.verify_mode = ssl.CERT_REQUIRED if opts_check_certificate else ssl.CERT_NONE
     if opts_check_certificate:
         try:
@@ -4973,13 +4975,10 @@ def to_high_limit_path(path):
 
 
 def format_field(obj, field=None, template='%s', ignore=(None, ''), default='', func=None):
-    if field is None:
-        val = obj if obj is not None else default
-    else:
-        val = obj.get(field, default)
-    if func and val not in ignore:
-        val = func(val)
-    return template % val if val not in ignore else default
+    val = traverse_obj(obj, *variadic(field))
+    if val in ignore:
+        return default
+    return template % (func(val) if func else val)
 
 
 def clean_podcast_url(url):

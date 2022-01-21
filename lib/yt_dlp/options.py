@@ -263,7 +263,7 @@ def create_parser():
         help=(
             'Don\'t load any more configuration files except those given by --config-locations. '
             'For backward compatibility, if this option is found inside the system configuration file, the user configuration is not loaded. '
-            '(Alias: --no-config'))
+            '(Alias: --no-config)'))
     general.add_option(
         '--no-config-locations',
         action='store_const', dest='config_locations', const=[],
@@ -827,6 +827,10 @@ def create_parser():
         '--encoding',
         dest='encoding', metavar='ENCODING',
         help='Force the specified encoding (experimental)')
+    workarounds.add_option(
+        '--legacy-server-connect',
+        action='store_true', dest='legacy_server_connect', default=False,
+        help='Explicitly allow HTTPS connection to servers that do not support RFC 5746 secure renegotiation')
     workarounds.add_option(
         '--no-check-certificates',
         action='store_true', dest='no_check_certificate', default=False,
@@ -1402,8 +1406,8 @@ def create_parser():
         metavar='POLICY', dest='concat_playlist', default='multi_video',
         choices=('never', 'always', 'multi_video'),
         help=(
-            'Concatenate videos in a playlist. One of "never" (default), "always", or '
-            '"multi_video" (only when the videos form a single show). '
+            'Concatenate videos in a playlist. One of "never", "always", or '
+            '"multi_video" (default; only when the videos form a single show). '
             'All the video files must have same codecs and number of streams to be concatable. '
             'The "pl_video:" prefix can be used with "--paths" and "--output" to '
             'set the output filename for the split files. See "OUTPUT TEMPLATE" for details'))
