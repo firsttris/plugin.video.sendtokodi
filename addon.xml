@@ -1,9 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<addon id="plugin.video.sendtokodi" name="sendtokodi" version="100.0.0" provider-name="firsttris">
+<addon id="plugin.video.sendtokodi" name="SendToKodi" version="100.0.0" provider-name="firsttris">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
   </requires>
-  <extension point="xbmc.python.pluginsource" library="service.py" />
+  <extension point="xbmc.python.pluginsource" library="service.py">
+      <provides>video</provides>
+  </extension>
   <!-- Export lib so that youtube-dl and yt-dlp can be accessed by other addons. -->
   <extension point="xbmc.python.module" library="lib" />
   <extension point="xbmc.addon.metadata">
@@ -16,5 +18,8 @@
     <website>https://teufel-it.de/</website>
     <email>info@teufel-it.de</email>
     <source>https://github.com/firsttris/</source>
+    <assets>
+      <icon>icon.png</icon>
+    </assets>
   </extension>
 </addon>
