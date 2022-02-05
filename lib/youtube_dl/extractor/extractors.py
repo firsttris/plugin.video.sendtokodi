@@ -71,6 +71,7 @@ from .arte import (
     ArteTVIE,
     ArteTVEmbedIE,
     ArteTVPlaylistIE,
+    ArteTVCategoryIE,
 )
 from .arnes import ArnesIE
 from .asiancrush import (
@@ -789,7 +790,14 @@ from .nick import (
     NickNightIE,
     NickRuIE,
 )
-from .niconico import NiconicoIE, NiconicoPlaylistIE
+from .niconico import (
+    NiconicoIE,
+    NiconicoPlaylistIE,
+    NiconicoUserIE,
+    NicovideoSearchIE,
+    NicovideoSearchDateIE,
+    NicovideoSearchURLIE,
+)
 from .ninecninemedia import NineCNineMediaIE
 from .ninegag import NineGagIE
 from .ninenow import NineNowIE
@@ -1606,7 +1614,7 @@ from .youtube import (
     YoutubeRecommendedIE,
     YoutubeSearchDateIE,
     YoutubeSearchIE,
-    #YoutubeSearchURLIE,
+    YoutubeSearchURLIE,
     YoutubeSubscriptionsIE,
     YoutubeTruncatedIDIE,
     YoutubeTruncatedURLIE,
