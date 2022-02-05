@@ -8,7 +8,7 @@ This [kodi](https://github.com/xbmc/xbmc) plugin receives URLs and resolves almo
 
 [Download repo for kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
  
-*Please note that kodi 18 is limited to python 2 only, but the used URL resolver yt-dlp requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl is stuck and youtube made breaking changes to their website, resulting in throttled playbacks. The issue has been addressed but due to the absence of maintainers the code is not merged into the project. To enable unthrottled playback [this](https://github.com/ytdl-org/youtube-dl/pull/30184) unofficial version of youtube-dl is used within the plugin instead.*
+*Please note that kodi 18 is limited to python 2 only, but the used URL resolver yt-dlp requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck and development has just been resumed lately. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
 
 ## Features
 - [supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
