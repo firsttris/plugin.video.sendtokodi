@@ -118,7 +118,7 @@ from .bandcamp import (
     BandcampIE,
     BandcampAlbumIE,
     BandcampWeeklyIE,
-    BandcampMusicIE,
+    BandcampUserIE,
 )
 from .bannedvideo import BannedVideoIE
 from .bbc import (
@@ -1011,6 +1011,7 @@ from .niconico import (
     NicovideoSearchDateIE,
     NicovideoSearchIE,
     NicovideoSearchURLIE,
+    NicovideoTagURLIE,
 )
 from .ninecninemedia import (
     NineCNineMediaIE,
