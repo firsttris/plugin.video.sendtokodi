@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import asyncio
+import atexit
 import base64
 import binascii
 import calendar
@@ -2552,6 +2553,13 @@ def url_or_none(url):
         return None
     url = url.strip()
     return url if re.match(r'^(?:(?:https?|rt(?:m(?:pt?[es]?|fp)|sp[su]?)|mms|ftps?):)?//', url) else None
+
+
+def request_to_url(req):
+    if isinstance(req, compat_urllib_request.Request):
+        return req.get_full_url()
+    else:
+        return req
 
 
 def strftime_or_none(timestamp, date_format, default=None):
@@ -5172,6 +5180,22 @@ def variadic(x, allowed_types=(str, bytes, dict)):
     return x if isinstance(x, collections.abc.Iterable) and not isinstance(x, allowed_types) else (x,)
 
 
+def decode_base(value, digits):
+    # This will convert given base-x string to scalar (long or int)
+    table = {char: index for index, char in enumerate(digits)}
+    result = 0
+    base = len(digits)
+    for chr in value:
+        result *= base
+        result += table[chr]
+    return result
+
+
+def time_seconds(**kwargs):
+    t = datetime.datetime.now(datetime.timezone(datetime.timedelta(**kwargs)))
+    return t.timestamp()
+
+
 # create a JSON Web Signature (jws) with HS256 algorithm
 # the resulting format is in JWS Compact Serialization
 # implemented following JWT https://www.rfc-editor.org/rfc/rfc7519.html
@@ -5325,6 +5349,7 @@ class WebSocketsWrapper():
         self.conn = compat_websockets.connect(
             url, extra_headers=headers, ping_interval=None,
             close_timeout=float('inf'), loop=self.loop, ping_timeout=float('inf'))
+        atexit.register(self.__exit__, None, None, None)
 
     def __enter__(self):
         self.pool = self.run_with_loop(self.conn.__aenter__(), self.loop)
@@ -5341,7 +5366,7 @@ class WebSocketsWrapper():
             return self.run_with_loop(self.conn.__aexit__(type, value, traceback), self.loop)
         finally:
             self.loop.close()
-            self.r_cancel_all_tasks(self.loop)
+            self._cancel_all_tasks(self.loop)
 
     # taken from https://github.com/python/cpython/blob/3.9/Lib/asyncio/runners.py with modifications
     # for contributors: If there's any new library using asyncio needs to be run in non-async, move these function out of this class
