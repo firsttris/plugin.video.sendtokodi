@@ -348,6 +348,7 @@ from .daum import (
     DaumPlaylistIE,
     DaumUserIE,
 )
+from .daystar import DaystarClipIE
 from .dbtv import DBTVIE
 from .dctp import DctpTvIE
 from .deezer import (
@@ -1593,6 +1594,7 @@ from .tele13 import Tele13IE
 from .telebruxelles import TeleBruxellesIE
 from .telecinco import TelecincoIE
 from .telegraaf import TelegraafIE
+from .telegram import TelegramEmbedIE
 from .telemb import TeleMBIE
 from .telemundo import TelemundoIE
 from .telequebec import (
@@ -1833,6 +1835,10 @@ from .vice import (
 from .vidbit import VidbitIE
 from .viddler import ViddlerIE
 from .videa import VideaIE
+from .videocampus_sachsen import (
+    VideocampusSachsenIE,
+    VideocampusSachsenEmbedIE,
+)
 from .videodetective import VideoDetectiveIE
 from .videofyme import VideofyMeIE
 from .videomore import (
