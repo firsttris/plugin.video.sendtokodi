@@ -520,6 +520,7 @@ from .foxnews import (
     FoxNewsArticleIE,
 )
 from .foxsports import FoxSportsIE
+from .fptplay import FptplayIE
 from .franceculture import FranceCultureIE
 from .franceinter import FranceInterIE
 from .francetv import (
@@ -848,6 +849,7 @@ from .microsoftvirtualacademy import (
 from .mildom import (
     MildomIE,
     MildomVodIE,
+    MildomClipIE,
     MildomUserVodIE,
 )
 from .minds import (
@@ -2010,6 +2012,7 @@ from .ximalaya import (
     XimalayaIE,
     XimalayaAlbumIE
 )
+from .xinpianchang import XinpianchangIE
 from .xminus import XMinusIE
 from .xnxx import XNXXIE
 from .xstream import XstreamIE
