@@ -1085,7 +1085,7 @@ class ExtractorError(YoutubeDLError):
     def format_traceback(self):
         return join_nonempty(
             self.traceback and ''.join(traceback.format_tb(self.traceback)),
-            self.cause and ''.join(traceback.format_exception(self.cause)[1:]),
+            self.cause and ''.join(traceback.format_exception(None, self.cause, self.cause.__traceback__)[1:]),
             delim='\n') or None
 
 
@@ -3603,6 +3603,9 @@ def match_str(filter_str, dct, incomplete=False):
 
 
 def match_filter_func(filter_str):
+    if filter_str is None:
+        return None
+
     def _match_func(info_dict, *args, **kwargs):
         if match_str(filter_str, info_dict, *args, **kwargs):
             return None
@@ -5213,6 +5216,10 @@ def traverse_dict(dictn, keys, casesense=True):
     write_string('DeprecationWarning: yt_dlp.utils.traverse_dict is deprecated '
                  'and may be removed in a future version. Use yt_dlp.utils.traverse_obj instead')
     return traverse_obj(dictn, keys, casesense=casesense, is_user_input=True, traverse_string=True)
+
+
+def get_first(obj, keys, **kwargs):
+    return traverse_obj(obj, (..., *variadic(keys)), **kwargs, get_all=False)
 
 
 def variadic(x, allowed_types=(str, bytes, dict)):
