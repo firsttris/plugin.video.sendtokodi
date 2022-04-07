@@ -684,8 +684,9 @@ def sanitize_open(filename, open_mode):
         try:
             try:
                 if sys.platform == 'win32':
-                    # FIXME: Windows only has mandatory locking which also locks the file from being read.
-                    # So for now, don't lock the file on windows. Ref: https://github.com/yt-dlp/yt-dlp/issues/3124
+                    # FIXME: An exclusive lock also locks the file from being read.
+                    # Since windows locks are mandatory, don't lock the file on windows (for now).
+                    # Ref: https://github.com/yt-dlp/yt-dlp/issues/3124
                     raise LockingUnsupportedError()
                 stream = locked_file(filename, open_mode, block=False).__enter__()
             except LockingUnsupportedError:
@@ -2190,18 +2191,15 @@ else:
         import fcntl
 
         def _lock_file(f, exclusive, block):
+            flags = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+            if not block:
+                flags |= fcntl.LOCK_NB
             try:
-                fcntl.flock(f,
-                            fcntl.LOCK_SH if not exclusive
-                            else fcntl.LOCK_EX if block
-                            else fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(f, flags)
             except BlockingIOError:
                 raise
             except OSError:  # AOSP does not have flock()
-                fcntl.lockf(f,
-                            fcntl.LOCK_SH if not exclusive
-                            else fcntl.LOCK_EX if block
-                            else fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.lockf(f, flags)
 
         def _unlock_file(f):
             try:
@@ -2222,10 +2220,23 @@ class locked_file(object):
     locked = False
 
     def __init__(self, filename, mode, block=True, encoding=None):
-        assert mode in {'r', 'rb', 'a', 'ab', 'w', 'wb'}
-        self.f = open(filename, mode, encoding=encoding)
-        self.mode = mode
-        self.block = block
+        if mode not in {'r', 'rb', 'a', 'ab', 'w', 'wb'}:
+            raise NotImplementedError(mode)
+        self.mode, self.block = mode, block
+
+        writable = any(f in mode for f in 'wax+')
+        readable = any(f in mode for f in 'r+')
+        flags = functools.reduce(operator.ior, (
+            getattr(os, 'O_CLOEXEC', 0),  # UNIX only
+            getattr(os, 'O_BINARY', 0),  # Windows only
+            getattr(os, 'O_NOINHERIT', 0),  # Windows only
+            os.O_CREAT if writable else 0,  # O_TRUNC only after locking
+            os.O_APPEND if 'a' in mode else 0,
+            os.O_EXCL if 'x' in mode else 0,
+            os.O_RDONLY if not writable else os.O_RDWR if readable else os.O_WRONLY,
+        ))
+
+        self.f = os.fdopen(os.open(filename, flags), mode, encoding=encoding)
 
     def __enter__(self):
         exclusive = 'r' not in self.mode
@@ -2235,6 +2246,8 @@ class locked_file(object):
         except IOError:
             self.f.close()
             raise
+        if 'w' in self.mode:
+            self.f.truncate()
         return self
 
     def unlock(self):

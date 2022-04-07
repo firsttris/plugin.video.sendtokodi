@@ -44,6 +44,7 @@ from .aenetworks import (
 from .afreecatv import (
     AfreecaTVIE,
     AfreecaTVLiveIE,
+    AfreecaTVUserIE,
 )
 from .airmozilla import AirMozillaIE
 from .aljazeera import AlJazeeraIE
@@ -915,6 +916,7 @@ from .motherless import (
 )
 from .motorsport import MotorsportIE
 from .movieclips import MovieClipsIE
+from .moviepilot import MoviepilotIE
 from .moviezine import MoviezineIE
 from .movingimage import MovingImageIE
 from .msn import MSNIE
