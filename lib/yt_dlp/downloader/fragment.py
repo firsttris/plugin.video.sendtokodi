@@ -134,6 +134,8 @@ class FragmentFD(FileDownloader):
         return True
 
     def _read_fragment(self, ctx):
+        if not ctx.get('fragment_filename_sanitized'):
+            return None
         try:
             down, frag_sanitized = self.sanitize_open(ctx['fragment_filename_sanitized'], 'rb')
         except FileNotFoundError:
@@ -177,7 +179,7 @@ class FragmentFD(FileDownloader):
                 'ratelimit': self.params.get('ratelimit'),
                 'retries': self.params.get('retries', 0),
                 'nopart': self.params.get('nopart', False),
-                'test': self.params.get('test', False),
+                'test': False,
             }
         )
         tmpfilename = self.temp_name(ctx['filename'])
@@ -519,8 +521,13 @@ class FragmentFD(FileDownloader):
             for fragment in fragments:
                 if not interrupt_trigger[0]:
                     break
-                download_fragment(fragment, ctx)
-                result = append_fragment(decrypt_fragment(fragment, self._read_fragment(ctx)), fragment['frag_index'], ctx)
+                try:
+                    download_fragment(fragment, ctx)
+                    result = append_fragment(decrypt_fragment(fragment, self._read_fragment(ctx)), fragment['frag_index'], ctx)
+                except KeyboardInterrupt:
+                    if info_dict.get('is_live'):
+                        break
+                    raise
                 if not result:
                     return False
 
