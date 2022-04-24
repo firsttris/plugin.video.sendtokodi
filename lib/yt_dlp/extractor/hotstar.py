@@ -85,8 +85,10 @@ class HotStarIE(HotStarBaseIE):
     IE_NAME = 'hotstar'
     _VALID_URL = r'''(?x)
         https?://(?:www\.)?hotstar\.com(?:/in)?/(?!in/)
-        (?:(?P<type>movies|sports|episode|(?P<tv>tv))/)?
-        (?(tv)(?:[^/?#]+/){2}|[^?#]+/)?
+        (?:
+            (?P<type>movies|sports|episode|(?P<tv>tv))/
+            (?(tv)(?:[^/?#]+/){2}|[^?#]*)
+        )?
         [^/?#]+/
         (?P<id>\d{10})
     '''
@@ -251,7 +253,7 @@ class HotStarIE(HotStarBaseIE):
 class HotStarPrefixIE(InfoExtractor):
     """ The "hotstar:" prefix is no longer in use, but this is kept for backward compatibility """
     IE_DESC = False
-    _VALID_URL = r'hotstar:(?:(?P<type>\w+))?:(?P<id>\d+)$'
+    _VALID_URL = r'hotstar:(?:(?P<type>\w+):)?(?P<id>\d+)$'
     _TESTS = [{
         'url': 'hotstar:1000076273',
         'only_matching': True,
