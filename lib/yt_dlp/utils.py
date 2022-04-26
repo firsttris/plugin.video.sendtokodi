@@ -36,7 +36,6 @@ import tempfile
 import time
 import traceback
 import urllib.parse
-import warnings
 import xml.etree.ElementTree
 import zlib
 
@@ -5223,22 +5222,17 @@ class WebSocketsWrapper():
 
     def __init__(self, url, headers=None, connect=True):
         self.loop = asyncio.new_event_loop()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # https://github.com/aaugustin/websockets/blob/9c87d43f1d7bbf6847350087aae74fd35f73a642/src/websockets/legacy/client.py#L480
-            # the reason to keep giving `loop` parameter: we aren't in async function
-            self.conn = websockets.connect(
-                url, extra_headers=headers, ping_interval=None,
-                close_timeout=float('inf'), loop=self.loop, ping_timeout=float('inf'))
+        # XXX: "loop" is deprecated
+        self.conn = websockets.connect(
+            url, extra_headers=headers, ping_interval=None,
+            close_timeout=float('inf'), loop=self.loop, ping_timeout=float('inf'))
         if connect:
             self.__enter__()
         atexit.register(self.__exit__, None, None, None)
 
     def __enter__(self):
         if not self.pool:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self.pool = self.run_with_loop(self.conn.__aenter__(), self.loop)
+            self.pool = self.run_with_loop(self.conn.__aenter__(), self.loop)
         return self
 
     def send(self, *args):
@@ -5270,7 +5264,7 @@ class WebSocketsWrapper():
 
     @staticmethod
     def _cancel_all_tasks(loop):
-        to_cancel = asyncio.tasks.all_tasks(loop)
+        to_cancel = asyncio.all_tasks(loop)
 
         if not to_cancel:
             return
@@ -5278,8 +5272,9 @@ class WebSocketsWrapper():
         for task in to_cancel:
             task.cancel()
 
+        # XXX: "loop" is removed in python 3.10+
         loop.run_until_complete(
-            asyncio.tasks.gather(*to_cancel, loop=loop, return_exceptions=True))
+            asyncio.gather(*to_cancel, loop=loop, return_exceptions=True))
 
         for task in to_cancel:
             if task.cancelled():
