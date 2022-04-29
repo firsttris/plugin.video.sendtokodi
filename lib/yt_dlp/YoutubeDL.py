@@ -62,6 +62,7 @@ from .utils import (
     DEFAULT_OUTTMPL,
     LINK_TEMPLATES,
     NO_DEFAULT,
+    NUMBER_RE,
     OUTTMPL_TYPES,
     POSTPROCESS_WHEN,
     STR_FORMAT_RE_TMPL,
@@ -409,12 +410,14 @@ class YoutubeDL:
     sleep_interval_subtitles: Number of seconds to sleep before each subtitle download
     listformats:       Print an overview of available video formats and exit.
     list_thumbnails:   Print a table of all thumbnails and exit.
-    match_filter:      A function that gets called with the info_dict of
-                       every video.
-                       If it returns a message, the video is ignored.
-                       If it returns None, the video is downloaded.
-                       If it returns utils.NO_DEFAULT, the user is interactively
-                       asked whether to download the video.
+    match_filter:      A function that gets called for every video with the signature
+                       (info_dict, *, incomplete: bool) -> Optional[str]
+                       For backward compatibility with youtube-dl, the signature
+                       (info_dict) -> Optional[str] is also allowed.
+                       - If it returns a message, the video is ignored.
+                       - If it returns None, the video is downloaded.
+                       - If it returns utils.NO_DEFAULT, the user is interactively
+                         asked whether to download the video.
                        match_filter_func in utils.py is one example for this.
     no_color:          Do not emit color codes in output.
     geo_bypass:        Bypass geographic restriction via faking X-Forwarded-For
@@ -1047,7 +1050,7 @@ class YoutubeDL:
             formatSeconds(info_dict['duration'], '-' if sanitize else ':')
             if info_dict.get('duration', None) is not None
             else None)
-        info_dict['autonumber'] = self.params.get('autonumber_start', 1) - 1 + self._num_downloads
+        info_dict['autonumber'] = int(self.params.get('autonumber_start', 1) - 1 + self._num_downloads)
         info_dict['video_autonumber'] = self._num_videos
         if info_dict.get('resolution') is None:
             info_dict['resolution'] = self.format_resolution(info_dict, default=None)
@@ -1069,18 +1072,18 @@ class YoutubeDL:
         # Field is of the form key1.key2...
         # where keys (except first) can be string, int or slice
         FIELD_RE = r'\w*(?:\.(?:\w+|{num}|{num}?(?::{num}?){{1,2}}))*'.format(num=r'(?:-?\d+)')
-        MATH_FIELD_RE = r'''(?:{field}|{num})'''.format(field=FIELD_RE, num=r'-?\d+(?:.\d+)?')
+        MATH_FIELD_RE = rf'(?:{FIELD_RE}|-?{NUMBER_RE})'
         MATH_OPERATORS_RE = r'(?:%s)' % '|'.join(map(re.escape, MATH_FUNCTIONS.keys()))
-        INTERNAL_FORMAT_RE = re.compile(r'''(?x)
+        INTERNAL_FORMAT_RE = re.compile(rf'''(?x)
             (?P<negate>-)?
-            (?P<fields>{field})
-            (?P<maths>(?:{math_op}{math_field})*)
+            (?P<fields>{FIELD_RE})
+            (?P<maths>(?:{MATH_OPERATORS_RE}{MATH_FIELD_RE})*)
             (?:>(?P<strf_format>.+?))?
             (?P<remaining>
                 (?P<alternate>(?<!\\),[^|&)]+)?
                 (?:&(?P<replacement>.*?))?
                 (?:\|(?P<default>.*?))?
-            )$'''.format(field=FIELD_RE, math_op=MATH_OPERATORS_RE, math_field=MATH_FIELD_RE))
+            )$''')
 
         def _traverse_infodict(k):
             k = k.split('.')
@@ -2334,7 +2337,7 @@ class YoutubeDL:
                                      video_id=info_dict['id'], ie=info_dict['extractor'])
             elif not info_dict.get('title'):
                 self.report_warning('Extractor failed to obtain "title". Creating a generic title instead')
-                info_dict['title'] = f'{info_dict["extractor"]} video #{info_dict["id"]}'
+                info_dict['title'] = f'{info_dict["extractor"].replace(":", "-")} video #{info_dict["id"]}'
 
         if info_dict.get('duration') is not None:
             info_dict['duration_string'] = formatSeconds(info_dict['duration'])
@@ -3667,10 +3670,11 @@ class YoutubeDL:
         ) or 'none'
         write_debug('exe versions: %s' % exe_str)
 
+        from .compat.compat_utils import get_package_info
         from .dependencies import available_dependencies
 
         write_debug('Optional libraries: %s' % (', '.join(sorted({
-            module.__name__.split('.')[0] for module in available_dependencies.values()
+            join_nonempty(*get_package_info(m)) for m in available_dependencies.values()
         })) or 'none'))
 
         self._setup_opener()
