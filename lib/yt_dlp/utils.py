@@ -936,6 +936,14 @@ def make_HTTPS_handler(params, **kwargs):
                     for storename in ('CA', 'ROOT'):
                         _ssl_load_windows_store_certs(context, storename)
                 context.set_default_verify_paths()
+    client_certfile = params.get('client_certificate')
+    if client_certfile:
+        try:
+            context.load_cert_chain(
+                client_certfile, keyfile=params.get('client_certificate_key'),
+                password=params.get('client_certificate_password'))
+        except ssl.SSLError:
+            raise YoutubeDLError('Unable to load client certificate')
     return YoutubeDLHTTPSHandler(params, context=context, **kwargs)
 
 
@@ -1587,9 +1595,21 @@ class YoutubeDLRedirectHandler(compat_urllib_request.HTTPRedirectHandler):
         CONTENT_HEADERS = ("content-length", "content-type")
         # NB: don't use dict comprehension for python 2.6 compatibility
         newheaders = {k: v for k, v in req.headers.items() if k.lower() not in CONTENT_HEADERS}
+
+        # A 303 must either use GET or HEAD for subsequent request
+        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.4.4
+        if code == 303 and m != 'HEAD':
+            m = 'GET'
+        # 301 and 302 redirects are commonly turned into a GET from a POST
+        # for subsequent requests by browsers, so we'll do the same.
+        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.4.2
+        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.4.3
+        if code in (301, 302) and m == 'POST':
+            m = 'GET'
+
         return compat_urllib_request.Request(
             newurl, headers=newheaders, origin_req_host=req.origin_req_host,
-            unverifiable=True)
+            unverifiable=True, method=m)
 
 
 def extract_timezone(date_str):
@@ -2011,7 +2031,11 @@ class locked_file:
             self.f.close()
             raise
         if 'w' in self.mode:
-            self.f.truncate()
+            try:
+                self.f.truncate()
+            except OSError as e:
+                if e.errno != 29:  # Illegal seek, expected when self.f is a FIFO
+                    raise e
         return self
 
     def unlock(self):
