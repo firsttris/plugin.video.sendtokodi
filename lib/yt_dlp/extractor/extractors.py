@@ -501,6 +501,7 @@ from .fc2 import (
     FC2LiveIE,
 )
 from .fczenit import FczenitIE
+from .fifa import FifaIE
 from .filmmodu import FilmmoduIE
 from .filmon import (
     FilmOnIE,
@@ -848,6 +849,7 @@ from .markiza import (
     MarkizaPageIE,
 )
 from .massengeschmacktv import MassengeschmackTVIE
+from .masters import MastersIE
 from .matchtv import MatchTVIE
 from .mdr import MDRIE
 from .medaltv import MedalTVIE
