@@ -2335,12 +2335,16 @@ class YoutubeDL:
         # TODO: move sanitization here
         if is_video:
             # playlists are allowed to lack "title"
-            info_dict['fulltitle'] = info_dict.get('title')
-            if 'title' not in info_dict:
+            title = info_dict.get('title', NO_DEFAULT)
+            if title is NO_DEFAULT:
                 raise ExtractorError('Missing "title" field in extractor result',
                                      video_id=info_dict['id'], ie=info_dict['extractor'])
-            elif not info_dict.get('title'):
-                self.report_warning('Extractor failed to obtain "title". Creating a generic title instead')
+            info_dict['fulltitle'] = title
+            if not title:
+                if title == '':
+                    self.write_debug('Extractor gave empty title. Creating a generic title')
+                else:
+                    self.report_warning('Extractor failed to obtain "title". Creating a generic title instead')
                 info_dict['title'] = f'{info_dict["extractor"].replace(":", "-")} video #{info_dict["id"]}'
 
         if info_dict.get('duration') is not None:
@@ -3190,7 +3194,8 @@ class YoutubeDL:
                     downloader = downloader.__name__ if downloader else None
 
                     if info_dict.get('requested_formats') is None:  # Not necessary if doing merger
-                        ffmpeg_fixup(downloader == 'HlsFD',
+                        live_fixup = info_dict.get('is_live') and not self.params.get('hls_use_mpegts')
+                        ffmpeg_fixup(downloader == 'HlsFD' or live_fixup,
                                      'Possible MPEG-TS in MP4 container or malformed AAC timestamps',
                                      FFmpegFixupM3u8PP)
                         ffmpeg_fixup(info_dict.get('is_live') and downloader == 'DashSegmentsFD',
