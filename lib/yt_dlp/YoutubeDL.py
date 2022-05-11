@@ -312,7 +312,7 @@ class YoutubeDL:
                        has been filtered out.
     break_per_url:     Whether break_on_reject and break_on_existing
                        should act on each input URL as opposed to for the entire queue
-    cookiefile:        File name where cookies should be read from and dumped to
+    cookiefile:        File name or text stream from where cookies should be read and dumped to
     cookiesfrombrowser:  A tuple containing the name of the browser, the profile
                        name/pathfrom where cookies are loaded, and the name of the
                        keyring. Eg: ('chrome', ) or ('vivaldi', 'default', 'BASICTEXT')
@@ -2833,7 +2833,7 @@ class YoutubeDL:
             urls = '", "'.join(
                 (f['url'].split(',')[0] + ',<data>' if f['url'].startswith('data:') else f['url'])
                 for f in info.get('requested_formats', []) or [info])
-            self.write_debug('Invoking downloader on "%s"' % urls)
+            self.write_debug(f'Invoking {fd.FD_NAME} downloader on "{urls}"')
 
         # Note: Ideally info should be a deep-copied so that hooks cannot modify it.
         # But it may contain objects that are not deep-copyable
@@ -3194,8 +3194,8 @@ class YoutubeDL:
                     downloader = downloader.__name__ if downloader else None
 
                     if info_dict.get('requested_formats') is None:  # Not necessary if doing merger
-                        fixup_live = info_dict.get('is_live') and self.params.get('hls_use_mpegts') is None
-                        ffmpeg_fixup(downloader == 'HlsFD' or fixup_live,
+                        ffmpeg_fixup(downloader == 'HlsFD' and not self.params.get('hls_use_mpegts')
+                                     or info_dict.get('is_live') and self.params.get('hls_use_mpegts') is None,
                                      'Possible MPEG-TS in MP4 container or malformed AAC timestamps',
                                      FFmpegFixupM3u8PP)
                         ffmpeg_fixup(info_dict.get('is_live') and downloader == 'DashSegmentsFD',
