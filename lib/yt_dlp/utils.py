@@ -11,7 +11,6 @@ import datetime
 import email.header
 import email.utils
 import errno
-import functools
 import gzip
 import hashlib
 import hmac
@@ -39,8 +38,8 @@ import urllib.parse
 import xml.etree.ElementTree
 import zlib
 
+from .compat import asyncio, functools  # Modules
 from .compat import (
-    asyncio,
     compat_chr,
     compat_cookiejar,
     compat_etree_fromstring,
@@ -248,6 +247,7 @@ JSON_LD_RE = r'(?is)<script[^>]+type=(["\']?)application/ld\+json\1[^>]*>(?P<jso
 NUMBER_RE = r'\d+(?:\.\d+)?'
 
 
+@functools.cache
 def preferredencoding():
     """Get preferred encoding.
 
@@ -1883,6 +1883,7 @@ def platform_name():
     return res
 
 
+@functools.cache
 def get_windows_version():
     ''' Get Windows version. None if it's not running on Windows '''
     if compat_os_name == 'nt':
@@ -2079,6 +2080,7 @@ class locked_file:
         return iter(self.f)
 
 
+@functools.cache
 def get_filesystem_encoding():
     encoding = sys.getfilesystemencoding()
     return encoding if encoding is not None else 'utf-8'
@@ -4166,6 +4168,9 @@ class ISO3166Utils:
         'YE': 'Yemen',
         'ZM': 'Zambia',
         'ZW': 'Zimbabwe',
+        # Not ISO 3166 codes, but used for IP blocks
+        'AP': 'Asia/Pacific Region',
+        'EU': 'Europe',
     }
 
     @classmethod
@@ -5089,6 +5094,7 @@ def jwt_decode_hs256(jwt):
     return payload_data
 
 
+@functools.cache
 def supports_terminal_sequences(stream):
     if compat_os_name == 'nt':
         from .compat import WINDOWS_VT_MODE  # Must be imported locally
@@ -5153,11 +5159,12 @@ def parse_http_range(range):
 
 class Config:
     own_args = None
+    parsed_args = None
     filename = None
     __initialized = False
 
     def __init__(self, parser, label=None):
-        self._parser, self.label = parser, label
+        self.parser, self.label = parser, label
         self._loaded_paths, self.configs = set(), []
 
     def init(self, args=None, filename=None):
@@ -5170,14 +5177,16 @@ class Config:
                 return False
             self._loaded_paths.add(location)
 
-        self.__initialized = True
-        self.own_args, self.filename = args, filename
-        for location in self._parser.parse_args(args)[0].config_locations or []:
+        self.own_args, self.__initialized = args, True
+        opts, _ = self.parser.parse_known_args(args)
+        self.parsed_args, self.filename = args, filename
+
+        for location in opts.config_locations or []:
             location = os.path.join(directory, expand_path(location))
             if os.path.isdir(location):
                 location = os.path.join(location, 'yt-dlp.conf')
             if not os.path.exists(location):
-                self._parser.error(f'config location {location} does not exist')
+                self.parser.error(f'config location {location} does not exist')
             self.append_config(self.read_file(location), location)
         return True
 
@@ -5223,7 +5232,7 @@ class Config:
         return opts
 
     def append_config(self, *args, label=None):
-        config = type(self)(self._parser, label)
+        config = type(self)(self.parser, label)
         config._loaded_paths = self._loaded_paths
         if config.init(*args):
             self.configs.append(config)
@@ -5232,10 +5241,13 @@ class Config:
     def all_args(self):
         for config in reversed(self.configs):
             yield from config.all_args
-        yield from self.own_args or []
+        yield from self.parsed_args or []
+
+    def parse_known_args(self, **kwargs):
+        return self.parser.parse_known_args(self.all_args, **kwargs)
 
     def parse_args(self):
-        return self._parser.parse_args(self.all_args)
+        return self.parser.parse_args(self.all_args)
 
 
 class WebSocketsWrapper():
