@@ -15,7 +15,7 @@ fi
 case $KODI_TARGET in
   "Leia")
     echo -n "TODO"
-    $GITHUB_WORKSPACE/.github/scripts/addon_xml_adjuster.py --plugin-version $VERSION --xbmc-python "2.26.0"
+    $GITHUB_WORKSPACE/.github/scripts/addon_xml_adjuster.py --plugin-version $VERSION --xbmc-python "2.25.0"
     build_folder=Leia
     ;;
 
