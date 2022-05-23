@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.${{ GITHUB_SHA }} Leia
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Leia
       - name: Upload Addon-artifacts-Leia
         uses: actions/upload-artifact@v2
         with:
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.${{ GITHUB_SHA }} Matrix     
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Matrix     
       - name: Upload Addon-artifacts-Matrix
         uses: actions/upload-artifact@v2
         with:
