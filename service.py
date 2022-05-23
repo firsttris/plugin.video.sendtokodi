@@ -95,6 +95,13 @@ def createListItemFromFlatPlaylistItem(video):
     listItemUrl = __url__ + "?" + escapedUrl
     title = video['title']
 
+    # add the extra parameters to every playlist item
+    paramstring = sys.argv[2]
+    additionalParamsIndex = paramstring.find(' ')
+    if additionalParamsIndex != -1:
+        additionalParamsString = paramstring[additionalParamsIndex:]
+        listItemUrl = listItemUrl + " " + additionalParamsString
+    
     listItem = xbmcgui.ListItem(
         path            = listItemUrl,
         label           = title
