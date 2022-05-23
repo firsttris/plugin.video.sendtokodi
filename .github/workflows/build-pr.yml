@@ -9,7 +9,7 @@ jobs:
   versioning:
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.tag_version.outputs.new_version }}
+      VERSION: ${{ steps.tag_version.outputs.new_version }}.${{ GITHUB_SHA }}
     steps:
       - uses: actions/checkout@v2
       - name: Bump version and push tag
