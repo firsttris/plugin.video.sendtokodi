@@ -6,10 +6,11 @@ env:
   VERSION: 'undefined'
   TOKEN: ${{secrets.PAT}}
 jobs:
-  versioning:
+ # for PRs the versioning does not append the SHA to indicate a prerelease, we do this manually in the build-* call below
+  versioning: 
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.tag_version.outputs.new_version }}.${{ GITHUB_SHA }}
+      VERSION: ${{ steps.tag_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v2
       - name: Bump version and push tag
@@ -25,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }} Leia
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.${{ GITHUB_SHA }} Leia
       - name: Upload Addon-artifacts-Leia
         uses: actions/upload-artifact@v2
         with:
@@ -37,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }} Matrix     
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.${{ GITHUB_SHA }} Matrix     
       - name: Upload Addon-artifacts-Matrix
         uses: actions/upload-artifact@v2
         with:
