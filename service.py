@@ -17,55 +17,29 @@ def debug(content):
 
 
 def notice(content):
-    log(content, xbmc.LOGNOTICE)
+    log(content, xbmc.LOGINFO)
 
 
-def log(msg, level=xbmc.LOGNOTICE):
+def log(msg, level=xbmc.LOGINFO):
     addon = xbmcaddon.Addon()
     addonID = addon.getAddonInfo('id')
     xbmc.log('%s: %s' % (addonID, msg), level)
 
 
+# python embedded (as used in kodi) has a known bug for second calls of strptime. 
+# The python bug is docmumented here https://bugs.python.org/issue27400 
+# The following workaround patch is borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
+def patch_strptime():
+    import datetime
 
+    #fix for datatetime.strptime returns None
+    class proxydt(datetime.datetime):
+        @staticmethod
+        def strptime(date_string, format):
+            import time
+            return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
 
-from contextlib import closing
-from xbmcvfs import File
-
-# fixes python caching bug in youtube-dl
-def patchYoutubeDL():
-    
-    # if there is no comment between `ValueError:` and `pass` then we haven't patched this section before
-    toBePatched = """
-        except ValueError:
-            pass
-""" 
-
-    # The comment between `ValueError:` and `pass` ensures we won't patch it repeatedly
-    patch = """
-        except ValueError:
-            # Start: patched by SendToKodi
-            pass
-        except TypeError:
-            pass
-            # End: patched by SendToKodi
-"""
-
-    addonPath = xbmcaddon.Addon().getAddonInfo('path') 
-    youtubeDlPath = addonPath + "/youtube_dl"
-    utilsPyPath = youtubeDlPath + '/utils.py'
-
-    # Borrowed from https://forum.kodi.tv/showthread.php?tid=315590
-    with closing(File(utilsPyPath, 'r')) as fo:
-	    fileData = fo.read()
-
-    dataToWrite = fileData.replace(toBePatched, patch)
-
-    with closing(File(utilsPyPath, 'w')) as fo:
-	    fo.write(dataToWrite)
-
-patchYoutubeDL()
-
-from youtube_dl import YoutubeDL
+    datetime.datetime = proxydt
 
 
 def showInfoNotification(message):
@@ -112,7 +86,6 @@ def createListItemFromVideo(video):
     return list_item
 
 def createListItemFromFlatPlaylistItem(video):
-    import sys
     if sys.version_info >= (3, 0):
         import urllib.parse
         escapedUrl = urllib.parse.quote_plus(video['url'])
@@ -140,18 +113,25 @@ def createListItemFromFlatPlaylistItem(video):
     return listItem
 
 
-params = getParams()
+# Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
+if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
+    from lib.youtube_dl import YoutubeDL
+else:
+    from lib.yt_dlp import YoutubeDL
+    
+# patch broken strptime (see above)
+patch_strptime()
 
-#     extract_flat:      Do not resolve URLs, return the immediate result.
-#                       Pass in 'in_playlist' to only show this behavior for
-#                       playlist items.
+
+# extract_flat:  Do not resolve URLs, return the immediate result.
+#                Pass in 'in_playlist' to only show this behavior for
+#                playlist items.
 ydl_opts = {
     'format': 'best',
     'extract_flat': 'in_playlist'
 }
 
-from youtube_dl import YoutubeDL
-
+params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 ydl = YoutubeDL(ydl_opts)

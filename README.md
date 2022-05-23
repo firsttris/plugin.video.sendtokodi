@@ -1,84 +1,30 @@
 # plugin.video.sendtokodi
 
-resolves various video streams using [youtube-dl](https://github.com/rg3/youtube-dl) to play them on kodi
+[![build-publish-addon](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml)
 
-[Supported Sites](https://rg3.github.io/youtube-dl/supportedsites.html)
+This [kodi](https://github.com/xbmc/xbmc) plugin receives URLs and resolves almost all of them with [yt-dlp](https://github.com/yt-dlp/yt-dlp) creating a playable video stream for kodi. The URLs can be send with one of the supported apps listed below. The plugin itself is not in the offical kodi addon repo, to install it with automatic updates you need to add our repo first. Download the repo file for your kodi version and [install it from zip](https://kodi.wiki/view/Add-on_manager). Afterwards the repositoy should be listed and can be selected to install the actual plugin itself. 
 
-### Features
+[Download repo for kodi 18](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
 
-- send almost any link or playlist to kodi
-- [create a .m3u playlist containing your links](https://github.com/firsttris/plugin.video.sendtokodi/blob/master/playlist-example.m3u)
-- [send stream & playlists via json-rpc to kodi](#development)
-- call from your Kodi addon
-```
-xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
-```
+[Download repo for kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
+ 
+*Please note that kodi 18 is limited to python 2 only, but the used URL resolver yt-dlp requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck and development has just been resumed lately. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
 
-### Apps
-- [iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Tristan Teufel](https://github.com/firsttris)
-- [Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)
-- [Google Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
+## Features
+- [supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+- [create a .m3u playlist](./playlist-example.m3u)
+- [send streams or playlists via json-rpc](./docs/DEVELOPMENT.md)
+- [call SendToKodi from your Kodi addon](./docs/DEVELOPMENT.md)
+- addon is updated automatically
+
+
+## Supported Apps
+- [Kore, Official Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US) by [kodi](https://github.com/xbmc/Kore)
+- [SendToKodi iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Victoria Teufel](https://github.com/viciteufel)
+- [SendToKodi Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
 - [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
 - [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) by [Andreas Öhrén](https://github.com/anohren) forked from Max Grass
-	
-### Install
-
-Install latest Version:
-
-[Download Repository](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
-
-*Addon is updated continously to always have the latest youtube_dl version*
-
-### Pyhton Exception
-```
-TypeError: attribute of type 'NoneType' is not callable
-```
-[read about cause and workaround](https://github.com/firsttris/repository.sendtokodi/issues/1)
-
-### Development
-#### Example JSON Request
-```
-{
-	"jsonrpc": "2.0",
-	"method": "Player.Open",
-	"params": {
-		"item": {
-			"file": "plugin://plugin.video.sendtokodi/?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
-		}
-	},
-	"id": 1
-}
-```
-#### Example JSON Request with youtube-dl authentication
-```
-{
-	"jsonrpc": "2.0",
-	"method": "Player.Open",
-	"params": {
-		"item": {
-			"file": "plugin://plugin.video.sendtokodi/?https://vk.com/video-124136901_456239025 {\"ydlOpts\":{\"username\":\"user@email.com\",\"password\":\"password with spaces\"}}"
-		}
-	},
-	"id": 1
-}
-```
-Note: ydlOpts object will be passed directly to youtube-dl, so you can pass any [options](https://github.com/rg3/youtube-dl#options) that youtube-dl provides.
-
-#### Test with [Postman](https://www.getpostman.com/)
-
-- create new HTTP Request (POST)
-- add your endpoint e.g. http://kodi:kodi@192.168.0.138:8080/jsonrpc
-- set body to raw - application/json
-- add request to body & send
-
-### Continuous integration
-
-[![Build Status](https://travis-ci.org/firsttris/plugin.video.sendtokodi.svg?branch=master)](https://travis-ci.org/firsttris/plugin.video.sendtokodi) 
-
-:cyclone:
-
-### Sources
-- https://github.com/rg3/youtube-dl
+- [Android App](https://play.google.com/store/apps/details?id=com.yantcaccia.stk) by [Antonio Cacciapuoti](https://yantcaccia.github.io/)
 
 ## Code of Conduct
 See the [CODE](CODE_OF_CONDUCT.md)
