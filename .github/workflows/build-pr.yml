@@ -1,0 +1,46 @@
+name: build-pr
+on:
+ pull_request:
+   types: [opened, synchronize, reopened, closed]
+env:
+  VERSION: 'undefined'
+  TOKEN: ${{secrets.PAT}}
+jobs:
+ # for PRs the versioning does not append the SHA to indicate a prerelease, we do this manually in the build-* call below
+  versioning: 
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.tag_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_branches: master
+          dry_run: true
+  build-leia:
+    needs: versioning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build addon
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Leia
+      - name: Upload Addon-artifacts-Leia
+        uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-Leia
+          path: "${{ runner.temp }}/Leia/*.zip"
+  build-matrix:
+    needs: versioning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build addon
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Matrix     
+      - name: Upload Addon-artifacts-Matrix
+        uses: actions/upload-artifact@v2
+        with:
+          name: Addon-artifacts-Matrix
+          path: "${{ runner.temp }}/Matrix/*.zip"
