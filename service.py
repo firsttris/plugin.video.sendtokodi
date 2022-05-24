@@ -86,13 +86,14 @@ def createListItemFromVideo(video):
     return list_item
 
 def createListItemFromFlatPlaylistItem(video):
-    if sys.version_info >= (3, 0):
+    # this behaved inconsistently for some reason, but we probably shouldn't escape characters unless we also unescape them...
+    """if sys.version_info >= (3, 0):
         import urllib.parse
         escapedUrl = urllib.parse.quote_plus(video['url'])
     else:
         import urllib
-        escapedUrl = urllib.quote_plus(video['url'])
-    listItemUrl = __url__ + "?" + escapedUrl
+        escapedUrl = urllib.quote_plus(video['url'])"""
+    listItemUrl = __url__ + "?" + video['url']
     title = video['title']
 
     # add the extra parameters to every playlist item
