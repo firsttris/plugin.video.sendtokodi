@@ -87,7 +87,7 @@ def createListItemFromVideo(video):
 
 def createListItemFromFlatPlaylistItem(video):
     listItemUrl = __url__ + "?" + video['url']
-    title = video['title']
+    title = video['title'] if 'title' in video else video['url']
 
     # add the extra parameters to every playlist item
     paramstring = sys.argv[2]
