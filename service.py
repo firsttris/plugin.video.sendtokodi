@@ -85,6 +85,35 @@ def createListItemFromVideo(video):
 
     return list_item
 
+def createListItemFromFlatPlaylistItem(video):
+    listItemUrl = __url__ + "?" + video['url']
+    title = video['title'] if 'title' in video else video['url']
+
+    # add the extra parameters to every playlist item
+    paramstring = sys.argv[2]
+    additionalParamsIndex = paramstring.find(' ')
+    if additionalParamsIndex != -1:
+        additionalParamsString = paramstring[additionalParamsIndex:]
+        listItemUrl = listItemUrl + " " + additionalParamsString
+    
+    listItem = xbmcgui.ListItem(
+        path            = listItemUrl,
+        label           = title
+    )
+
+    # the method isn't available in Kodi < 18. Doesn't seem to affect behavior, and can probably be set manually using setProperty() if needed
+    # listItem.setIsFolder(False)
+
+    listItem.setInfo(
+        type        = 'Video', # not really known at this point, but required
+        infoLabels  = {'Title': title }
+    )
+
+    # both `true` and `false` are recommended here...
+    listItem.setProperty("IsPlayable","true")
+
+    return listItem
+
 
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
@@ -95,8 +124,13 @@ else:
 # patch broken strptime (see above)
 patch_strptime()
 
+
+# extract_flat:  Do not resolve URLs, return the immediate result.
+#                Pass in 'in_playlist' to only show this behavior for
+#                playlist items.
 ydl_opts = {
-    'format': 'best'
+    'format': 'best',
+    'extract_flat': 'in_playlist'
 }
 
 params = getParams()
@@ -110,13 +144,23 @@ with ydl:
     result = ydl.extract_info(url, download=False)
 
 if 'entries' in result:
-    # Playlist
+    # more than one video
     pl = xbmc.PlayList(1)
     pl.clear()
-    for video in result['entries']:
-        list_item = createListItemFromVideo(video);
-        xbmc.PlayList(1).add(list_item.getPath(), list_item)
-    xbmc.Player().play(pl)
+
+    # make sure first ListItem has a resolved url, to avoid recursion and Kodi crashes
+    firstVideoUrl = result['entries'][0]['url']
+    firstItem = createListItemFromVideo(ydl.extract_info(firstVideoUrl, download=False))
+    pl.add(firstItem.getPath(), firstItem)
+    
+    for video in result['entries'][1:]:
+        list_item = createListItemFromFlatPlaylistItem(video)
+        pl.add(list_item.getPath(), list_item)
+
+    #xbmc.Player().play(pl) # this probably works again
+    # ...but start playback the same way the Youtube plugin does it:
+    xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', 0))
+
     showInfoNotification("playing playlist " + result['title'])
 else:
     # Just a video, pass the item to the Kodi player.
