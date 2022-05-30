@@ -143,8 +143,6 @@ def playlistIndex(url, playlist):
         pass
     
     for i, entry in enumerate(playlist['entries']):
-        print(i)
-        print(entry)
         if entry['id'] == v:
             print('iteration match')
             return i
