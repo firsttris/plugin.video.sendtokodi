@@ -116,7 +116,7 @@ def createListItemFromFlatPlaylistItem(video):
 
 # get the index of the first video to be played in the submitted playlist url
 def playlistIndex(url, playlist):
-    if sys.version_info >= (3, 0):
+    if sys.version_info[0] >= 3:
         from urllib.parse import urlparse, parse_qs
     else:
         from urlparse import urlparse, parse_qs 
@@ -125,29 +125,22 @@ def playlistIndex(url, playlist):
     queryParams = parse_qs(query)
     
     if 'v' not in queryParams:
-        print('no v param')
         return None
     
     v = queryParams['v'][0]
     
     try:
-        print('try')
         # youtube playlist indices start at 1
         index = int(queryParams.get('index')[0]) - 1
-        print(index)
         if playlist['entries'][index]['id'] == v:
-            print('index match')
             return index
     except:
-        print('exception')
         pass
     
     for i, entry in enumerate(playlist['entries']):
         if entry['id'] == v:
-            print('iteration match')
             return i
     
-    print('no match')
     return None
 
 
@@ -184,7 +177,7 @@ if 'entries' in result:
     pl = xbmc.PlayList(1)
     pl.clear()
 
-    # jump in the queue to the video specified in the url
+    # determine which index in the queue to start playing from
     indexToStartAt = playlistIndex(url, result)
     if indexToStartAt == None:
         indexToStartAt = 0
@@ -209,5 +202,5 @@ if 'entries' in result:
     showInfoNotification("Playing playlist " + result['title'])
 else:
     # Just a video, pass the item to the Kodi player.
-    showInfoNotification("playing title " + result['title'])
+    showInfoNotification("Playing title " + result['title'])
     xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
