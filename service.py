@@ -114,6 +114,35 @@ def createListItemFromFlatPlaylistItem(video):
 
     return listItem
 
+# get the index of the first video to be played in the submitted playlist url
+def playlistIndex(url, playlist):
+    if sys.version_info[0] >= 3:
+        from urllib.parse import urlparse, parse_qs
+    else:
+        from urlparse import urlparse, parse_qs 
+    
+    query = urlparse(url).query
+    queryParams = parse_qs(query)
+    
+    if 'v' not in queryParams:
+        return None
+    
+    v = queryParams['v'][0]
+    
+    try:
+        # youtube playlist indices start at 1
+        index = int(queryParams.get('index')[0]) - 1
+        if playlist['entries'][index]['id'] == v:
+            return index
+    except:
+        pass
+    
+    for i, entry in enumerate(playlist['entries']):
+        if entry['id'] == v:
+            return i
+    
+    return None
+
 
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
@@ -140,7 +169,7 @@ ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
 with ydl:
-    showInfoNotification("resolving stream(s) for " + url)
+    showInfoNotification("Resolving stream(s) for " + url)
     result = ydl.extract_info(url, download=False)
 
 if 'entries' in result:
@@ -148,21 +177,30 @@ if 'entries' in result:
     pl = xbmc.PlayList(1)
     pl.clear()
 
-    # make sure first ListItem has a resolved url, to avoid recursion and Kodi crashes
-    firstVideoUrl = result['entries'][0]['url']
-    firstItem = createListItemFromVideo(ydl.extract_info(firstVideoUrl, download=False))
-    pl.add(firstItem.getPath(), firstItem)
-    
-    for video in result['entries'][1:]:
+    # determine which index in the queue to start playing from
+    indexToStartAt = playlistIndex(url, result)
+    if indexToStartAt == None:
+        indexToStartAt = 0
+
+    unresolvedEntries = result['entries']
+    startingEntry = unresolvedEntries.pop(indexToStartAt)
+
+    # populate the queue with unresolved entries so that the starting entry can be inserted
+    for video in unresolvedEntries:
         list_item = createListItemFromFlatPlaylistItem(video)
         pl.add(list_item.getPath(), list_item)
 
+    # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
+    startingVideoUrl = startingEntry['url']
+    startingItem = createListItemFromVideo(ydl.extract_info(startingVideoUrl, download=False))
+    pl.add(startingItem.getPath(), startingItem, indexToStartAt)
+    
     #xbmc.Player().play(pl) # this probably works again
     # ...but start playback the same way the Youtube plugin does it:
-    xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', 0))
+    xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
 
-    showInfoNotification("playing playlist " + result['title'])
+    showInfoNotification("Playing playlist " + result['title'])
 else:
     # Just a video, pass the item to the Kodi player.
-    showInfoNotification("playing title " + result['title'])
+    showInfoNotification("Playing title " + result['title'])
     xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
