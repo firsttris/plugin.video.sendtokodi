@@ -35,9 +35,10 @@ replace this line with your log
 **In case a certain website does not work for you**
 - sendtokodi uses a third-party resolver to extract playable media URLs from your input
 - You can choose between [youtube-dl](https://github.com/ytdl-org/youtube-dl) and [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-  - If you have not changed anything in the setting the default is yt-dlp for kodi 19 and above and youtube-dl fro earlier versions 
-- Please search their issue trackers and make sure that the issue is not already known there but an actual problem with sendtokodi
-- In case they have an issue there is nothing we can do but wait. sendtokodi will automatically be updated as soon as they release a fix.
+  - If you have not changed anything in the addon settings the default is yt-dlp for kodi 19 and above while it is youtube-dl for earlier versions 
+- Please search their corresponding issue tracker and make sure that the issue is not already known there but an actual problem with sendtokodi
+- In case they have an issue on the topic already, there is nothing we can do but wait. 
+  - sendtokodi will automatically be updated as soon as they release a fix.
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
