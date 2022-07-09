@@ -104,6 +104,10 @@ from .atttechchannel import ATTTechChannelIE
 from .atvat import ATVAtIE
 from .audimedia import AudiMediaIE
 from .audioboom import AudioBoomIE
+from .audiodraft import (
+    AudiodraftCustomIE,
+    AudiodraftGenericIE,
+)
 from .audiomack import AudiomackIE, AudiomackAlbumIE
 from .audius import (
     AudiusIE,
@@ -830,6 +834,7 @@ from .linkedin import (
     LinkedInLearningCourseIE,
 )
 from .linuxacademy import LinuxAcademyIE
+from .liputan6 import Liputan6IE
 from .litv import LiTVIE
 from .livejournal import LiveJournalIE
 from .livestream import (

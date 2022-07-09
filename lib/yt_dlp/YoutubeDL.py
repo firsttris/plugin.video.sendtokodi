@@ -43,9 +43,11 @@ from .postprocessor import (
     FFmpegFixupTimestampPP,
     FFmpegMergerPP,
     FFmpegPostProcessor,
+    FFmpegVideoConvertorPP,
     MoveFilesAfterDownloadPP,
     get_postprocessor,
 )
+from .postprocessor.ffmpeg import resolve_mapping as resolve_recode_mapping
 from .update import detect_variant
 from .utils import (
     DEFAULT_OUTTMPL,
@@ -90,6 +92,7 @@ from .utils import (
     encode_compat_str,
     encodeFilename,
     error_to_compat_str,
+    escapeHTML,
     expand_path,
     filter_dict,
     float_or_none,
@@ -1046,7 +1049,7 @@ class YoutubeDL:
     def validate_outtmpl(cls, outtmpl):
         ''' @return None or Exception object '''
         outtmpl = re.sub(
-            STR_FORMAT_RE_TMPL.format('[^)]*', '[ljqBUDS]'),
+            STR_FORMAT_RE_TMPL.format('[^)]*', '[ljhqBUDS]'),
             lambda mobj: f'{mobj.group(0)[:-1]}s',
             cls._outtmpl_expandpath(outtmpl))
         try:
@@ -1089,7 +1092,7 @@ class YoutubeDL:
         }
 
         TMPL_DICT = {}
-        EXTERNAL_FORMAT_RE = re.compile(STR_FORMAT_RE_TMPL.format('[^)]*', f'[{STR_FORMAT_TYPES}ljqBUDS]'))
+        EXTERNAL_FORMAT_RE = re.compile(STR_FORMAT_RE_TMPL.format('[^)]*', f'[{STR_FORMAT_TYPES}ljhqBUDS]'))
         MATH_FUNCTIONS = {
             '+': float.__add__,
             '-': float.__sub__,
@@ -1198,6 +1201,8 @@ class YoutubeDL:
                 value, fmt = delim.join(map(str, variadic(value, allowed_types=(str, bytes)))), str_fmt
             elif fmt[-1] == 'j':  # json
                 value, fmt = json.dumps(value, default=_dumpjson_default, indent=4 if '#' in flags else None), str_fmt
+            elif fmt[-1] == 'h':  # html
+                value, fmt = escapeHTML(value), str_fmt
             elif fmt[-1] == 'q':  # quoted
                 value = map(str, variadic(value) if '#' in flags else [value])
                 value, fmt = ' '.join(map(compat_shlex_quote, value)), str_fmt
@@ -3178,22 +3183,23 @@ class YoutubeDL:
                             self.report_warning(f'{vid}: {msg}. Install ffmpeg to fix this automatically')
 
                     stretched_ratio = info_dict.get('stretched_ratio')
-                    ffmpeg_fixup(
-                        stretched_ratio not in (1, None),
-                        f'Non-uniform pixel ratio {stretched_ratio}',
-                        FFmpegFixupStretchedPP)
-
-                    ffmpeg_fixup(
-                        (info_dict.get('requested_formats') is None
-                         and info_dict.get('container') == 'm4a_dash'
-                         and info_dict.get('ext') == 'm4a'),
-                        'writing DASH m4a. Only some players support this container',
-                        FFmpegFixupM4aPP)
+                    ffmpeg_fixup(stretched_ratio not in (1, None),
+                                 f'Non-uniform pixel ratio {stretched_ratio}',
+                                 FFmpegFixupStretchedPP)
 
                     downloader = get_suitable_downloader(info_dict, self.params) if 'protocol' in info_dict else None
                     downloader = downloader.FD_NAME if downloader else None
 
-                    if info_dict.get('requested_formats') is None:  # Not necessary if doing merger
+                    ext = info_dict.get('ext')
+                    postprocessed_by_ffmpeg = info_dict.get('requested_formats') or any((
+                        isinstance(pp, FFmpegVideoConvertorPP)
+                        and resolve_recode_mapping(ext, pp.mapping)[0] not in (ext, None)
+                    ) for pp in self._pps['post_process'])
+
+                    if not postprocessed_by_ffmpeg:
+                        ffmpeg_fixup(ext == 'm4a' and info_dict.get('container') == 'm4a_dash',
+                                     'writing DASH m4a. Only some players support this container',
+                                     FFmpegFixupM4aPP)
                         ffmpeg_fixup(downloader == 'hlsnative' and not self.params.get('hls_use_mpegts')
                                      or info_dict.get('is_live') and self.params.get('hls_use_mpegts') is None,
                                      'Possible MPEG-TS in MP4 container or malformed AAC timestamps',
