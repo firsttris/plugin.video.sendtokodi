@@ -182,7 +182,7 @@ if 'entries' in result:
     if indexToStartAt == None:
         indexToStartAt = 0
 
-    unresolvedEntries = result['entries']
+    unresolvedEntries = list(result['entries'])
     startingEntry = unresolvedEntries.pop(indexToStartAt)
 
     # populate the queue with unresolved entries so that the starting entry can be inserted
