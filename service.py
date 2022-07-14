@@ -77,8 +77,9 @@ def createListItemFromVideo(video):
     url = video['url']
     thumbnail = video.get('thumbnail')
     title = video['title']
+    description = video['description'] if 'description' in video else None
     list_item = xbmcgui.ListItem(title, path=url)
-    list_item.setInfo(type='Video', infoLabels={'Title': title})
+    list_item.setInfo(type='Video', infoLabels={'Title': title, 'plot': description})
 
     if thumbnail is not None:
         list_item.setArt({'thumb': thumbnail})
