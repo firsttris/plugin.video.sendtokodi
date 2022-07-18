@@ -11,13 +11,14 @@ import math
 import netrc
 import os
 import random
+import re
 import sys
 import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree
 
-from ..compat import functools, re  # isort: split
+from ..compat import functools  # isort: split
 from ..compat import compat_etree_fromstring, compat_expanduser, compat_os_name
 from ..downloader import FileDownloader
 from ..downloader.f4m import get_base_url, remove_encrypted_media
@@ -931,9 +932,9 @@ class InfoExtractor:
 
     def __print_error(self, errnote, fatal, video_id, err):
         if fatal:
-            raise ExtractorError(f'{video_id}: {errnote} ', cause=err)
+            raise ExtractorError(f'{video_id}: {errnote}', cause=err)
         elif errnote:
-            self.report_warning(f'{video_id}: {errnote} {err}')
+            self.report_warning(f'{video_id}: {errnote}: {err}')
 
     def _parse_xml(self, xml_string, video_id, transform_source=None, fatal=True, errnote=None):
         if transform_source:
