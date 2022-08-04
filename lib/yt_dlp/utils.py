@@ -40,6 +40,7 @@ import tempfile
 import time
 import traceback
 import types
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -647,6 +648,9 @@ def sanitize_filename(s, restricted=False, is_id=NO_DEFAULT):
             return ACCENT_CHARS[char]
         elif not restricted and char == '\n':
             return '\0 '
+        elif is_id is NO_DEFAULT and not restricted and char in '"*:<>?|/\\':
+            # Replace with their full-width unicode counterparts
+            return {'/': '\u29F8', '\\': '\u29f9'}.get(char, chr(ord(char) + 0xfee0))
         elif char == '?' or ord(char) < 32 or ord(char) == 127:
             return ''
         elif char == '"':
@@ -659,6 +663,8 @@ def sanitize_filename(s, restricted=False, is_id=NO_DEFAULT):
             return '\0_'
         return char
 
+    if restricted and is_id is NO_DEFAULT:
+        s = unicodedata.normalize('NFKC', s)
     s = re.sub(r'[0-9]+(?::[0-9]+)+', lambda m: m.group(0).replace(':', '_'), s)  # Handle timestamps
     result = ''.join(map(replace_insane, s))
     if is_id is NO_DEFAULT:
@@ -3456,6 +3462,46 @@ def parse_codecs(codecs_str):
     return {}
 
 
+def get_compatible_ext(*, vcodecs, acodecs, vexts, aexts, preferences=None):
+    assert len(vcodecs) == len(vexts) and len(acodecs) == len(aexts)
+
+    allow_mkv = not preferences or 'mkv' in preferences
+
+    if allow_mkv and max(len(acodecs), len(vcodecs)) > 1:
+        return 'mkv'  # TODO: any other format allows this?
+
+    # TODO: All codecs supported by parse_codecs isn't handled here
+    COMPATIBLE_CODECS = {
+        'mp4': {
+            'av1', 'hevc', 'avc1', 'mp4a',  # fourcc (m3u8, mpd)
+            'h264', 'aacl',  # Set in ISM
+        },
+        'webm': {
+            'av1', 'vp9', 'vp8', 'opus', 'vrbs',
+            'vp9x', 'vp8x',  # in the webm spec
+        },
+    }
+
+    sanitize_codec = functools.partial(try_get, getter=lambda x: x.split('.')[0].replace('0', ''))
+    vcodec, acodec = sanitize_codec(vcodecs[0]), sanitize_codec(acodecs[0])
+
+    for ext in preferences or COMPATIBLE_CODECS.keys():
+        codec_set = COMPATIBLE_CODECS.get(ext, set())
+        if ext == 'mkv' or codec_set.issuperset((vcodec, acodec)):
+            return ext
+
+    COMPATIBLE_EXTS = (
+        {'mp3', 'mp4', 'm4a', 'm4p', 'm4b', 'm4r', 'm4v', 'ismv', 'isma', 'mov'},
+        {'webm'},
+    )
+    for ext in preferences or vexts:
+        current_exts = {ext, *vexts, *aexts}
+        if ext == 'mkv' or current_exts == {ext} or any(
+                ext_sets.issuperset(current_exts) for ext_sets in COMPATIBLE_EXTS):
+            return ext
+    return 'mkv' if allow_mkv else preferences[-1]
+
+
 def urlhandle_detect_ext(url_handle):
     getheader = url_handle.headers.get
 
@@ -5699,7 +5745,7 @@ class RetryManager:
         if not count:
             return warn(e)
         elif isinstance(e, ExtractorError):
-            e = remove_end(e.cause or e.orig_msg, '.')
+            e = remove_end(str(e.cause) or e.orig_msg, '.')
         warn(f'{e}. Retrying{format_field(suffix, None, " %s")} ({count}/{retries})...')
 
         delay = float_or_none(sleep_func(n=count - 1)) if callable(sleep_func) else sleep_func
