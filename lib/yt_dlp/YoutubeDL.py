@@ -144,7 +144,7 @@ from .utils import (
     write_json_file,
     write_string,
 )
-from .version import RELEASE_GIT_HEAD, __version__
+from .version import RELEASE_GIT_HEAD, VARIANT, __version__
 
 if compat_os_name == 'nt':
     import ctypes
@@ -1797,6 +1797,8 @@ class YoutubeDL:
             })
 
             if self._match_entry(entry_copy, incomplete=True) is not None:
+                # For compatabilty with youtube-dl. See https://github.com/yt-dlp/yt-dlp/issues/4369
+                resolved_entries[i] = (playlist_index, NO_DEFAULT)
                 continue
 
             self.to_screen('[download] Downloading video %s of %s' % (
@@ -1817,7 +1819,8 @@ class YoutubeDL:
                 resolved_entries[i] = (playlist_index, entry_result)
 
         # Update with processed data
-        ie_result['requested_entries'], ie_result['entries'] = tuple(zip(*resolved_entries)) or ([], [])
+        ie_result['requested_entries'] = [i for i, e in resolved_entries if e is not NO_DEFAULT]
+        ie_result['entries'] = [e for _, e in resolved_entries if e is not NO_DEFAULT]
 
         # Write the updated info to json
         if _infojson_written is True and self._write_info_json(
@@ -3676,6 +3679,8 @@ class YoutubeDL:
             write_debug = lambda msg: self._write_string(f'[debug] {msg}\n')
 
         source = detect_variant()
+        if VARIANT not in (None, 'pip'):
+            source += '*'
         write_debug(join_nonempty(
             'yt-dlp version', __version__,
             f'[{RELEASE_GIT_HEAD}]' if RELEASE_GIT_HEAD else '',
