@@ -2,6 +2,7 @@
 <addon id="plugin.video.sendtokodi" name="SendToKodi" version="100.0.0" provider-name="firsttris">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.inputstreamhelper" version="0.4.2"/>
   </requires>
   <extension point="xbmc.python.pluginsource" library="service.py">
       <provides>video</provides>

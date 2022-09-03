@@ -16,5 +16,15 @@
 				</setting>
 			</group>
 		</category>
+		<category id="adaptive" label="33000">
+			<group id="2">
+				<setting label="33010" type="action" action="RunScript(script.module.inputstreamhelper,info)"/>
+				<setting type="boolean" id="usemanifest" label="33011">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle" />
+				</setting>
+			</group>
+		</category>
 	</section>
 </settings>

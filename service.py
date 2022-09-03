@@ -72,9 +72,73 @@ def getParams():
     return result
 
 
+def extract_manifest_url(result):
+    # sometimes there is an url directly 
+    # but for some extractors this is only one quality (so no real adaptive streaming)
+    if 'manifest_url' in result:
+        return result['manifest_url']
+    # otherwise we must relay that the requested formats have been found and 
+    # extract the manifest url from them
+    if 'requested_formats' not in result:
+        return None
+    for entry in result['requested_formats']:
+        if 'manifest_url' not in entry:
+            continue
+        # entry might already have video and audio (resolver returns string literal none)
+        if entry['vcodec'] != 'none' and entry['acodec'] != 'none':
+            return entry['manifest_url']
+        # search for a manifest url that is the same for two entries (one with audio, one with video)
+        for other_entry in result['requested_formats']:
+            if entry == other_entry or 'manifest_url' not in other_entry:
+                continue
+            if (((entry['vcodec'] != 'none' and 
+                other_entry['acodec'] != 'none') or
+                (entry['acodec'] != 'none' and 
+                other_entry['vcodec'] != 'none')) and
+                entry['manifest_url'] == other_entry['manifest_url']):
+                return entry['manifest_url']
+    return None
+
+
+def extract_best_all_in_one_stream(result):
+    audio_video_streams = [] 
+    filter_format = (lambda f: f.get('vcodec') != 'none' and f.get('acodec') != 'none')
+    for entry in result['formats']:
+        if filter_format(entry):
+            audio_video_streams.append(entry)
+    # get the one with the highest resolution
+    if not audio_video_streams:
+        return None
+    return max(audio_video_streams, key=lambda f: f['width'])['url'] 
+
+def check_if_kodi_supports_manifest(url):
+    from inputstreamhelper import Helper
+    file_ending = url.split('.')[-1]
+    is_helper = Helper({'m3u8':'hls', 'mpd':'mpd', 'rtmp':'rtmp', 'ism':'ism'}[file_ending]) 
+    supported = is_helper.check_inputstream()
+    if not supported:
+        msg = "your kodi instance does not support the adaptive stream manifest type " + file_ending + ", might need to install the adpative stream plugin"
+        showInfoNotification("msg")
+        log(msg=msg, level=xbmc.LOGWARNING)
+    return supported
+
 def createListItemFromVideo(video):
     debug(video)
-    url = video['url']
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+        url = extract_manifest_url(result)
+        if url is None:
+            log("could not find an original manifest falling back to best all-in-one stream")
+            url = extract_best_all_in_one_stream(result)
+        else:
+            log("found original manifest: " + url)
+            if not check_if_kodi_supports_manifest:
+                url = None
+        if url is None:
+            log("Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34")
+            showInfoNotification("This video is currently not supported, see https://github.com/firsttris/plugin.video.sendtokodi/issues/34")
+            exit(1)
+    else:
+        url = video['url']
     thumbnail = video.get('thumbnail')
     title = video['title']
     description = video['description'] if 'description' in video else None
@@ -154,7 +218,6 @@ else:
 # patch broken strptime (see above)
 patch_strptime()
 
-
 # extract_flat:  Do not resolve URLs, return the immediate result.
 #                Pass in 'in_playlist' to only show this behavior for
 #                playlist items.
@@ -166,6 +229,8 @@ ydl_opts = {
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
+if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+    ydl_opts['format'] = 'bestvideo*+bestaudio/best'
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 

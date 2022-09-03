@@ -35,3 +35,16 @@ msgstr ""
 msgctxt "#32022"
 msgid "yt-dlp (kodi 19+ only)"
 msgstr ""
+
+msgctxt "#33000"
+msgid "Adpative"
+msgstr ""
+
+msgctxt "#33010"
+msgid "Check if my kodi supports adaptive streaming"
+msgstr ""
+
+msgctxt "#33011"
+msgid "Use original manifest (experimental)"
+msgstr ""
+
