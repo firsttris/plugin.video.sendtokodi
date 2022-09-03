@@ -82,21 +82,10 @@ def extract_manifest_url(result):
     if 'requested_formats' not in result:
         return None
     for entry in result['requested_formats']:
-        if 'manifest_url' not in entry:
-            continue
-        # entry might already have video and audio (resolver returns string literal none)
-        if entry['vcodec'] != 'none' and entry['acodec'] != 'none':
+        # the resolver marks not all entries with video AND audio 
+        # but usually adaptive video streams also have audio
+        if 'manifest_url' and 'vcodec' in entry:
             return entry['manifest_url']
-        # search for a manifest url that is the same for two entries (one with audio, one with video)
-        for other_entry in result['requested_formats']:
-            if entry == other_entry or 'manifest_url' not in other_entry:
-                continue
-            if (((entry['vcodec'] != 'none' and 
-                other_entry['acodec'] != 'none') or
-                (entry['acodec'] != 'none' and 
-                other_entry['vcodec'] != 'none')) and
-                entry['manifest_url'] == other_entry['manifest_url']):
-                return entry['manifest_url']
     return None
 
 
