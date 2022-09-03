@@ -84,7 +84,7 @@ def extract_manifest_url(result):
     for entry in result['requested_formats']:
         # the resolver marks not all entries with video AND audio 
         # but usually adaptive video streams also have audio
-        if 'manifest_url' and 'vcodec' in entry:
+        if 'manifest_url' in entry and 'vcodec' in entry:
             return entry['manifest_url']
     return None
 
