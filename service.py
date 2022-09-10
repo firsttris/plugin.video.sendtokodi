@@ -90,15 +90,32 @@ def extract_manifest_url(result):
 
 
 def extract_best_all_in_one_stream(result):
+    # if there is nothing to choose from simply take the shot it is correct
+    if len(result['formats']) == 1:
+        return result['formats'][0]['url'] 
     audio_video_streams = [] 
-    filter_format = (lambda f: f.get('vcodec') != 'none' and f.get('acodec') != 'none')
+    filter_format = (lambda f: f.get('vcodec', 'none') != 'none' and f.get('acodec', 'none') != 'none')
+    # assume it is a video containg audio. Get the one with the highest resolution
     for entry in result['formats']:
         if filter_format(entry):
             audio_video_streams.append(entry)
-    # get the one with the highest resolution
-    if not audio_video_streams:
-        return None
-    return max(audio_video_streams, key=lambda f: f['width'])['url'] 
+    if audio_video_streams:
+            return max(audio_video_streams, key=lambda f: f['width'])['url'] 
+    # test if it is an audio only stream
+    if result['vcodec'] == 'none': 
+        # in case of multiple audio streams get the best
+        audio_streams = []
+        filter_format = (lambda f: f.get('abr', 'none') != 'none')
+        for entry in result['formats']:
+            if filter_format(entry):
+                audio_streams.append(entry)
+        if audio_streams:
+            return max(audio_streams, key=lambda f: f['abr'])['url'] 
+        # not all extractors provide an abr (and other fields are also not guaranteed), try to get any audio 
+        if (entry.get('acodec', 'none') != 'none') or entry.get('ext', False) in ['mp3', 'wav', 'opus']:
+            return entry['url']      
+    # was not able to resolve
+    return None
 
 def check_if_kodi_supports_manifest(url):
     from inputstreamhelper import Helper
