@@ -103,39 +103,44 @@ def extract_best_all_in_one_stream(result):
 def check_if_kodi_supports_manifest(url):
     from inputstreamhelper import Helper
     file_ending = url.split('.')[-1]
-    is_helper = Helper({'m3u8':'hls', 'mpd':'mpd', 'rtmp':'rtmp', 'ism':'ism'}[file_ending]) 
+    adaptive_type = {'m3u8':'hls', 'mpd':'mpd', 'rtmp':'rtmp', 'ism':'ism'}[file_ending]
+    is_helper = Helper(adaptive_type) 
     supported = is_helper.check_inputstream()
     if not supported:
         msg = "your kodi instance does not support the adaptive stream manifest type " + file_ending + ", might need to install the adpative stream plugin"
         showInfoNotification("msg")
         log(msg=msg, level=xbmc.LOGWARNING)
-    return supported
+    return adaptive_type, supported
 
-def createListItemFromVideo(video):
-    debug(video)
+def createListItemFromVideo(result):
+    debug(result)
+    adaptive = False
     if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
         url = extract_manifest_url(result)
-        if url is None:
-            log("could not find an original manifest falling back to best all-in-one stream")
-            url = extract_best_all_in_one_stream(result)
-        else:
+        if url is not None:
             log("found original manifest: " + url)
-            if not check_if_kodi_supports_manifest:
-                url = None
+            adaptive, supported = check_if_kodi_supports_manifest(url)
+            if not supported:
+                url = None 
         if url is None:
-            log("Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34")
-            showInfoNotification("This video is currently not supported, see https://github.com/firsttris/plugin.video.sendtokodi/issues/34")
-            exit(1)
+            log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
+            url = extract_best_all_in_one_stream(result)
+        if url is None:
+            err_msg = "Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34"
+            log(err_msg)
+            showInfoNotification(err_msg)
+            raise Exception(err_msg)
     else:
-        url = video['url']
-    thumbnail = video.get('thumbnail')
-    title = video['title']
-    description = video['description'] if 'description' in video else None
-    list_item = xbmcgui.ListItem(title, path=url)
-    list_item.setInfo(type='Video', infoLabels={'Title': title, 'plot': description})
+        url = result['url']
 
-    if thumbnail is not None:
-        list_item.setArt({'thumb': thumbnail})
+    list_item = xbmcgui.ListItem(result['title'], path=url)
+    list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
+    if result.get('thumbnail', None) is not None:
+        list_item.setArt({'thumb': result['thumbnail']})
+    if adaptive:
+        list_item.setProperty('inputstream', 'inputstream.adaptive')
+        list_item.setProperty('inputstream.adaptive.manifest_type', adaptive)
+
 
     return list_item
 
