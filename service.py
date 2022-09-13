@@ -74,8 +74,8 @@ def getParams():
 
 def extract_manifest_url(result):
     # sometimes there is an url directly 
-    # but for some extractors this is only one quality (so no real adaptive streaming)
-    if 'manifest_url' in result:
+    # but for some extractors this is only one quality and sometimes not even a real manifest
+    if 'manifest_url' in result and get_adaptive_type_from_url(result['manifest_url']):
         return result['manifest_url']
     # otherwise we must relay that the requested formats have been found and 
     # extract the manifest url from them
@@ -84,7 +84,7 @@ def extract_manifest_url(result):
     for entry in result['requested_formats']:
         # the resolver marks not all entries with video AND audio 
         # but usually adaptive video streams also have audio
-        if 'manifest_url' in entry and 'vcodec' in entry:
+        if 'manifest_url' in entry and 'vcodec' in entry and get_adaptive_type_from_url(result['manifest_url']):
             return entry['manifest_url']
     return None
 
@@ -102,7 +102,7 @@ def extract_best_all_in_one_stream(result):
     if audio_video_streams:
             return max(audio_video_streams, key=lambda f: f['width'])['url'] 
     # test if it is an audio only stream
-    if result['vcodec'] == 'none': 
+    if result.get('vcodec', 'none') == 'none': 
         # in case of multiple audio streams get the best
         audio_streams = []
         filter_format = (lambda f: f.get('abr', 'none') != 'none')
@@ -117,26 +117,38 @@ def extract_best_all_in_one_stream(result):
     # was not able to resolve
     return None
 
+def get_adaptive_type_from_url(url):
+    supported_endings = [".m3u8", ".hls", ".mpd", ".rtmp", ".ism"]
+    file = url.split('/')[-1]
+    for ending in supported_endings:
+        if ending in file:
+            # adaptive input stream plugin needs the type which is not the same as the file ending
+            if ending  == ".m3u8":  
+                return "hls"
+            else:
+                return ending.lstrip('.')
+    log("Manifest type could not be identified for {}".format(file))
+    return False
+
 def check_if_kodi_supports_manifest(url):
     from inputstreamhelper import Helper
-    file_ending = url.split('.')[-1]
-    adaptive_type = {'m3u8':'hls', 'mpd':'mpd', 'rtmp':'rtmp', 'ism':'ism'}[file_ending]
+    adaptive_type = get_adaptive_type_from_url(url)
     is_helper = Helper(adaptive_type) 
     supported = is_helper.check_inputstream()
     if not supported:
-        msg = "your kodi instance does not support the adaptive stream manifest type " + file_ending + ", might need to install the adpative stream plugin"
+        msg = "your kodi instance does not support the adaptive stream manifest of " + url + ", might need to install the adpative stream plugin"
         showInfoNotification("msg")
         log(msg=msg, level=xbmc.LOGWARNING)
     return adaptive_type, supported
 
 def createListItemFromVideo(result):
     debug(result)
-    adaptive = False
+    adaptive_type = False
     if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
         url = extract_manifest_url(result)
         if url is not None:
             log("found original manifest: " + url)
-            adaptive, supported = check_if_kodi_supports_manifest(url)
+            adaptive_type, supported = check_if_kodi_supports_manifest(url)
             if not supported:
                 url = None 
         if url is None:
@@ -149,14 +161,14 @@ def createListItemFromVideo(result):
             raise Exception(err_msg)
     else:
         url = result['url']
-
+    log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
     list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
-    if adaptive:
+    if adaptive_type:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
-        list_item.setProperty('inputstream.adaptive.manifest_type', adaptive)
+        list_item.setProperty('inputstream.adaptive.manifest_type', adaptive_type)
 
 
     return list_item
