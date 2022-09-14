@@ -509,7 +509,7 @@ class InfoExtractor:
             'password': f'Use {password_hint}',
             'cookies': (
                 'Use --cookies-from-browser or --cookies for the authentication. '
-                'See  https://github.com/ytdl-org/youtube-dl#how-do-i-pass-cookies-to-youtube-dl  for how to manually pass cookies'),
+                'See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies'),
         }[method if method is not NO_DEFAULT else 'any' if self.supports_login() else 'cookies']
 
     def __init__(self, downloader=None):
@@ -2914,6 +2914,8 @@ class InfoExtractor:
 
                     def prepare_template(template_name, identifiers):
                         tmpl = representation_ms_info[template_name]
+                        if representation_id is not None:
+                            tmpl = tmpl.replace('$RepresentationID$', representation_id)
                         # First of, % characters outside $...$ templates
                         # must be escaped by doubling for proper processing
                         # by % operator string formatting used further (see
@@ -2928,8 +2930,6 @@ class InfoExtractor:
                                 t += c
                         # Next, $...$ templates are translated to their
                         # %(...) counterparts to be used with % operator
-                        if representation_id is not None:
-                            t = t.replace('$RepresentationID$', representation_id)
                         t = re.sub(r'\$(%s)\$' % '|'.join(identifiers), r'%(\1)d', t)
                         t = re.sub(r'\$(%s)%%([^$]+)\$' % '|'.join(identifiers), r'%(\1)\2', t)
                         t.replace('$$', '$')

@@ -84,7 +84,6 @@ from .americastestkitchen import (
     AmericasTestKitchenSeasonIE,
 )
 from .angel import AngelIE
-from .animeondemand import AnimeOnDemandIE
 from .anvato import AnvatoIE
 from .aol import AolIE
 from .allocine import AllocineIE
@@ -938,6 +937,7 @@ from .mediasite import (
     MediasiteCatalogIE,
     MediasiteNamedCatalogIE,
 )
+from .mediaworksnz import MediaWorksNZVODIE
 from .medici import MediciIE
 from .megaphone import MegaphoneIE
 from .meipai import MeipaiIE
