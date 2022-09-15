@@ -72,17 +72,104 @@ def getParams():
     return result
 
 
-def createListItemFromVideo(video):
-    debug(video)
-    url = video['url']
-    thumbnail = video.get('thumbnail')
-    title = video['title']
-    description = video['description'] if 'description' in video else None
-    list_item = xbmcgui.ListItem(title, path=url)
-    list_item.setInfo(type='Video', infoLabels={'Title': title, 'plot': description})
+def extract_manifest_url(result):
+    # sometimes there is an url directly 
+    # but for some extractors this is only one quality and sometimes not even a real manifest
+    if 'manifest_url' in result and get_adaptive_type_from_url(result['manifest_url']):
+        return result['manifest_url']
+    # otherwise we must relay that the requested formats have been found and 
+    # extract the manifest url from them
+    if 'requested_formats' not in result:
+        return None
+    for entry in result['requested_formats']:
+        # the resolver marks not all entries with video AND audio 
+        # but usually adaptive video streams also have audio
+        if 'manifest_url' in entry and 'vcodec' in entry and get_adaptive_type_from_url(entry['manifest_url']):
+            return entry['manifest_url']
+    return None
 
-    if thumbnail is not None:
-        list_item.setArt({'thumb': thumbnail})
+
+def extract_best_all_in_one_stream(result):
+    # if there is nothing to choose from simply take the shot it is correct
+    if len(result['formats']) == 1:
+        return result['formats'][0]['url'] 
+    audio_video_streams = [] 
+    filter_format = (lambda f: f.get('vcodec', 'none') != 'none' and f.get('acodec', 'none') != 'none')
+    # assume it is a video containg audio. Get the one with the highest resolution
+    for entry in result['formats']:
+        if filter_format(entry):
+            audio_video_streams.append(entry)
+    if audio_video_streams:
+            return max(audio_video_streams, key=lambda f: f['width'])['url'] 
+    # test if it is an audio only stream
+    if result.get('vcodec', 'none') == 'none': 
+        # in case of multiple audio streams get the best
+        audio_streams = []
+        filter_format = (lambda f: f.get('abr', 'none') != 'none')
+        for entry in result['formats']:
+            if filter_format(entry):
+                audio_streams.append(entry)
+        if audio_streams:
+            return max(audio_streams, key=lambda f: f['abr'])['url'] 
+        # not all extractors provide an abr (and other fields are also not guaranteed), try to get any audio 
+        if (entry.get('acodec', 'none') != 'none') or entry.get('ext', False) in ['mp3', 'wav', 'opus']:
+            return entry['url']      
+    # was not able to resolve
+    return None
+
+def get_adaptive_type_from_url(url):
+    supported_endings = [".m3u8", ".hls", ".mpd", ".rtmp", ".ism"]
+    file = url.split('/')[-1]
+    for ending in supported_endings:
+        if ending in file:
+            # adaptive input stream plugin needs the type which is not the same as the file ending
+            if ending  == ".m3u8":  
+                return "hls"
+            else:
+                return ending.lstrip('.')
+    log("Manifest type could not be identified for {}".format(file))
+    return False
+
+def check_if_kodi_supports_manifest(url):
+    from inputstreamhelper import Helper
+    adaptive_type = get_adaptive_type_from_url(url)
+    is_helper = Helper(adaptive_type) 
+    supported = is_helper.check_inputstream()
+    if not supported:
+        msg = "your kodi instance does not support the adaptive stream manifest of " + url + ", might need to install the adpative stream plugin"
+        showInfoNotification("msg")
+        log(msg=msg, level=xbmc.LOGWARNING)
+    return adaptive_type, supported
+
+def createListItemFromVideo(result):
+    debug(result)
+    adaptive_type = False
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+        url = extract_manifest_url(result)
+        if url is not None:
+            log("found original manifest: " + url)
+            adaptive_type, supported = check_if_kodi_supports_manifest(url)
+            if not supported:
+                url = None 
+        if url is None:
+            log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
+            url = extract_best_all_in_one_stream(result)
+        if url is None:
+            err_msg = "Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34"
+            log(err_msg)
+            showInfoNotification(err_msg)
+            raise Exception(err_msg)
+    else:
+        url = result['url']
+    log("creating list item for url {}".format(url))
+    list_item = xbmcgui.ListItem(result['title'], path=url)
+    list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
+    if result.get('thumbnail', None) is not None:
+        list_item.setArt({'thumb': result['thumbnail']})
+    if adaptive_type:
+        list_item.setProperty('inputstream', 'inputstream.adaptive')
+        list_item.setProperty('inputstream.adaptive.manifest_type', adaptive_type)
+
 
     return list_item
 
@@ -154,7 +241,6 @@ else:
 # patch broken strptime (see above)
 patch_strptime()
 
-
 # extract_flat:  Do not resolve URLs, return the immediate result.
 #                Pass in 'in_playlist' to only show this behavior for
 #                playlist items.
@@ -166,6 +252,8 @@ ydl_opts = {
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
+if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+    ydl_opts['format'] = 'bestvideo*+bestaudio/best'
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
