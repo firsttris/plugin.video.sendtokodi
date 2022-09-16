@@ -326,14 +326,15 @@ def validate_options(opts):
 
     def parse_chapters(name, value):
         chapters, ranges = [], []
+        parse_timestamp = lambda x: float('inf') if x in ('inf', 'infinite') else parse_duration(x)
         for regex in value or []:
             if regex.startswith('*'):
-                for range in regex[1:].split(','):
-                    dur = tuple(map(parse_duration, range.strip().split('-')))
-                    if len(dur) == 2 and all(t is not None for t in dur):
-                        ranges.append(dur)
-                    else:
+                for range_ in map(str.strip, regex[1:].split(',')):
+                    mobj = range_ != '-' and re.fullmatch(r'([^-]+)?\s*-\s*([^-]+)?', range_)
+                    dur = mobj and (parse_timestamp(mobj.group(1) or '0'), parse_timestamp(mobj.group(2) or 'inf'))
+                    if None in (dur or [None]):
                         raise ValueError(f'invalid {name} time range "{regex}". Must be of the form *start-end')
+                    ranges.append(dur)
                 continue
             try:
                 chapters.append(re.compile(regex))
@@ -919,6 +920,7 @@ def _real_main(argv=None):
     # We may need ffmpeg_location without having access to the YoutubeDL instance
     # See https://github.com/yt-dlp/yt-dlp/issues/2191
     if opts.ffmpeg_location:
+        opts.ffmpeg_location = expand_path(opts.ffmpeg_location)
         FFmpegPostProcessor._ffmpeg_location.set(opts.ffmpeg_location)
 
     with YoutubeDL(ydl_opts) as ydl:
