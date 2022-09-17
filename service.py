@@ -258,8 +258,10 @@ ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
 with ydl:
-    showInfoNotification("Resolving stream(s) for " + url)
+    progress = xbmcgui.DialogProgressBG()
+    progress.create("Resolving " + url)
     result = ydl.extract_info(url, download=False)
+    progress.close()
 
 if 'entries' in result:
     # more than one video
