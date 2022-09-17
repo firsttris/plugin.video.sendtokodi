@@ -51,6 +51,16 @@ def showErrorNotification(message):
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
 
 
+def get_user_input():
+    kb = xbmc.Keyboard('', 'Please enter the URL')
+    kb.doModal()  # Onscreen keyboard appears
+    if not kb.isConfirmed():
+        return ''
+
+    # User input
+    return kb.getText()
+
+
 # Get the plugin url in plugin:// notation.
 __url__ = sys.argv[0]
 # Get the plugin handle as an integer number.
@@ -60,6 +70,10 @@ __handle__ = int(sys.argv[1])
 def getParams():
     result = {}
     paramstring = sys.argv[2]
+
+    if paramstring == '':
+        paramstring = "?" + get_user_input()
+
     additionalParamsIndex = paramstring.find(' ')
     if additionalParamsIndex == -1:
         result['url'] = paramstring[1:]
@@ -70,6 +84,50 @@ def getParams():
         additionalParams = json.loads(additionalParamsString)
         result['ydlOpts'] = additionalParams['ydlOpts']
     return result
+
+
+def play(url, ydl_opts):
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+        ydl_opts['format'] = 'bestvideo*+bestaudio/best'
+    ydl = YoutubeDL(ydl_opts)
+    ydl.add_default_info_extractors()
+
+    with ydl:
+        showInfoNotification("Resolving stream(s) for " + url)
+        result = ydl.extract_info(url, download=False)
+
+    if 'entries' in result:
+        # more than one video
+        pl = xbmc.PlayList(1)
+        pl.clear()
+
+        # determine which index in the queue to start playing from
+        indexToStartAt = playlistIndex(url, result)
+        if indexToStartAt == None:
+            indexToStartAt = 0
+
+        unresolvedEntries = list(result['entries'])
+        startingEntry = unresolvedEntries.pop(indexToStartAt)
+
+        # populate the queue with unresolved entries so that the starting entry can be inserted
+        for video in unresolvedEntries:
+            list_item = createListItemFromFlatPlaylistItem(video)
+            pl.add(list_item.getPath(), list_item)
+
+        # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
+        startingVideoUrl = startingEntry['url']
+        startingItem = createListItemFromVideo(ydl.extract_info(startingVideoUrl, download=False))
+        pl.add(startingItem.getPath(), startingItem, indexToStartAt)
+
+        #xbmc.Player().play(pl) # this probably works again
+        # ...but start playback the same way the Youtube plugin does it:
+        xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
+
+        showInfoNotification("Playing playlist " + result['title'])
+    else:
+        # Just a video, pass the item to the Kodi player.
+        showInfoNotification("Playing title " + result['title'])
+        xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
 
 
 def extract_manifest_url(result):
@@ -252,44 +310,7 @@ ydl_opts = {
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
-if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
-    ydl_opts['format'] = 'bestvideo*+bestaudio/best'
-ydl = YoutubeDL(ydl_opts)
-ydl.add_default_info_extractors()
-
-with ydl:
-    showInfoNotification("Resolving stream(s) for " + url)
-    result = ydl.extract_info(url, download=False)
-
-if 'entries' in result:
-    # more than one video
-    pl = xbmc.PlayList(1)
-    pl.clear()
-
-    # determine which index in the queue to start playing from
-    indexToStartAt = playlistIndex(url, result)
-    if indexToStartAt == None:
-        indexToStartAt = 0
-
-    unresolvedEntries = list(result['entries'])
-    startingEntry = unresolvedEntries.pop(indexToStartAt)
-
-    # populate the queue with unresolved entries so that the starting entry can be inserted
-    for video in unresolvedEntries:
-        list_item = createListItemFromFlatPlaylistItem(video)
-        pl.add(list_item.getPath(), list_item)
-
-    # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
-    startingVideoUrl = startingEntry['url']
-    startingItem = createListItemFromVideo(ydl.extract_info(startingVideoUrl, download=False))
-    pl.add(startingItem.getPath(), startingItem, indexToStartAt)
-    
-    #xbmc.Player().play(pl) # this probably works again
-    # ...but start playback the same way the Youtube plugin does it:
-    xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
-
-    showInfoNotification("Playing playlist " + result['title'])
+if url == '':
+    showInfoNotification("Kindly provide the valid URL.")
 else:
-    # Just a video, pass the item to the Kodi player.
-    showInfoNotification("Playing title " + result['title'])
-    xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
+    play(url, ydl_opts)
