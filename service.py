@@ -144,7 +144,7 @@ def check_if_kodi_supports_manifest(url):
 def createListItemFromVideo(result):
     debug(result)
     adaptive_type = False
-    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
         url = extract_manifest_url(result)
         if url is not None:
             log("found original manifest: " + url)
@@ -252,7 +252,7 @@ ydl_opts = {
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
-if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
     ydl_opts['format'] = 'bestvideo*+bestaudio/best'
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
