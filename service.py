@@ -260,7 +260,14 @@ ydl.add_default_info_extractors()
 with ydl:
     progress = xbmcgui.DialogProgressBG()
     progress.create("Resolving " + url)
-    result = ydl.extract_info(url, download=False)
+    try:
+        result = ydl.extract_info(url, download=False)
+    except:
+        progress.close()
+        showErrorNotification("Could not resolve the url, check the log for more info")
+        import traceback
+        log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
+        exit()
     progress.close()
 
 if 'entries' in result:
