@@ -258,8 +258,17 @@ ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
 with ydl:
-    showInfoNotification("Resolving stream(s) for " + url)
-    result = ydl.extract_info(url, download=False)
+    progress = xbmcgui.DialogProgressBG()
+    progress.create("Resolving " + url)
+    try:
+        result = ydl.extract_info(url, download=False)
+    except:
+        progress.close()
+        showErrorNotification("Could not resolve the url, check the log for more info")
+        import traceback
+        log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
+        exit()
+    progress.close()
 
 if 'entries' in result:
     # more than one video
