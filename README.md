@@ -2,13 +2,19 @@
 
 [![build-publish-addon](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml)
 
-This [kodi](https://github.com/xbmc/xbmc) addon receives URLs and resolves almost all of them with [yt-dlp](https://github.com/yt-dlp/yt-dlp) creating a playable video stream for kodi. The URLs can be send with one of the supported apps listed below. The plugin is currently not in the offical kodi addon repo, to install it with automatic updates you need to add our repo first. Download the repo file for your kodi version and [install the repo from zip](https://kodi.wiki/view/Add-on_manager). Afterwards the addon `sendtokodi` can be found under the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
+This add-on receives video or audio URLs and plays them in [Kodi](https://kodi.tv). It resolves sent websites automatically with [yt-dlp](https://github.com/yt-dlp/yt-dlp) into a playable stream. The URLs can be sent with one of the supported apps listed below. 
+
+<img src="https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/icon.png" alt="drawing" width="200"/>
+
+
+## Installation 
+The plugin is not in the offical kodi addon repo, to install it with automatic updates you need to add our repo first. Download the repo file for your kodi version and [install the repo from zip](https://kodi.wiki/view/Add-on_manager). Afterwards the addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
 
 [Download repo for kodi 18](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
 
 [Download repo for kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-0.0.1.zip)
  
-*Please note that kodi 18 is limited to python 2 only, but the used URL resolver yt-dlp requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck and development has just been resumed lately. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
+*Please note that kodi 18 is internally limited to python2 but the addon uses yt-dlp to resolve URLs which requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck but it has been resumed. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
 
 ## Features
 - [supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
