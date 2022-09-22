@@ -87,14 +87,23 @@ def getParams():
 
 
 def play(url, ydl_opts):
-    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
         ydl_opts['format'] = 'bestvideo*+bestaudio/best'
     ydl = YoutubeDL(ydl_opts)
     ydl.add_default_info_extractors()
 
     with ydl:
-        showInfoNotification("Resolving stream(s) for " + url)
-        result = ydl.extract_info(url, download=False)
+        progress = xbmcgui.DialogProgressBG()
+        progress.create("Resolving " + url)
+        try:
+            result = ydl.extract_info(url, download=False)
+        except:
+            progress.close()
+            showErrorNotification("Could not resolve the url, check the log for more info")
+            import traceback
+            log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
+            exit()
+        progress.close()
 
     if 'entries' in result:
         # more than one video
@@ -118,7 +127,7 @@ def play(url, ydl_opts):
         startingVideoUrl = startingEntry['url']
         startingItem = createListItemFromVideo(ydl.extract_info(startingVideoUrl, download=False))
         pl.add(startingItem.getPath(), startingItem, indexToStartAt)
-
+        
         #xbmc.Player().play(pl) # this probably works again
         # ...but start playback the same way the Youtube plugin does it:
         xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
@@ -202,7 +211,7 @@ def check_if_kodi_supports_manifest(url):
 def createListItemFromVideo(result):
     debug(result)
     adaptive_type = False
-    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest"):
+    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
         url = extract_manifest_url(result)
         if url is not None:
             log("found original manifest: " + url)
