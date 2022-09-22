@@ -68,7 +68,7 @@ __handle__ = int(sys.argv[1])
 
 
 def getParams():
-    result = {}
+    params = {}
     paramstring = sys.argv[2]
 
     if not paramstring:
@@ -76,14 +76,15 @@ def getParams():
 
     additionalParamsIndex = paramstring.find(' ')
     if additionalParamsIndex == -1:
-        result['url'] = paramstring[1:]
-        result['ydlOpts'] = {}
+        params['url'] = paramstring[1:]
+        params['ydlOpts'] = {}
     else:
-        result['url'] = paramstring[1:additionalParamsIndex]
+        params['url'] = paramstring[1:additionalParamsIndex]
         additionalParamsString = paramstring[additionalParamsIndex:]
         additionalParams = json.loads(additionalParamsString)
-        result['ydlOpts'] = additionalParams['ydlOpts']
-    return result
+        params['ydlOpts'] = additionalParams['ydlOpts']
+    params['url'] = str(params['url'])
+    return params
 
 
 def play(url, ydl_opts):
@@ -317,7 +318,7 @@ ydl_opts = {
 }
 
 params = getParams()
-url = str(params['url'])
+url = params['url'])
 ydl_opts.update(params['ydlOpts'])
 if url == '':
     showInfoNotification("Kindly provide the valid URL.")
