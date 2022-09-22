@@ -318,7 +318,7 @@ ydl_opts = {
 }
 
 params = getParams()
-url = params['url'])
+url = params['url']
 ydl_opts.update(params['ydlOpts'])
 if url == '':
     showInfoNotification("Kindly provide the valid URL.")
