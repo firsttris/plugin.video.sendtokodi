@@ -51,8 +51,8 @@ def showErrorNotification(message):
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
 
 
-def get_user_input():
-    kb = xbmc.Keyboard('', 'Please enter the URL')
+def get_local_user_input():
+    kb = xbmc.Keyboard('', 'Please enter a URL')
     kb.doModal()  # Onscreen keyboard appears
     if not kb.isConfirmed():
         return ''
@@ -71,8 +71,8 @@ def getParams():
     result = {}
     paramstring = sys.argv[2]
 
-    if paramstring == '':
-        paramstring = "?" + get_user_input()
+    if not paramstring:
+        paramstring = "?" + get_local_user_input()
 
     additionalParamsIndex = paramstring.find(' ')
     if additionalParamsIndex == -1:
