@@ -166,6 +166,13 @@ def createListItemFromVideo(result):
     list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
+    subtitles = result.get('subtitles', {})
+    if subtitles:
+        list_item.setSubtitles([
+            subtitleListEntry['url']
+            for lang in subtitles
+            for subtitleListEntry in subtitles[lang]
+        ])
     if adaptive_type:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
         list_item.setProperty('inputstream.adaptive.manifest_type', adaptive_type)
