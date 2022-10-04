@@ -220,6 +220,7 @@ from .bokecc import BokeCCIE
 from .bongacams import BongaCamsIE
 from .bostonglobe import BostonGlobeIE
 from .box import BoxIE
+from .booyah import BooyahClipsIE
 from .bpb import BpbIE
 from .br import (
     BRIE,
@@ -333,6 +334,7 @@ from .cnn import (
     CNNIE,
     CNNBlogsIE,
     CNNArticleIE,
+    CNNIndonesiaIE,
 )
 from .coub import CoubIE
 from .comedycentral import (
@@ -411,7 +413,7 @@ from .deezer import (
     DeezerAlbumIE,
 )
 from .democracynow import DemocracynowIE
-from .detik import Detik20IE
+from .detik import DetikEmbedIE
 from .dfb import DFBIE
 from .dhm import DHMIE
 from .digg import DiggIE
@@ -755,6 +757,7 @@ from .islamchannel import (
     IslamChannelIE,
     IslamChannelSeriesIE,
 )
+from .israelnationalnews import IsraelNationalNewsIE
 from .itprotv import (
     ITProTVIE,
     ITProTVCourseIE
@@ -1231,6 +1234,7 @@ from .olympics import OlympicsReplayIE
 from .on24 import On24IE
 from .ondemandkorea import OnDemandKoreaIE
 from .onefootball import OneFootballIE
+from .onenewsnz import OneNewsNZIE
 from .onet import (
     OnetIE,
     OnetChannelIE,
@@ -1379,6 +1383,7 @@ from .puhutv import (
     PuhuTVIE,
     PuhuTVSerieIE,
 )
+from .prankcast import PrankCastIE
 from .premiershiprugby import PremiershipRugbyIE
 from .presstv import PressTVIE
 from .projectveritas import ProjectVeritasIE
@@ -1871,6 +1876,10 @@ from .tv2 import (
     TV2ArticleIE,
     KatsomoIE,
     MTVUutisetArticleIE,
+)
+from .tv24ua import (
+    TV24UAVideoIE,
+    TV24UAGenericPassthroughIE
 )
 from .tv2dk import (
     TV2DKIE,
