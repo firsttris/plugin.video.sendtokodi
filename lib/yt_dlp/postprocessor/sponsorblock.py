@@ -64,7 +64,8 @@ class SponsorBlockPP(FFmpegPostProcessor):
             if duration and duration - start_end[1] <= 1:
                 start_end[1] = duration
             # SponsorBlock duration may be absent or it may deviate from the real one.
-            return s['videoDuration'] == 0 or not duration or abs(duration - s['videoDuration']) <= 1
+            diff = abs(duration - s['videoDuration']) if s['videoDuration'] else 0
+            return diff < 1 or (diff < 5 and diff / (start_end[1] - start_end[0]) < 0.05)
 
         duration_match = [s for s in segments if duration_filter(s)]
         if len(duration_match) != len(segments):
@@ -78,12 +79,13 @@ class SponsorBlockPP(FFmpegPostProcessor):
                 'end_time': end,
                 'category': cat,
                 'title': title,
+                'type': s['actionType'],
                 '_categories': [(cat, start, end, title)],
             }
 
         sponsor_chapters = [to_chapter(s) for s in duration_match]
         if not sponsor_chapters:
-            self.to_screen('No segments were found in the SponsorBlock database')
+            self.to_screen('No matching segments were found in the SponsorBlock database')
         else:
             self.to_screen(f'Found {len(sponsor_chapters)} segments in the SponsorBlock database')
         return sponsor_chapters
