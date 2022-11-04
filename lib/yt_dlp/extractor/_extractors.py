@@ -71,6 +71,12 @@ from .afreecatv import (
     AfreecaTVLiveIE,
     AfreecaTVUserIE,
 )
+from .agora import (
+    TokFMAuditionIE,
+    TokFMPodcastIE,
+    WyborczaPodcastIE,
+    WyborczaVideoIE,
+)
 from .airmozilla import AirMozillaIE
 from .aljazeera import AlJazeeraIE
 from .alphaporno import AlphaPornoIE
@@ -630,6 +636,10 @@ from .gazeta import GazetaIE
 from .gdcvault import GDCVaultIE
 from .gedidigital import GediDigitalIE
 from .generic import GenericIE
+from .genius import (
+    GeniusIE,
+    GeniusLyricsIE,
+)
 from .gettr import (
     GettrIE,
     GettrStreamingIE,
