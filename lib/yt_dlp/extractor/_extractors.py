@@ -255,6 +255,7 @@ from .camdemy import (
     CamdemyFolderIE
 )
 from .cammodels import CamModelsIE
+from .camsoda import CamsodaIE
 from .camtasia import CamtasiaEmbedIE
 from .camwithher import CamWithHerIE
 from .canalalpha import CanalAlphaIE
@@ -476,7 +477,6 @@ from .digitalconcerthall import DigitalConcertHallIE
 from .discovery import DiscoveryIE
 from .disney import DisneyIE
 from .dispeak import DigitallySpeakingIE
-from .doodstream import DoodStreamIE
 from .dropbox import DropboxIE
 from .dropout import (
     DropoutSeasonIE,
@@ -699,6 +699,7 @@ from .hotstar import (
     HotStarIE,
     HotStarPrefixIE,
     HotStarPlaylistIE,
+    HotStarSeasonIE,
     HotStarSeriesIE,
 )
 from .howcast import HowcastIE
@@ -2021,6 +2022,7 @@ from .umg import UMGDeIE
 from .unistra import UnistraIE
 from .unity import UnityIE
 from .unscripted import UnscriptedNewsVideoIE
+from .unsupported import KnownDRMIE, KnownPiracyIE
 from .uol import UOLIE
 from .uplynk import (
     UplynkIE,
