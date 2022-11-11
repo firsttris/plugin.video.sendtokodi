@@ -21,7 +21,7 @@
 				<setting label="33010" type="action" action="RunScript(script.module.inputstreamhelper,info)"/>
 				<setting type="boolean" id="usemanifest" label="33011">
 					<level>0</level>
-					<default>false</default>
+					<default>true</default>
 					<control type="toggle" />
 				</setting>
 			</group>
