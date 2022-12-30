@@ -844,6 +844,10 @@ from .khanacademy import (
     KhanAcademyIE,
     KhanAcademyUnitIE,
 )
+from .kick import (
+    KickIE,
+    KickVODIE,
+)
 from .kicker import KickerIE
 from .kickstarter import KickStarterIE
 from .kinja import KinjaEmbedIE
@@ -1706,6 +1710,7 @@ from .soundcloud import (
     SoundcloudSetIE,
     SoundcloudRelatedIE,
     SoundcloudUserIE,
+    SoundcloudUserPermalinkIE,
     SoundcloudTrackStationIE,
     SoundcloudPlaylistIE,
     SoundcloudSearchIE,
