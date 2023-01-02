@@ -3368,7 +3368,7 @@ def js_to_json(code, vars={}, *, strict=False):
             try:
                 if not strict:
                     json.loads(vars[v])
-            except json.decoder.JSONDecodeError:
+            except json.JSONDecodeError:
                 return json.dumps(vars[v])
             else:
                 return vars[v]
@@ -5243,6 +5243,15 @@ def random_birthday(year_field, month_field, day_field):
     }
 
 
+def find_available_port(interface=''):
+    try:
+        with socket.socket() as sock:
+            sock.bind((interface, 0))
+            return sock.getsockname()[1]
+    except OSError:
+        return None
+
+
 # Templates for internet shortcut files, which are plain text files.
 DOT_URL_LINK_TEMPLATE = '''\
 [InternetShortcut]
@@ -5429,7 +5438,7 @@ def traverse_obj(
 
     The keys in the path can be one of:
         - `None`:           Return the current object.
-        - `str`/`int`:      Return `obj[key]`. For `re.Match, return `obj.group(key)`.
+        - `str`/`int`:      Return `obj[key]`. For `re.Match`, return `obj.group(key)`.
         - `slice`:          Branch out and return all values in `obj[key]`.
         - `Ellipsis`:       Branch out and return a list of all values.
         - `tuple`/`list`:   Branch out and return a list of all matching values.
