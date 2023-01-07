@@ -475,6 +475,8 @@ from .drtuber import DrTuberIE
 from .drtv import (
     DRTVIE,
     DRTVLiveIE,
+    DRTVSeasonIE,
+    DRTVSeriesIE,
 )
 from .dtube import DTubeIE
 from .dvtv import DVTVIE
@@ -1553,7 +1555,10 @@ from .rokfin import (
 )
 from .roosterteeth import RoosterTeethIE, RoosterTeethSeriesIE
 from .rottentomatoes import RottenTomatoesIE
-from .rozhlas import RozhlasIE
+from .rozhlas import (
+    RozhlasIE,
+    RozhlasVltavaIE,
+)
 from .rte import RteIE, RteRadioIE
 from .rtlnl import (
     RtlNlIE,
@@ -2269,6 +2274,7 @@ from .wsj import (
     WSJArticleIE,
 )
 from .wwe import WWEIE
+from .xanimu import XanimuIE
 from .xbef import XBefIE
 from .xboxclips import XboxClipsIE
 from .xfileshare import XFileShareIE
