@@ -25,7 +25,8 @@ The plugin is not in the offical kodi addon repo, to install it with automatic u
 
 
 ## Supported Apps
-- [Kore, Official Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US) by [kodi](https://github.com/xbmc/Kore)
+- [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US) by [kodi](https://github.com/xbmc/Kore)
+  - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons  
 - [SendToKodi iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8) by [Victoria Teufel](https://github.com/viciteufel)
 - [SendToKodi Chrome Addon](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) by [Tristan Teufel](https://github.com/firsttris)
 - [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
