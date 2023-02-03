@@ -138,6 +138,7 @@ from .bleacherreport import (
     BleacherReportIE,
     BleacherReportCMSIE,
 )
+from .blerp import BlerpIE
 from .bloomberg import BloombergIE
 from .bokecc import BokeCCIE
 from .bongacams import BongaCamsIE
@@ -158,6 +159,7 @@ from .businessinsider import BusinessInsiderIE
 from .buzzfeed import BuzzFeedIE
 from .byutv import BYUtvIE
 from .c56 import C56IE
+from .callin import CallinIE
 from .camdemy import (
     CamdemyIE,
     CamdemyFolderIE
@@ -374,6 +376,7 @@ from .fc2 import (
     FC2EmbedIE,
 )
 from .fczenit import FczenitIE
+from .fifa import FifaIE
 from .filmon import (
     FilmOnIE,
     FilmOnChannelIE,
@@ -725,6 +728,7 @@ from .myvi import (
     MyviIE,
     MyviEmbedIE,
 )
+from .myvideoge import MyVideoGeIE
 from .myvidster import MyVidsterIE
 from .nationalgeographic import (
     NationalGeographicVideoIE,
@@ -1667,3 +1671,7 @@ from .zingmp3 import (
 )
 from .zoom import ZoomIE
 from .zype import ZypeIE
+from .pr0gramm import (
+    Pr0grammIE,
+    Pr0grammStaticIE,
+)
