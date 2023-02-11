@@ -376,6 +376,7 @@ from .fc2 import (
     FC2EmbedIE,
 )
 from .fczenit import FczenitIE
+from .filemoon import FileMoonIE
 from .fifa import FifaIE
 from .filmon import (
     FilmOnIE,
@@ -556,6 +557,7 @@ from .khanacademy import (
 from .kickstarter import KickStarterIE
 from .kinja import KinjaEmbedIE
 from .kinopoisk import KinoPoiskIE
+from .kommunetv import KommunetvIE
 from .konserthusetplay import KonserthusetPlayIE
 from .krasview import KrasViewIE
 from .kth import KTHIE
@@ -1204,6 +1206,7 @@ from .storyfire import (
 from .streamable import StreamableIE
 from .streamcloud import StreamcloudIE
 from .streamcz import StreamCZIE
+from .streamsb import StreamsbIE
 from .streetvoice import StreetVoiceIE
 from .stretchinternet import StretchInternetIE
 from .stv import STVPlayerIE
