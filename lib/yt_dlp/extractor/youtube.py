@@ -3630,6 +3630,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             return live_status
 
     def _extract_formats_and_subtitles(self, streaming_data, video_id, player_url, live_status, duration):
+        CHUNK_SIZE = 10 << 20
         itags, stream_ids = collections.defaultdict(set), []
         itag_qualities, res_qualities = {}, {0: None}
         q = qualities([
@@ -3640,6 +3641,14 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'small', 'medium', 'large', 'hd720', 'hd1080', 'hd1440', 'hd2160', 'hd2880', 'highres'
         ])
         streaming_formats = traverse_obj(streaming_data, (..., ('formats', 'adaptiveFormats'), ...))
+        all_formats = self._configuration_arg('include_duplicate_formats')
+
+        def build_fragments(f):
+            return LazyList({
+                'url': update_url_query(f['url'], {
+                    'range': f'{range_start}-{min(range_start + CHUNK_SIZE - 1, f["filesize"])}'
+                })
+            } for range_start in range(0, f['filesize'], CHUNK_SIZE))
 
         for fmt in streaming_formats:
             if fmt.get('targetDurationSec'):
@@ -3648,8 +3657,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             itag = str_or_none(fmt.get('itag'))
             audio_track = fmt.get('audioTrack') or {}
             stream_id = (itag, audio_track.get('id'), fmt.get('isDrc'))
-            if stream_id in stream_ids:
-                continue
+            if not all_formats:
+                if stream_id in stream_ids:
+                    continue
 
             quality = fmt.get('quality')
             height = int_or_none(fmt.get('height'))
@@ -3739,7 +3749,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     try_get(fmt, lambda x: x['projectionType'].replace('RECTANGULAR', '').lower()),
                     try_get(fmt, lambda x: x['spatialAudioType'].replace('SPATIAL_AUDIO_TYPE_', '').lower()),
                     throttled and 'THROTTLED', is_damaged and 'DAMAGED',
-                    self.get_param('verbose') and client_name,
+                    (self.get_param('verbose') or all_formats) and client_name,
                     delim=', '),
                 # Format 22 is likely to be damaged. See https://github.com/yt-dlp/yt-dlp/issues/3372
                 'source_preference': -10 if throttled else -5 if itag == '22' else -1,
@@ -3762,26 +3772,23 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if mime_mobj:
                 dct['ext'] = mimetype2ext(mime_mobj.group(1))
                 dct.update(parse_codecs(mime_mobj.group(2)))
-
-            single_stream = 'none' in (dct.get('acodec'), dct.get('vcodec'))
-            if single_stream and dct.get('ext'):
-                dct['container'] = dct['ext'] + '_dash'
-            if single_stream or itag == '17':
-                CHUNK_SIZE = 10 << 20
-                dct.update({
-                    'protocol': 'http_dash_segments',
-                    'fragments': [{
-                        'url': update_url_query(dct['url'], {
-                            'range': f'{range_start}-{min(range_start + CHUNK_SIZE - 1, dct["filesize"])}'
-                        })
-                    } for range_start in range(0, dct['filesize'], CHUNK_SIZE)]
-                } if itag != '17' and dct['filesize'] else {
-                    'downloader_options': {'http_chunk_size': CHUNK_SIZE}
-                })
-
             if itag:
                 itags[itag].add(('https', dct.get('language')))
                 stream_ids.append(stream_id)
+            single_stream = 'none' in (dct.get('acodec'), dct.get('vcodec'))
+            if single_stream and dct.get('ext'):
+                dct['container'] = dct['ext'] + '_dash'
+
+            if dct['filesize']:
+                yield {
+                    **dct,
+                    'format_id': f'{dct["format_id"]}-dashy' if all_formats else dct['format_id'],
+                    'protocol': 'http_dash_segments',
+                    'fragments': build_fragments(dct),
+                }
+                if not all_formats:
+                    continue
+            dct['downloader_options'] = {'http_chunk_size': CHUNK_SIZE}
             yield dct
 
         needs_live_processing = self._needs_live_processing(live_status, duration)
@@ -3803,11 +3810,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         def process_manifest_format(f, proto, client_name, itag):
             key = (proto, f.get('language'))
-            if key in itags[itag]:
+            if not all_formats and key in itags[itag]:
                 return False
             itags[itag].add(key)
 
-            if any(p != proto for p, _ in itags[itag]):
+            if itag and all_formats:
+                f['format_id'] = f'{itag}-{proto}'
+            elif any(p != proto for p, _ in itags[itag]):
                 f['format_id'] = f'{itag}-{proto}'
             elif itag:
                 f['format_id'] = itag
