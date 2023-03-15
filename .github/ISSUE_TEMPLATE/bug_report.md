@@ -9,13 +9,13 @@ assignees: ''
 
 <!-- 
 PLEASE FILL OUT THE FOLLOWING CATEGORIES
-DELTE SECTION IF THEY REALLY (!) DO NOT APPLY TO YOU
+DELTE SECTIONS ONLY IF THEY REALLY DO NOT APPLY TO YOU
 -->
 
 
 **Description of the bug**
 <!-- This is a explanatory comment, do not enter your information in this text block, enter it below
-- A clear and concise description of what the bug is.
+- A clear and concise description of what the bug is
 -->
 
 
@@ -29,7 +29,7 @@ DELTE SECTION IF THEY REALLY (!) DO NOT APPLY TO YOU
 **Expected behavior**
 
 <!-- This is a explanatory comment, do not enter your information in this text block, enter it below
-A clear and concise description of what you expected to happen.
+A clear and concise description of what you expected to happen
 -->
 
 
@@ -46,7 +46,7 @@ A clear and concise description of what you expected to happen.
 --> 
 
 
-**In case a certain website does not work for you (delte if this is about another issue)**
+**In case a certain website does not work for you**
 <!-- This is a explanatory comment, do not enter your information in this text block, enter it below
 - sendtokodi uses a third-party resolver to extract playable media URLs from your input
 - You can choose between [youtube-dl](https://github.com/ytdl-org/youtube-dl) and [yt-dlp](https://github.com/yt-dlp/yt-dlp)
@@ -59,11 +59,11 @@ A clear and concise description of what you expected to happen.
 
 **Screenshots**
 <!-- This is a explanatory comment, do not enter your information in this text block, enter it below
-If applicable, add screenshots to help explain your problem.
+If applicable, add screenshots to help explain your problem
 --> 
 
 
 **Additional context**
 <!-- This is a explanatory comment, do not enter your information in this text block, enter it below
-Add any other context about the problem here.
+Add any other context about the problem here
 --> 
