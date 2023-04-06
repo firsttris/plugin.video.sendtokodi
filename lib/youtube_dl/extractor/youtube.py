@@ -31,6 +31,7 @@ from ..utils import (
     get_element_by_attribute,
     int_or_none,
     js_to_json,
+    LazyList,
     merge_dicts,
     mimetype2ext,
     parse_codecs,
@@ -1986,9 +1987,19 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         itags = []
         itag_qualities = {}
         q = qualities(['tiny', 'small', 'medium', 'large', 'hd720', 'hd1080', 'hd1440', 'hd2160', 'hd2880', 'highres'])
+        CHUNK_SIZE = 10 << 20
+
         streaming_data = player_response.get('streamingData') or {}
         streaming_formats = streaming_data.get('formats') or []
         streaming_formats.extend(streaming_data.get('adaptiveFormats') or [])
+
+        def build_fragments(f):
+            return LazyList({
+                'url': update_url_query(f['url'], {
+                    'range': '{0}-{1}'.format(range_start, min(range_start + CHUNK_SIZE - 1, f['filesize']))
+                })
+            } for range_start in range(0, f['filesize'], CHUNK_SIZE))
+
         for fmt in streaming_formats:
             if fmt.get('targetDurationSec') or fmt.get('drmFamilies'):
                 continue
@@ -2041,28 +2052,18 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 if mobj:
                     dct['ext'] = mimetype2ext(mobj.group(1))
                     dct.update(parse_codecs(mobj.group(2)))
-            no_audio = dct.get('acodec') == 'none'
-            no_video = dct.get('vcodec') == 'none'
-            if no_audio:
-                dct['vbr'] = tbr
-            if no_video:
-                dct['abr'] = tbr
-            if no_audio or no_video:
-                CHUNK_SIZE = 10 << 20
+            single_stream = 'none' in (dct.get(c) for c in ('acodec', 'vcodec'))
+            if single_stream and dct.get('ext'):
+                dct['container'] = dct['ext'] + '_dash'
+            if single_stream or itag == '17':
                 # avoid Youtube throttling
                 dct.update({
                     'protocol': 'http_dash_segments',
-                    'fragments': [{
-                        'url': update_url_query(dct['url'], {
-                            'range': '{0}-{1}'.format(range_start, min(range_start + CHUNK_SIZE - 1, dct['filesize']))
-                        })
-                    } for range_start in range(0, dct['filesize'], CHUNK_SIZE)]
+                    'fragments': build_fragments(dct),
                 } if dct['filesize'] else {
                     'downloader_options': {'http_chunk_size': CHUNK_SIZE}  # No longer useful?
                 })
 
-                if dct.get('ext'):
-                    dct['container'] = dct['ext'] + '_dash'
             formats.append(dct)
 
         hls_manifest_url = streaming_data.get('hlsManifestUrl')

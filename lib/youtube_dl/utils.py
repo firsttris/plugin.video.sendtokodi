@@ -3190,6 +3190,10 @@ class DateRange(object):
     def __str__(self):
         return '%s - %s' % (self.start.isoformat(), self.end.isoformat())
 
+    def __eq__(self, other):
+        return (isinstance(other, DateRange)
+                and self.start == other.start and self.end == other.end)
+
 
 def platform_name():
     """ Returns the platform name as a compat_str """
@@ -4213,6 +4217,8 @@ def multipart_encode(data, boundary=None):
 
 
 def variadic(x, allowed_types=(compat_str, bytes, dict)):
+    if not isinstance(allowed_types, tuple) and isinstance(allowed_types, compat_collections_abc.Iterable):
+        allowed_types = tuple(allowed_types)
     return x if isinstance(x, compat_collections_abc.Iterable) and not isinstance(x, allowed_types) else (x,)
 
 
