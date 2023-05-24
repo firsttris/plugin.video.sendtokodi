@@ -60,6 +60,8 @@ from ..compat import (
 from ..dependencies import brotli, certifi, websockets, xattr
 from ..socks import ProxyType, sockssocket
 
+__name__ = __name__.rsplit('.', 1)[0]  # Pretend to be the parent module
+
 # This is not clearly defined otherwise
 compiled_regex_type = type(re.compile(''))
 
@@ -128,7 +130,7 @@ USER_AGENTS = {
 }
 
 
-NO_DEFAULT = object()
+class NO_DEFAULT: pass  # noqa: E701
 IDENTITY = lambda x: x
 
 ENGLISH_MONTH_NAMES = [
@@ -1957,8 +1959,8 @@ class DateRange:
             date = date_from_str(date)
         return self.start <= date <= self.end
 
-    def __str__(self):
-        return f'{self.start.isoformat()} - {self.end.isoformat()}'
+    def __repr__(self):
+        return f'{__name__}.{type(self).__name__}({self.start.isoformat()!r}, {self.end.isoformat()!r})'
 
     def __eq__(self, other):
         return (isinstance(other, DateRange)
@@ -3221,6 +3223,9 @@ def is_iterable_like(x, allowed_types=collections.abc.Iterable, blocked_types=NO
 
 
 def variadic(x, allowed_types=NO_DEFAULT):
+    if not isinstance(allowed_types, (tuple, type)):
+        deprecation_warning('allowed_types should be a tuple or a type')
+        allowed_types = tuple(allowed_types)
     return x if is_iterable_like(x, blocked_types=allowed_types) else (x, )
 
 
