@@ -21,6 +21,7 @@ import socket
 import struct
 import subprocess
 import sys
+import types
 import xml.etree.ElementTree
 
 # naming convention
@@ -55,6 +56,22 @@ try:
 except ImportError:  # Python 2
     import urllib2 as compat_urllib_request
 
+# Also fix up lack of method arg in old Pythons
+try:
+    _req = compat_urllib_request.Request
+    _req('http://127.0.0.1', method='GET')
+except TypeError:
+    class _request(object):
+        def __new__(cls, url, *args, **kwargs):
+            method = kwargs.pop('method', None)
+            r = _req(url, *args, **kwargs)
+            if method:
+                r.get_method = types.MethodType(lambda _: method, r)
+            return r
+
+    compat_urllib_request.Request = _request
+
+
 try:
     import urllib.error as compat_urllib_error
 except ImportError:  # Python 2
@@ -80,6 +97,12 @@ except ImportError:  # Python 2
     import urllib as compat_urllib_response
 
 try:
+    compat_urllib_response.addinfourl.status
+except AttributeError:
+    # .getcode() is deprecated in Py 3.
+    compat_urllib_response.addinfourl.status = property(lambda self: self.getcode())
+
+try:
     import http.cookiejar as compat_cookiejar
 except ImportError:  # Python 2
     import cookielib as compat_cookiejar
@@ -103,12 +126,24 @@ except ImportError:  # Python 2
     import Cookie as compat_cookies
 compat_http_cookies = compat_cookies
 
-if sys.version_info[0] == 2:
+if sys.version_info[0] == 2 or sys.version_info < (3, 3):
     class compat_cookies_SimpleCookie(compat_cookies.SimpleCookie):
         def load(self, rawdata):
-            if isinstance(rawdata, compat_str):
-                rawdata = str(rawdata)
-            return super(compat_cookies_SimpleCookie, self).load(rawdata)
+            must_have_value = 0
+            if not isinstance(rawdata, dict):
+                if sys.version_info[:2] != (2, 7):
+                    # attribute must have value for parsing
+                    rawdata, must_have_value = re.subn(
+                        r'(?i)(;\s*)(secure|httponly)(\s*(?:;|$))', r'\1\2=\2\3', rawdata)
+                if sys.version_info[0] == 2:
+                    if isinstance(rawdata, compat_str):
+                        rawdata = str(rawdata)
+            super(compat_cookies_SimpleCookie, self).load(rawdata)
+            if must_have_value > 0:
+                for morsel in self.values():
+                    for attr in ('secure', 'httponly'):
+                        if morsel.get(attr):
+                            morsel[attr] = True
 else:
     compat_cookies_SimpleCookie = compat_cookies.SimpleCookie
 compat_http_cookies_SimpleCookie = compat_cookies_SimpleCookie
@@ -2360,6 +2395,11 @@ try:
     import http.client as compat_http_client
 except ImportError:  # Python 2
     import httplib as compat_http_client
+try:
+    compat_http_client.HTTPResponse.getcode
+except AttributeError:
+    # Py < 3.1
+    compat_http_client.HTTPResponse.getcode = lambda self: self.status
 
 try:
     from urllib.error import HTTPError as compat_HTTPError
