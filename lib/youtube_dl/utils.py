@@ -2996,7 +2996,8 @@ class YoutubeDLRedirectHandler(compat_urllib_request.HTTPRedirectHandler):
         # Technically the Cookie header should be in unredirected_hdrs;
         # however in practice some may set it in normal headers anyway.
         # We will remove it here to prevent any leaks.
-        remove_headers = ['Cookie']
+        # Also remove unwanted and undocumented Host header for old URL
+        remove_headers = ['Cookie', 'Host']
 
         # A 303 must either use GET or HEAD for subsequent request
         # https://datatracker.ietf.org/doc/html/rfc7231#section-6.4.4
@@ -4268,13 +4269,9 @@ def variadic(x, allowed_types=NO_DEFAULT):
 
 
 def dict_get(d, key_or_keys, default=None, skip_false_values=True):
-    if isinstance(key_or_keys, (list, tuple)):
-        for key in key_or_keys:
-            if key not in d or d[key] is None or skip_false_values and not d[key]:
-                continue
-            return d[key]
-        return default
-    return d.get(key_or_keys, default)
+    exp = (lambda x: x or None) if skip_false_values else IDENTITY
+    return traverse_obj(d, *variadic(key_or_keys), expected_type=exp,
+                        default=default, get_all=False)
 
 
 def try_call(*funcs, **kwargs):
@@ -4307,16 +4304,38 @@ def try_get(src, getter, expected_type=None):
                 return v
 
 
-def merge_dicts(*dicts):
+def merge_dicts(*dicts, **kwargs):
+    """
+        Merge the `dict`s in `dicts` using the first valid value for each key.
+        Normally valid: not None and not an empty string
+
+        Keyword-only args:
+        unblank:    allow empty string if False (default True)
+        rev:        merge dicts in reverse order (default False)
+
+        merge_dicts(dct1, dct2, ..., unblank=False, rev=True)
+        matches {**dct1, **dct2, ...}
+
+        However, merge_dicts(dct1, dct2, ..., rev=True) may often be better.
+    """
+
+    unblank = kwargs.get('unblank', True)
+    rev = kwargs.get('rev', False)
+
+    if unblank:
+        def can_merge_str(k, v, to_dict):
+            return (isinstance(v, compat_str) and v
+                    and isinstance(to_dict[k], compat_str)
+                    and not to_dict[k])
+    else:
+        can_merge_str = lambda k, v, to_dict: False
+
     merged = {}
-    for a_dict in dicts:
+    for a_dict in reversed(dicts) if rev else dicts:
         for k, v in a_dict.items():
             if v is None:
                 continue
-            if (k not in merged
-                    or (isinstance(v, compat_str) and v
-                        and isinstance(merged[k], compat_str)
-                        and not merged[k])):
+            if (k not in merged) or can_merge_str(k, v, merged):
                 merged[k] = v
     return merged
 
@@ -4370,46 +4389,108 @@ def strip_jsonp(code):
         r'\g<callback_data>', code)
 
 
-def js_to_json(code):
-    COMMENT_RE = r'/\*(?:(?!\*/).)*?\*/|//[^\n]*'
+def js_to_json(code, *args, **kwargs):
+
+    # vars is a dict of (var, val) pairs to substitute
+    vars = args[0] if len(args) > 0 else kwargs.get('vars', {})
+    strict = kwargs.get('strict', False)
+
+    STRING_QUOTES = '\'"`'
+    STRING_RE = '|'.join(r'{0}(?:\\.|[^\\{0}])*{0}'.format(q) for q in STRING_QUOTES)
+    COMMENT_RE = r'/\*(?:(?!\*/).)*?\*/|//[^\n]*\n'
     SKIP_RE = r'\s*(?:{comment})?\s*'.format(comment=COMMENT_RE)
     INTEGER_TABLE = (
         (r'(?s)^(0[xX][0-9a-fA-F]+){skip}:?$'.format(skip=SKIP_RE), 16),
         (r'(?s)^(0+[0-7]+){skip}:?$'.format(skip=SKIP_RE), 8),
+        (r'(?s)^(\d+){skip}:?$'.format(skip=SKIP_RE), 10),
     )
+    # compat candidate
+    JSONDecodeError = json.JSONDecodeError if 'JSONDecodeError' in dir(json) else ValueError
+
+    def process_escape(match):
+        JSON_PASSTHROUGH_ESCAPES = r'"\bfnrtu'
+        escape = match.group(1) or match.group(2)
+
+        return ('\\' + escape if escape in JSON_PASSTHROUGH_ESCAPES
+                else '\\u00' if escape == 'x'
+                else '' if escape == '\n'
+                else escape)
+
+    def template_substitute(match):
+        evaluated = js_to_json(match.group(1), vars, strict=strict)
+        if evaluated[0] == '"':
+            return json.loads(evaluated)
+        return evaluated
 
     def fix_kv(m):
         v = m.group(0)
         if v in ('true', 'false', 'null'):
             return v
-        elif v.startswith('/*') or v.startswith('//') or v.startswith('!') or v == ',':
-            return ""
+        elif v in ('undefined', 'void 0'):
+            return 'null'
+        elif v.startswith('/*') or v.startswith('//') or v == ',':
+            return ''
 
-        if v[0] in ("'", '"'):
-            v = re.sub(r'(?s)\\.|"', lambda m: {
-                '"': '\\"',
-                "\\'": "'",
-                '\\\n': '',
-                '\\x': '\\u00',
-            }.get(m.group(0), m.group(0)), v[1:-1])
-        else:
-            for regex, base in INTEGER_TABLE:
-                im = re.match(regex, v)
-                if im:
-                    i = int(im.group(1), base)
-                    return '"%d":' % i if v.endswith(':') else '%d' % i
+        if v[0] in STRING_QUOTES:
+            v = re.sub(r'(?s)\${([^}]+)}', template_substitute, v[1:-1]) if v[0] == '`' else v[1:-1]
+            escaped = re.sub(r'(?s)(")|\\(.)', process_escape, v)
+            return '"{0}"'.format(escaped)
 
-        return '"%s"' % v
+        inv = IDENTITY
+        im = re.split(r'^!+', v)
+        if len(im) > 1 and not im[-1].endswith(':'):
+            if (len(v) - len(im[1])) % 2 == 1:
+                inv = lambda x: 'true' if x == 0 else 'false'
+            else:
+                inv = lambda x: 'false' if x == 0 else 'true'
+        if not any(x for x in im):
+            return
+        v = im[-1]
+
+        for regex, base in INTEGER_TABLE:
+            im = re.match(regex, v)
+            if im:
+                i = int(im.group(1), base)
+                return ('"%s":' if v.endswith(':') else '%s') % inv(i)
+
+        if v in vars:
+            try:
+                if not strict:
+                    json.loads(vars[v])
+            except JSONDecodeError:
+                return inv(json.dumps(vars[v]))
+            else:
+                return inv(vars[v])
+
+        if not strict:
+            v = try_call(inv, args=(v,), default=v)
+            if v in ('true', 'false'):
+                return v
+            return '"{0}"'.format(v)
+
+        raise ValueError('Unknown value: ' + v)
+
+    def create_map(mobj):
+        return json.dumps(dict(json.loads(js_to_json(mobj.group(1) or '[]', vars=vars))))
+
+    code = re.sub(r'new Map\((\[.*?\])?\)', create_map, code)
+    if not strict:
+        code = re.sub(r'new Date\((".+")\)', r'\g<1>', code)
+        code = re.sub(r'new \w+\((.*?)\)', lambda m: json.dumps(m.group(0)), code)
+        code = re.sub(r'parseInt\([^\d]+(\d+)[^\d]+\)', r'\1', code)
+        code = re.sub(r'\(function\([^)]*\)\s*\{[^}]*\}\s*\)\s*\(\s*(["\'][^)]*["\'])\s*\)', r'\1', code)
 
     return re.sub(r'''(?sx)
-        "(?:[^"\\]*(?:\\\\|\\['"nurtbfx/\n]))*[^"\\]*"|
-        '(?:[^'\\]*(?:\\\\|\\['"nurtbfx/\n]))*[^'\\]*'|
-        {comment}|,(?={skip}[\]}}])|
-        (?:(?<![0-9])[eE]|[a-df-zA-DF-Z_])[.a-zA-Z_0-9]*|
-        \b(?:0[xX][0-9a-fA-F]+|0+[0-7]+)(?:{skip}:)?|
-        [0-9]+(?={skip}:)|
+        {str_}|
+        {comment}|
+        ,(?={skip}[\]}}])|
+        void\s0|
+        !*(?:(?<!\d)[eE]|[a-df-zA-DF-Z_$])[.a-zA-Z_$0-9]*|
+        (?:\b|!+)0(?:[xX][\da-fA-F]+|[0-7]+)(?:{skip}:)?|
+        !+\d+(?:\.\d*)?(?:{skip}:)?|
+        [0-9]+(?:{skip}:)|
         !+
-        '''.format(comment=COMMENT_RE, skip=SKIP_RE), fix_kv, code)
+        '''.format(comment=COMMENT_RE, skip=SKIP_RE, str_=STRING_RE), fix_kv, code)
 
 
 def qualities(quality_ids):
@@ -6029,6 +6110,37 @@ def clean_podcast_url(url):
         )/''', '', url)
 
 
+if __debug__:
+    # Raise TypeError if args can't be bound
+    # needs compat owing to unstable inspect API, thanks PSF :-(
+    try:
+        inspect.signature
+
+        def _try_bind_args(fn, *args, **kwargs):
+            inspect.signature(fn).bind(*args, **kwargs)
+    except AttributeError:
+        # Py < 3.3
+        def _try_bind_args(fn, *args, **kwargs):
+            fn_args = inspect.getargspec(fn)
+            # Py2: ArgInfo(args, varargs, keywords, defaults)
+            # Py3: ArgSpec(args, varargs, keywords, defaults)
+            if not fn_args.keywords:
+                for k in kwargs:
+                    if k not in (fn_args.args or []):
+                        raise TypeError("got an unexpected keyword argument: '{0}'".format(k))
+            if not fn_args.varargs:
+                args_to_bind = len(args)
+                bindable = len(fn_args.args or [])
+                if args_to_bind > bindable:
+                    raise TypeError('too many positional arguments')
+                bindable -= len(fn_args.defaults or [])
+                if args_to_bind < bindable:
+                    if kwargs:
+                        bindable -= len(set(fn_args.args or []) & set(kwargs))
+                    if bindable > args_to_bind:
+                        raise TypeError("missing a required argument: '{0}'".format(fn_args.args[args_to_bind]))
+
+
 def traverse_obj(obj, *paths, **kwargs):
     """
     Safely traverse nested `dict`s and `Iterable`s
@@ -6247,10 +6359,7 @@ def traverse_obj(obj, *paths, **kwargs):
 
             if __debug__ and callable(key):
                 # Verify function signature
-                args = inspect.getargspec(key)
-                if len(args.args) != 2:
-                    # crash differently in 2.6 !
-                    inspect.getcallargs(key, None, None)
+                _try_bind_args(key, None, None)
 
             new_objs = []
             for obj in objs:
