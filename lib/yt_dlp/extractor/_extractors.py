@@ -82,6 +82,10 @@ from .airtv import AirTVIE
 from .aitube import AitubeKZVideoIE
 from .aljazeera import AlJazeeraIE
 from .alphaporno import AlphaPornoIE
+from .altcensored import (
+    AltCensoredIE,
+    AltCensoredChannelIE,
+)
 from .amara import AmaraIE
 from .alura import (
     AluraIE,
@@ -541,6 +545,7 @@ from .dropout import (
     DropoutSeasonIE,
     DropoutIE
 )
+from .duoplay import DuoplayIE
 from .dw import (
     DWIE,
     DWArticleIE,
@@ -2588,6 +2593,9 @@ from .zingmp3 import (
     ZingMp3ChartMusicVideoIE,
     ZingMp3UserIE,
     ZingMp3HubIE,
+    ZingMp3LiveRadioIE,
+    ZingMp3PodcastEpisodeIE,
+    ZingMp3PodcastIE,
 )
 from .zoom import ZoomIE
 from .zype import ZypeIE
