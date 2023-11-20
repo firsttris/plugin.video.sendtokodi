@@ -81,16 +81,20 @@ from .airmozilla import AirMozillaIE
 from .airtv import AirTVIE
 from .aitube import AitubeKZVideoIE
 from .aljazeera import AlJazeeraIE
+from .allstar import (
+    AllstarIE,
+    AllstarProfileIE,
+)
 from .alphaporno import AlphaPornoIE
 from .altcensored import (
     AltCensoredIE,
     AltCensoredChannelIE,
 )
-from .amara import AmaraIE
 from .alura import (
     AluraIE,
     AluraCourseIE
 )
+from .amara import AmaraIE
 from .amcnetworks import AMCNetworksIE
 from .amazon import (
     AmazonStoreIE,
@@ -216,6 +220,8 @@ from .bilibili import (
     BiliBiliBangumiIE,
     BiliBiliBangumiSeasonIE,
     BiliBiliBangumiMediaIE,
+    BilibiliCheeseIE,
+    BilibiliCheeseSeasonIE,
     BiliBiliSearchIE,
     BilibiliCategoryIE,
     BilibiliAudioIE,
@@ -1241,6 +1247,7 @@ from .ndr import (
 from .ndtv import NDTVIE
 from .nebula import (
     NebulaIE,
+    NebulaClassIE,
     NebulaSubscriptionsIE,
     NebulaChannelIE,
 )
