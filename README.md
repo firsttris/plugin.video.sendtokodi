@@ -33,9 +33,9 @@ Once installed, you can send URLs to Kodi using one of the supported apps listed
   - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons  
 - [Official SendToKodi iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8)
 
-## MacOS
+### MacOS
 - [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
-- [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) by [Andreas Öhrén](https://github.com/anohren) forked from Max Grass
+- [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) forked from [Max Grass](https://github.com/maxgrass) by [Andreas Öhrén](https://github.com/anohren) 
 
 ## Integration
 - Supported [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
