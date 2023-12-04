@@ -22,12 +22,6 @@ The plugin is not in the official Kodi addon repo. To install it with automatic 
 
 Once installed, you can send URLs to Kodi using one of the supported apps listed below.
 
-## Features
-- Support [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-- Ability to [call SendToKodi from a .m3u playlist](./playlist-example.m3u)
-- Send Websites to Kodi via [JSON-RPC](./docs/DEVELOPMENT.md#Example-JSON-Request)
-- Call SendToKodi from your [Kodi plugin](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
-
 ## Apps
 
 ### Browser Addons
@@ -42,6 +36,12 @@ Once installed, you can send URLs to Kodi using one of the supported apps listed
 ## MacOS
 - [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
 - [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) by [Andreas Öhrén](https://github.com/anohren) forked from Max Grass
+
+## Integration
+- Supported [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+- Ability to [call SendToKodi from a .m3u playlist](./playlist-example.m3u)
+- Send Websites to Kodi via [JSON-RPC](./docs/DEVELOPMENT.md#Example-JSON-Request)
+- Call SendToKodi from your [Kodi plugin](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
 
 ## Code of Conduct
 See the [CODE](CODE_OF_CONDUCT.md)
