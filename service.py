@@ -196,13 +196,8 @@ def createListItemFromFlatPlaylistItem(video):
         label           = title
     )
 
-    # the method isn't available in Kodi < 18. Doesn't seem to affect behavior, and can probably be set manually using setProperty() if needed
-    # listItem.setIsFolder(False)
-
-    listItem.setInfo(
-        type        = 'Video', # not really known at this point, but required
-        infoLabels  = {'Title': title }
-    )
+    video_info = listItem.getVideoInfoTag()
+    video_info.setTitle(title)
 
     # both `true` and `false` are recommended here...
     listItem.setProperty("IsPlayable","true")
