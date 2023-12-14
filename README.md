@@ -27,6 +27,7 @@ Once installed, you can send URLs to Kodi using one of the supported apps listed
 ### Browser Addons
 - [Chrome Store](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
 - [Mozilla Store](https://addons.mozilla.org/de/firefox/addon/sendtokodi/)
+- [Edge Store](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij)
 
 ### Mobile Apps
 - [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
