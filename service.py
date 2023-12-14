@@ -90,6 +90,9 @@ def extract_manifest_url(result):
 
 
 def extract_best_all_in_one_stream(result):
+    # Check if 'formats' key exists in result
+    if 'formats' not in result:
+        return None
     # if there is nothing to choose from simply take the shot it is correct
     if len(result['formats']) == 1:
         return result['formats'][0]['url'] 
