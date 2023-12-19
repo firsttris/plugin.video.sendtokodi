@@ -276,6 +276,7 @@ from .brilliantpala import (
 )
 from .businessinsider import BusinessInsiderIE
 from .bundesliga import BundesligaIE
+from .bundestag import BundestagIE
 from .buzzfeed import BuzzFeedIE
 from .byutv import BYUtvIE
 from .c56 import C56IE
@@ -864,6 +865,7 @@ from .jiosaavn import (
 )
 from .jove import JoveIE
 from .joj import JojIE
+from .joqrag import JoqrAgIE
 from .jstream import JStreamIE
 from .jtbc import (
     JTBCIE,
