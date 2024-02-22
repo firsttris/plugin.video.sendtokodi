@@ -159,6 +159,7 @@ from .businessinsider import BusinessInsiderIE
 from .buzzfeed import BuzzFeedIE
 from .byutv import BYUtvIE
 from .c56 import C56IE
+from .caffeine import CaffeineTVIE
 from .callin import CallinIE
 from .camdemy import (
     CamdemyIE,
@@ -443,6 +444,7 @@ from .gamespot import GameSpotIE
 from .gamestar import GameStarIE
 from .gaskrank import GaskrankIE
 from .gazeta import GazetaIE
+from .gbnews import GBNewsIE
 from .gdcvault import GDCVaultIE
 from .gedidigital import GediDigitalIE
 from .generic import GenericIE
