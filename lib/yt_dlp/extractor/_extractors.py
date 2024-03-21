@@ -989,6 +989,10 @@ from .lnkgo import (
     LnkGoIE,
     LnkIE,
 )
+from .loom import (
+    LoomIE,
+    LoomFolderIE,
+)
 from .lovehomeporn import LoveHomePornIE
 from .lrt import (
     LRTVODIE,
@@ -1750,6 +1754,7 @@ from .shahid import (
     ShahidIE,
     ShahidShowIE,
 )
+from .sharepoint import SharePointIE
 from .sharevideos import ShareVideosEmbedIE
 from .sibnet import SibnetEmbedIE
 from .shemaroome import ShemarooMeIE
