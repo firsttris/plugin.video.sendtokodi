@@ -2421,29 +2421,26 @@ except ImportError:  # Python 2
 compat_urllib_request_urlretrieve = compat_urlretrieve
 
 try:
+    from HTMLParser import (
+        HTMLParser as compat_HTMLParser,
+        HTMLParseError as compat_HTMLParseError)
+except ImportError:  # Python 3
     from html.parser import HTMLParser as compat_HTMLParser
-except ImportError:  # Python 2
-    from HTMLParser import HTMLParser as compat_HTMLParser
-compat_html_parser_HTMLParser = compat_HTMLParser
-
-try:  # Python 2
-    from HTMLParser import HTMLParseError as compat_HTMLParseError
-except ImportError:  # Python <3.4
     try:
         from html.parser import HTMLParseError as compat_HTMLParseError
     except ImportError:  # Python >3.4
-
-        # HTMLParseError has been deprecated in Python 3.3 and removed in
+        # HTMLParseError was deprecated in Python 3.3 and removed in
         # Python 3.5. Introducing dummy exception for Python >3.5 for compatible
         # and uniform cross-version exception handling
         class compat_HTMLParseError(Exception):
             pass
+compat_html_parser_HTMLParser = compat_HTMLParser
 compat_html_parser_HTMLParseError = compat_HTMLParseError
 
 try:
-    from subprocess import DEVNULL
-    compat_subprocess_get_DEVNULL = lambda: DEVNULL
-except ImportError:
+    _DEVNULL = subprocess.DEVNULL
+    compat_subprocess_get_DEVNULL = lambda: _DEVNULL
+except AttributeError:
     compat_subprocess_get_DEVNULL = lambda: open(os.path.devnull, 'w')
 
 try:
@@ -2943,6 +2940,51 @@ else:
     compat_socket_create_connection = socket.create_connection
 
 
+try:
+    from contextlib import suppress as compat_contextlib_suppress
+except ImportError:
+    class compat_contextlib_suppress(object):
+        _exceptions = None
+
+        def __init__(self, *exceptions):
+            super(compat_contextlib_suppress, self).__init__()
+            # TODO: [Base]ExceptionGroup (3.12+)
+            self._exceptions = exceptions
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return exc_val is not None and isinstance(exc_val, self._exceptions or tuple())
+
+
+# subprocess.Popen context manager
+# avoids leaking handles if .communicate() is not called
+try:
+    _Popen = subprocess.Popen
+    # check for required context manager attributes
+    _Popen.__enter__ and _Popen.__exit__
+    compat_subprocess_Popen = _Popen
+except AttributeError:
+    # not a context manager - make one
+    from contextlib import contextmanager
+
+    @contextmanager
+    def compat_subprocess_Popen(*args, **kwargs):
+        popen = None
+        try:
+            popen = _Popen(*args, **kwargs)
+            yield popen
+        finally:
+            if popen:
+                for f in (popen.stdin, popen.stdout, popen.stderr):
+                    if f:
+                        # repeated .close() is OK, but just in case
+                        with compat_contextlib_suppress(EnvironmentError):
+                            f.close()
+                popen.wait()
+
+
 # Fix https://github.com/ytdl-org/youtube-dl/issues/4223
 # See http://bugs.python.org/issue9161 for what is broken
 def workaround_optparse_bug9161():
@@ -3263,6 +3305,7 @@ __all__ = [
     'compat_http_cookiejar_Cookie',
     'compat_http_cookies',
     'compat_http_cookies_SimpleCookie',
+    'compat_contextlib_suppress',
     'compat_ctypes_WINFUNCTYPE',
     'compat_etree_fromstring',
     'compat_filter',
@@ -3298,6 +3341,7 @@ __all__ = [
     'compat_struct_pack',
     'compat_struct_unpack',
     'compat_subprocess_get_DEVNULL',
+    'compat_subprocess_Popen',
     'compat_tokenize_tokenize',
     'compat_urllib_error',
     'compat_urllib_parse',
