@@ -14,6 +14,7 @@ from .utils import (
     remove_quotes,
     unified_timestamp,
     variadic,
+    write_string,
 )
 from .compat import (
     compat_basestring,
@@ -53,15 +54,16 @@ def wraps_op(op):
 
 # NB In principle NaN cannot be checked by membership.
 # Here all NaN values are actually this one, so _NaN is _NaN,
-# although _NaN != _NaN.
+# although _NaN != _NaN. Ditto Infinity.
 
 _NaN = float('nan')
+_Infinity = float('inf')
 
 
 def _js_bit_op(op):
 
     def zeroise(x):
-        return 0 if x in (None, JS_Undefined, _NaN) else x
+        return 0 if x in (None, JS_Undefined, _NaN, _Infinity) else x
 
     @wraps_op(op)
     def wrapped(a, b):
@@ -84,7 +86,7 @@ def _js_arith_op(op):
 def _js_div(a, b):
     if JS_Undefined in (a, b) or not (a or b):
         return _NaN
-    return operator.truediv(a or 0, b) if b else float('inf')
+    return operator.truediv(a or 0, b) if b else _Infinity
 
 
 def _js_mod(a, b):
@@ -220,6 +222,42 @@ class LocalNameSpace(ChainMap):
         return 'LocalNameSpace%s' % (self.maps, )
 
 
+class Debugger(object):
+    ENABLED = False
+
+    @staticmethod
+    def write(*args, **kwargs):
+        level = kwargs.get('level', 100)
+
+        def truncate_string(s, left, right=0):
+            if s is None or len(s) <= left + right:
+                return s
+            return '...'.join((s[:left - 3], s[-right:] if right else ''))
+
+        write_string('[debug] JS: {0}{1}\n'.format(
+            '  ' * (100 - level),
+            ' '.join(truncate_string(compat_str(x), 50, 50) for x in args)))
+
+    @classmethod
+    def wrap_interpreter(cls, f):
+        def interpret_statement(self, stmt, local_vars, allow_recursion, *args, **kwargs):
+            if cls.ENABLED and stmt.strip():
+                cls.write(stmt, level=allow_recursion)
+            try:
+                ret, should_ret = f(self, stmt, local_vars, allow_recursion, *args, **kwargs)
+            except Exception as e:
+                if cls.ENABLED:
+                    if isinstance(e, ExtractorError):
+                        e = e.orig_msg
+                    cls.write('=> Raises:', e, '<-|', stmt, level=allow_recursion)
+                raise
+            if cls.ENABLED and stmt.strip():
+                if should_ret or not repr(ret) == stmt:
+                    cls.write(['->', '=>'][should_ret], repr(ret), '<-|', stmt, level=allow_recursion)
+            return ret, should_ret
+        return interpret_statement
+
+
 class JSInterpreter(object):
     __named_object_counter = 0
 
@@ -307,8 +345,7 @@ class JSInterpreter(object):
     def __op_chars(cls):
         op_chars = set(';,[')
         for op in cls._all_operators():
-            for c in op[0]:
-                op_chars.add(c)
+            op_chars.update(op[0])
         return op_chars
 
     def _named_object(self, namespace, obj):
@@ -326,9 +363,8 @@ class JSInterpreter(object):
         # collections.Counter() is ~10% slower in both 2.7 and 3.9
         counters = dict((k, 0) for k in _MATCHING_PARENS.values())
         start, splits, pos, delim_len = 0, 0, 0, len(delim) - 1
-        in_quote, escaping, skipping = None, False, 0
-        after_op, in_regex_char_group = True, False
-
+        in_quote, escaping, after_op, in_regex_char_group = None, False, True, False
+        skipping = 0
         for idx, char in enumerate(expr):
             paren_delta = 0
             if not in_quote:
@@ -382,10 +418,12 @@ class JSInterpreter(object):
         return separated[0][1:].strip(), separated[1].strip()
 
     @staticmethod
-    def _all_operators():
-        return itertools.chain(
-            # Ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
-            _SC_OPERATORS, _LOG_OPERATORS, _COMP_OPERATORS, _OPERATORS)
+    def _all_operators(_cached=[]):
+        if not _cached:
+            _cached.extend(itertools.chain(
+                # Ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
+                _SC_OPERATORS, _LOG_OPERATORS, _COMP_OPERATORS, _OPERATORS))
+        return _cached
 
     def _operator(self, op, left_val, right_expr, expr, local_vars, allow_recursion):
         if op in ('||', '&&'):
@@ -416,7 +454,7 @@ class JSInterpreter(object):
         except Exception as e:
             if allow_undefined:
                 return JS_Undefined
-            raise self.Exception('Cannot get index {idx:.100}'.format(**locals()), expr=repr(obj), cause=e)
+            raise self.Exception('Cannot get index {idx!r:.100}'.format(**locals()), expr=repr(obj), cause=e)
 
     def _dump(self, obj, namespace):
         try:
@@ -438,6 +476,7 @@ class JSInterpreter(object):
     _FINALLY_RE = re.compile(r'finally\s*\{')
     _SWITCH_RE = re.compile(r'switch\s*\(')
 
+    @Debugger.wrap_interpreter
     def interpret_statement(self, stmt, local_vars, allow_recursion=100):
         if allow_recursion < 0:
             raise self.Exception('Recursion limit reached')
@@ -511,7 +550,6 @@ class JSInterpreter(object):
                 expr = self._dump(inner, local_vars) + outer
 
         if expr.startswith('('):
-
             m = re.match(r'\((?P<d>[a-z])%(?P<e>[a-z])\.length\+(?P=e)\.length\)%(?P=e)\.length', expr)
             if m:
                 # short-cut eval of frequently used `(d%e.length+e.length)%e.length`, worth ~6% on `pytest -k test_nsig`
@@ -693,7 +731,7 @@ class JSInterpreter(object):
                 (?P<op>{_OPERATOR_RE})?
                 =(?!=)(?P<expr>.*)$
             )|(?P<return>
-                (?!if|return|true|false|null|undefined)(?P<name>{_NAME_RE})$
+                (?!if|return|true|false|null|undefined|NaN|Infinity)(?P<name>{_NAME_RE})$
             )|(?P<indexing>
                 (?P<in>{_NAME_RE})\[(?P<idx>.+)\]$
             )|(?P<attribute>
@@ -727,11 +765,12 @@ class JSInterpreter(object):
             raise JS_Break()
         elif expr == 'continue':
             raise JS_Continue()
-
         elif expr == 'undefined':
             return JS_Undefined, should_return
         elif expr == 'NaN':
             return _NaN, should_return
+        elif expr == 'Infinity':
+            return _Infinity, should_return
 
         elif md.get('return'):
             return local_vars[m.group('name')], should_return
@@ -760,18 +799,28 @@ class JSInterpreter(object):
             right_expr = separated.pop()
             # handle operators that are both unary and binary, minimal BODMAS
             if op in ('+', '-'):
+                # simplify/adjust consecutive instances of these operators
                 undone = 0
                 while len(separated) > 1 and not separated[-1].strip():
                     undone += 1
                     separated.pop()
                 if op == '-' and undone % 2 != 0:
                     right_expr = op + right_expr
+                elif op == '+':
+                    while len(separated) > 1 and separated[-1].strip() in self.OP_CHARS:
+                        right_expr = separated.pop() + right_expr
+                # hanging op at end of left => unary + (strip) or - (push right)
                 left_val = separated[-1]
                 for dm_op in ('*', '%', '/', '**'):
                     bodmas = tuple(self._separate(left_val, dm_op, skip_delims=skip_delim))
                     if len(bodmas) > 1 and not bodmas[-1].strip():
                         expr = op.join(separated) + op + right_expr
-                        right_expr = None
+                        if len(separated) > 1:
+                            separated.pop()
+                            right_expr = op.join((left_val, right_expr))
+                        else:
+                            separated = [op.join((left_val, right_expr))]
+                            right_expr = None
                         break
                 if right_expr is None:
                     continue
@@ -797,6 +846,8 @@ class JSInterpreter(object):
 
             def eval_method():
                 if (variable, member) == ('console', 'debug'):
+                    if Debugger.ENABLED:
+                        Debugger.write(self.interpret_expression('[{}]'.format(arg_str), local_vars, allow_recursion))
                     return
                 types = {
                     'String': compat_str,
