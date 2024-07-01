@@ -76,6 +76,7 @@ from .aenetworks import (
 )
 from .aeonco import AeonCoIE
 from .afreecatv import (
+    AfreecaTVCatchStoryIE,
     AfreecaTVIE,
     AfreecaTVLiveIE,
     AfreecaTVUserIE,
@@ -779,6 +780,7 @@ from .gopro import GoProIE
 from .goshgay import GoshgayIE
 from .gotostage import GoToStageIE
 from .gputechconf import GPUTechConfIE
+from .graspop import GraspopIE
 from .gronkh import (
     GronkhFeedIE,
     GronkhIE,
@@ -968,6 +970,10 @@ from .la7 import (
     LA7IE,
     LA7PodcastEpisodeIE,
     LA7PodcastIE,
+)
+from .laracasts import (
+    LaracastsIE,
+    LaracastsPlaylistIE,
 )
 from .lastfm import (
     LastFMIE,
@@ -1603,6 +1609,7 @@ from .qqmusic import (
     QQMusicPlaylistIE,
     QQMusicSingerIE,
     QQMusicToplistIE,
+    QQMusicVideoIE,
 )
 from .r7 import (
     R7IE,
