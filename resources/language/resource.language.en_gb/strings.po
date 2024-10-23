@@ -37,7 +37,7 @@ msgid "yt-dlp (kodi 19+ only)"
 msgstr ""
 
 msgctxt "#33000"
-msgid "Adpative"
+msgid "Adaptive"
 msgstr ""
 
 msgctxt "#33010"
