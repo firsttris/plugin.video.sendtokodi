@@ -946,6 +946,10 @@ from .kaltura import KalturaIE
 from .kankanews import KankaNewsIE
 from .karaoketv import KaraoketvIE
 from .kelbyone import KelbyOneIE
+from .kenh14 import (
+    Kenh14PlaylistIE,
+    Kenh14VideoIE,
+)
 from .khanacademy import (
     KhanAcademyIE,
     KhanAcademyUnitIE,
@@ -1135,12 +1139,6 @@ from .microsoftembed import (
     MicrosoftMediusIE,
 )
 from .microsoftstream import MicrosoftStreamIE
-from .mildom import (
-    MildomClipIE,
-    MildomIE,
-    MildomUserVodIE,
-    MildomVodIE,
-)
 from .minds import (
     MindsChannelIE,
     MindsGroupIE,
@@ -1559,10 +1557,6 @@ from .podbayfm import (
 )
 from .podchaser import PodchaserIE
 from .podomatic import PodomaticIE
-from .pokemon import (
-    PokemonIE,
-    PokemonWatchIE,
-)
 from .pokergo import (
     PokerGoCollectionIE,
     PokerGoIE,
@@ -2284,10 +2278,6 @@ from .utreon import UtreonIE
 from .varzesh3 import Varzesh3IE
 from .vbox7 import Vbox7IE
 from .veo import VeoIE
-from .veoh import (
-    VeohIE,
-    VeohUserIE,
-)
 from .vesti import VestiIE
 from .vevo import (
     VevoIE,
