@@ -518,11 +518,12 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         return self._search_regex(rf'^({self._YT_CHANNEL_UCID_RE})$', ucid, 'UC-id', default=None)
 
     def handle_or_none(self, handle):
-        return self._search_regex(rf'^({self._YT_HANDLE_RE})$', handle, '@-handle', default=None)
+        return self._search_regex(rf'^({self._YT_HANDLE_RE})$', urllib.parse.unquote(handle or ''),
+                                  '@-handle', default=None)
 
     def handle_from_url(self, url):
         return self._search_regex(rf'^(?:https?://(?:www\.)?youtube\.com)?/({self._YT_HANDLE_RE})',
-                                  url, 'channel handle', default=None)
+                                  urllib.parse.unquote(url or ''), 'channel handle', default=None)
 
     def ucid_from_url(self, url):
         return self._search_regex(rf'^(?:https?://(?:www\.)?youtube\.com)?/({self._YT_CHANNEL_UCID_RE})',
@@ -1495,7 +1496,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         },
         # Age-gate videos. See https://github.com/yt-dlp/yt-dlp/pull/575#issuecomment-888837000
         {
-            'note': 'Embed allowed age-gate video',
+            'note': 'Embed allowed age-gate video; works with web_embedded',
             'url': 'https://youtube.com/watch?v=HtVdAasjOgU',
             'info_dict': {
                 'id': 'HtVdAasjOgU',
@@ -1525,7 +1526,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'heatmap': 'count:100',
                 'timestamp': 1401991663,
             },
-            'skip': 'Age-restricted; requires authentication',
         },
         {
             'note': 'Age-gate video with embed allowed in public site',
@@ -2801,6 +2801,35 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'extractor_args': {'youtube': {'player_client': ['ios'], 'player_skip': ['webpage']}},
             },
         },
+        {
+            # uploader_id has non-ASCII characters that are percent-encoded in YT's JSON
+            'url': 'https://www.youtube.com/shorts/18NGQq7p3LY',
+            'info_dict': {
+                'id': '18NGQq7p3LY',
+                'ext': 'mp4',
+                'title': '아이브 이서 장원영 리즈 삐끼삐끼 챌린지',
+                'description': '',
+                'uploader': 'ㅇㅇ',
+                'uploader_id': '@으아-v1k',
+                'uploader_url': 'https://www.youtube.com/@으아-v1k',
+                'channel': 'ㅇㅇ',
+                'channel_id': 'UCC25oTm2J7ZVoi5TngOHg9g',
+                'channel_url': 'https://www.youtube.com/channel/UCC25oTm2J7ZVoi5TngOHg9g',
+                'thumbnail': r're:https?://.+/.+\.jpg',
+                'playable_in_embed': True,
+                'age_limit': 0,
+                'duration': 3,
+                'timestamp': 1724306170,
+                'upload_date': '20240822',
+                'availability': 'public',
+                'live_status': 'not_live',
+                'view_count': int,
+                'like_count': int,
+                'channel_follower_count': int,
+                'categories': ['People & Blogs'],
+                'tags': [],
+            },
+        },
     ]
 
     _WEBPAGE_TESTS = [
@@ -3983,10 +4012,20 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 else:
                     prs.append(pr)
 
+            # web_embedded can work around age-gate and age-verification for some embeddable videos
+            if self._is_agegated(pr) and variant != 'web_embedded':
+                append_client(f'web_embedded.{base_client}')
+            # Unauthenticated users will only get web_embedded client formats if age-gated
+            if self._is_agegated(pr) and not self.is_authenticated:
+                self.to_screen(
+                    f'{video_id}: This video is age-restricted; some formats may be missing '
+                    f'without authentication. {self._login_hint()}', only_once=True)
+
             ''' This code is pointless while web_creator is in _DEFAULT_AUTHED_CLIENTS
             # EU countries require age-verification for accounts to access age-restricted videos
             # If account is not age-verified, _is_agegated() will be truthy for non-embedded clients
-            if self.is_authenticated and self._is_agegated(pr):
+            embedding_is_disabled = variant == 'web_embedded' and self._is_unplayable(pr)
+            if self.is_authenticated and (self._is_agegated(pr) or embedding_is_disabled):
                 self.to_screen(
                     f'{video_id}: This video is age-restricted and YouTube is requiring '
                     'account age-verification; some formats may be missing', only_once=True)
