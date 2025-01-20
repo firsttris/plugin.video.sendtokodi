@@ -585,6 +585,10 @@ from .egghead import (
     EggheadCourseIE,
     EggheadLessonIE,
 )
+from .eggs import (
+    EggsArtistIE,
+    EggsIE,
+)
 from .eighttracks import EightTracksIE
 from .eitb import EitbIE
 from .elementorembed import ElementorEmbedIE
@@ -1279,6 +1283,10 @@ from .nebula import (
 )
 from .nekohacker import NekoHackerIE
 from .nerdcubed import NerdCubedFeedIE
+from .nest import (
+    NestClipIE,
+    NestIE,
+)
 from .neteasemusic import (
     NetEaseMusicAlbumIE,
     NetEaseMusicDjRadioIE,
@@ -1532,6 +1540,10 @@ from .pinkbike import PinkbikeIE
 from .pinterest import (
     PinterestCollectionIE,
     PinterestIE,
+)
+from .piramidetv import (
+    PiramideTVChannelIE,
+    PiramideTVIE,
 )
 from .pixivsketch import (
     PixivSketchIE,
