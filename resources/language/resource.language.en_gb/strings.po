@@ -48,3 +48,39 @@ msgctxt "#33011"
 msgid "Use original manifest (experimental)"
 msgstr ""
 
+msgctxt "#33020"
+msgid "Use DASH manifest builder (kodi 19+ only) (experimental)"
+msgstr ""
+
+msgctxt "#33030"
+msgid "Maximum resolution"
+msgstr ""
+
+msgctxt "#33031"
+msgid "7680x4320 (8k)"
+msgstr ""
+
+msgctxt "#33032"
+msgid "3840x2160 (4k)"
+msgstr ""
+
+msgctxt "#33033"
+msgid "2560x1440 (2k)"
+msgstr ""
+
+msgctxt "#33034"
+msgid "1920x1080 (FHD)"
+msgstr ""
+
+msgctxt "#33035"
+msgid "1280x720 (HD)"
+msgstr ""
+
+msgctxt "#33036"
+msgid "854x480 (SD)"
+msgstr ""
+
+msgctxt "#33040"
+msgid "Prefer AVC1/H.264/MP4"
+msgstr ""
+
