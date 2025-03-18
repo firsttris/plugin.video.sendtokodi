@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
-import json
+import sys
 import os
+
+# Ensures yt-dlp is on the python path
+# Workaround for issue caused by upstream commit
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(f"{dir_path}/lib/")
+
+import json
 import sys
 import xbmc
 import xbmcaddon
@@ -140,9 +147,39 @@ def check_if_kodi_supports_manifest(url):
     supported = is_helper.check_inputstream()
     if not supported:
         msg = "your kodi instance does not support the adaptive stream manifest of " + url + ", might need to install the adpative stream plugin"
-        showInfoNotification("msg")
+        showInfoNotification(msg)
         log(msg=msg, level=xbmc.LOGWARNING)
     return adaptive_type, supported
+
+def build_dash_manifest(result):
+    if not usedashbuilder:
+        return None
+    if 'requested_formats' not in result:
+        return None
+    if len(result['requested_formats']) != 2:
+        return None
+    video_format = result['requested_formats'][0]
+    audio_format = result['requested_formats'][1]
+    # Currently only support YouTube
+    if '.googlevideo.com' not in video_format['url']:
+        return None
+    if (video_format['acodec'] != 'none') or (audio_format['vcodec'] != 'none'):
+        return None
+    if ('container' not in video_format) or ('container' not in audio_format):
+        return None
+    if (video_format['container'] != "mp4_dash") and (video_format['container'] != "webm_dash"):
+        return None
+    if (audio_format['container'] != "m4a_dash") and (audio_format['container'] != "webm_dash"):
+        return None
+
+    import dash_builder as dash
+    builder = dash.Manifest(result['duration'])
+    builder.add_video_format(video_format)
+    builder.add_audio_format(audio_format)
+    manifest = builder.emit()
+    dash_url = dash.start_httpd(manifest)
+    log(f"Generated DASH manifest at {dash_url}")
+    return dash_url
 
 def createListItemFromVideo(result):
     debug(result)
@@ -153,7 +190,13 @@ def createListItemFromVideo(result):
             log("found original manifest: " + url)
             adaptive_type, supported = check_if_kodi_supports_manifest(url)
             if not supported:
-                url = None 
+                url = None
+        if url is None:
+            url = build_dash_manifest(result)
+            if url is not None:
+                adaptive_type, supported = check_if_kodi_supports_manifest(url)
+                if not supported:
+                    url = None
         if url is None:
             log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
             url = extract_best_all_in_one_stream(result)
@@ -179,7 +222,6 @@ def createListItemFromVideo(result):
     if adaptive_type:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
         list_item.setProperty('inputstream.adaptive.manifest_type', adaptive_type)
-
 
     return list_item
 
@@ -244,9 +286,10 @@ def playlistIndex(url, playlist):
 
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
-    from lib.youtube_dl import YoutubeDL
+    from youtube_dl import YoutubeDL
 else:
-    from lib.yt_dlp import YoutubeDL
+   # import lib.yt_dlp as yt_dlp
+    from yt_dlp import YoutubeDL
     
 # patch broken strptime (see above)
 patch_strptime()
@@ -262,8 +305,26 @@ ydl_opts = {
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
+
 if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
     ydl_opts['format'] = 'bestvideo*+bestaudio/best'
+
+usedashbuilder = (xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true') and (sys.version_info[0] >= 3)
+if usedashbuilder:
+    maxresolution = xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution")
+    preferavc1 = (xbmcplugin.getSetting(int(sys.argv[1]), "preferavc1") == 'true')
+
+    if preferavc1:
+        vcodec = '[vcodec*=avc1]'
+    else:
+        vcodec = ''
+
+    ydl_opts['format'] = f'bv{vcodec}[width<={maxresolution}]+ba/'
+    ydl_opts['format'] += f'bv[width<={maxresolution}]+ba/'
+    ydl_opts['format'] += f'b{vcodec}[width<={maxresolution}]/'
+    ydl_opts['format'] += f'b[width<={maxresolution}]'
+    ydl_opts['format'] += f'b*'
+
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 

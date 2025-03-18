@@ -1,30 +1,65 @@
 <?xml version="1.0" ?>
 <settings version="1">
-	<section id="plugin.video.sendtokodi">
-		<category id="general" label="32000">
-			<group id="1">
-				<setting id="resolver" type="integer" label="32020">
-					<level>0</level>
-					<default>1</default>
-					<constraints>
-						<options>
-							<option label="32021">0</option>
-							<option label="32022">1</option>
-						</options>
-					</constraints>
-					<control type="spinner" format="string"/>
-				</setting>
-			</group>
-		</category>
-		<category id="adaptive" label="33000">
-			<group id="2">
-				<setting label="33010" type="action" action="RunScript(script.module.inputstreamhelper,info)"/>
-				<setting type="boolean" id="usemanifest" label="33011">
-					<level>0</level>
-					<default>true</default>
-					<control type="toggle" />
-				</setting>
-			</group>
-		</category>
-	</section>
+    <section id="plugin.video.sendtokodi">
+        <category id="general" label="32000">
+            <group id="1">
+                <setting id="resolver" type="integer" label="32020">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="32021">0</option>
+                            <option label="32022">1</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+            </group>
+        </category>
+        <category id="adaptive" label="33000">
+            <group id="2">
+                <setting label="33010" type="action" action="RunScript(script.module.inputstreamhelper,info)"/>
+                <setting type="boolean" id="usemanifest" label="33011">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="usedashbuilder" label="33020">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="maxresolution" type="integer" label="33030">
+                    <level>0</level>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition setting="usedashbuilder" operator="is">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <default>1920</default>
+                    <constraints>
+                        <options>
+                            <option label="33031">7680</option>
+                            <option label="33032">3840</option>
+                            <option label="33033">2560</option>
+                            <option label="33034">1920</option>
+                            <option label="33035">1280</option>
+                            <option label="33036">854</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting type="boolean" id="preferavc1" label="33040">
+                    <level>0</level>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition setting="usedashbuilder" operator="is">true</condition>
+                        </dependency>
+                    </dependencies>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+        </category>
+    </section>
 </settings>
