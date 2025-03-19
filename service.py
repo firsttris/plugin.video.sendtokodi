@@ -221,7 +221,6 @@ def createListItemFromVideo(result):
         ])
     if adaptive_type:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
-        list_item.setProperty('inputstream.adaptive.manifest_type', adaptive_type)
 
     return list_item
 
