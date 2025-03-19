@@ -202,14 +202,21 @@ class HttpHandler(http.server.BaseHTTPRequestHandler):
 
 
 def _handle_request(httpd):
-    httpd.serve_forever()
+    try:
+        while True:
+            httpd.handle_request()
+    except TimeoutError:
+        return
 
 def start_httpd(manifest):
     handler = HttpHandler
+    handler.mpd = manifest
+
     server_address = ('127.0.0.1', 0)
     httpd = http.server.HTTPServer(server_address, handler)
     httpd.timeout = 2
-    handler.mpd = manifest
+    httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
+
     thread = Thread(target=_handle_request, args=(httpd,))
     thread.start()
     return f"http://127.0.0.1:{httpd.server_port}/manifest.mpd"
