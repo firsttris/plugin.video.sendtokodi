@@ -42,7 +42,7 @@ def _webm_find_init_and_index_ranges(r):
 
         # Get the size of the element
         size_len, sz = _webm_decode_int(r.content[offset+id_len])
-        size_bytes = bytearray() + sz.to_bytes()
+        size_bytes = bytearray() + sz.to_bytes(1, 'big')
         begin = offset + id_len + 1
         end = offset + id_len + size_len
         size_bytes += r.content[begin:end]
