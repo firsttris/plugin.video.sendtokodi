@@ -322,7 +322,7 @@ if usedashbuilder:
     ydl_opts['format'] = f'bv{vcodec}[width<={maxresolution}]+ba/'
     ydl_opts['format'] += f'bv[width<={maxresolution}]+ba/'
     ydl_opts['format'] += f'b{vcodec}[width<={maxresolution}]/'
-    ydl_opts['format'] += f'b[width<={maxresolution}]'
+    ydl_opts['format'] += f'b[width<={maxresolution}]/'
     ydl_opts['format'] += f'b*'
 
 ydl = YoutubeDL(ydl_opts)
