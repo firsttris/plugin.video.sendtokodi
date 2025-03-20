@@ -222,6 +222,17 @@ def createListItemFromVideo(result):
     if adaptive_type:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
 
+        # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
+        # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
+        if 'http_headers' in result:
+            from urllib.parse import quote
+            headers = str()
+            for name, value in result['http_headers'].items():
+                headers += f'{name}={quote(value)}&'
+            headers = headers[:-1]
+            list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
+            list_item.setProperty('inputstream.adaptive.stream_headers', headers)
+
     return list_item
 
 def createListItemFromFlatPlaylistItem(video):
