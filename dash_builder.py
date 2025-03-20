@@ -70,7 +70,7 @@ def _mp4_find_init_and_index_ranges(r):
     index_range = None
     offset = 0
     while offset < len(r.content) - 8:
-        box_size = struct.unpack('>I', r.content[offset:offset + 4])[0]
+        box_size = max(struct.unpack('>I', r.content[offset:offset + 4])[0], 8)
         box_type = struct.unpack('4s', r.content[offset + 4:offset + 8])[0]
         if box_type == b"sidx":
             init_range = (0, offset - 1)
@@ -81,8 +81,6 @@ def _mp4_find_init_and_index_ranges(r):
 
 def find_init_and_index_ranges(url, container):
     # Download the first 1KiB of the stream
-    init_range = None
-    index_range = None
     size = 1024
     r = requests.get(url, headers={'Range':'bytes=0-' + str(size - 1)})
     if container == 'webm_dash':
@@ -202,15 +200,21 @@ class HttpHandler(http.server.BaseHTTPRequestHandler):
 
 
 def _handle_request(httpd):
-    httpd.serve_forever()
+    try:
+        while True:
+            httpd.handle_request()
+    except TimeoutError:
+        return
 
 def start_httpd(manifest):
     handler = HttpHandler
+    handler.mpd = manifest
+
     server_address = ('127.0.0.1', 0)
     httpd = http.server.HTTPServer(server_address, handler)
-    httpd.timeout = 2
-    handler.mpd = manifest
+    httpd.timeout = 2  # Seconds
+    httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
+
     thread = Thread(target=_handle_request, args=(httpd,))
     thread.start()
     return f"http://127.0.0.1:{httpd.server_port}/manifest.mpd"
-
