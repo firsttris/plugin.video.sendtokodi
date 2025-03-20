@@ -209,7 +209,9 @@ def createListItemFromVideo(result):
         url = result['url']
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
-    list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
+    video_info = list_item.getVideoInfoTag()
+    video_info.setTitle(result['title'])
+    video_info.setPlot(result.get('description', None))
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
     subtitles = result.get('subtitles', {})
