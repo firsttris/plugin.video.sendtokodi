@@ -31,11 +31,6 @@
                 </setting>
                 <setting id="maxresolution" type="integer" label="33030">
                     <level>0</level>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition setting="usedashbuilder" operator="is">true</condition>
-                        </dependency>
-                    </dependencies>
                     <default>1920</default>
                     <constraints>
                         <options>
@@ -48,16 +43,6 @@
                         </options>
                     </constraints>
                     <control type="spinner" format="string"/>
-                </setting>
-                <setting type="boolean" id="preferavc1" label="33040">
-                    <level>0</level>
-                    <dependencies>
-                        <dependency type="visible">
-                            <condition setting="usedashbuilder" operator="is">true</condition>
-                        </dependency>
-                    </dependencies>
-                    <default>false</default>
-                    <control type="toggle"/>
                 </setting>
             </group>
         </category>

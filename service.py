@@ -79,134 +79,164 @@ def getParams():
     return result
 
 
-def extract_manifest_url(result):
-    # sometimes there is an url directly 
-    # but for some extractors this is only one quality and sometimes not even a real manifest
-    if 'manifest_url' in result and get_adaptive_type_from_url(result['manifest_url']):
-        return result['manifest_url']
-    # otherwise we must relay that the requested formats have been found and 
-    # extract the manifest url from them
-    if 'requested_formats' not in result:
-        return None
-    for entry in result['requested_formats']:
-        # the resolver marks not all entries with video AND audio 
-        # but usually adaptive video streams also have audio
-        if 'manifest_url' in entry and 'vcodec' in entry and get_adaptive_type_from_url(entry['manifest_url']):
-            return entry['manifest_url']
+def guess_manifest_type(f, url):
+    protocol = f.get('protocol', "")
+    if protocol.startswith("m3u"):
+        return "hls"
+    elif protocol.startswith("rtmp") or protocol == "rtsp":
+        return "rtmp"
+    elif protocol == "ism":
+        return "ism"
+    for s in [".m3u", ".m3u8", ".hls", ".mpd", ".rtmp", ".ism"]:
+        offset = url.find(s, 0)
+        while offset != -1:
+            if offset == len(url) - len(s) or not url[offset + len(s)].isalnum():
+                if s.startswith("m3u"):
+                    s = ".hls"
+                return s[1:]
+            offset = url.find(s, offset + 1)
     return None
 
+try:
+    import inputstreamhelper
 
-def extract_best_all_in_one_stream(result):
-    # Check if 'formats' key exists in result
-    if 'formats' not in result:
-        return None
-    # if there is nothing to choose from simply take the shot it is correct
-    if len(result['formats']) == 1:
-        return result['formats'][0]['url'] 
-    audio_video_streams = [] 
-    filter_format = (lambda f: f.get('vcodec', 'none') != 'none' and f.get('acodec', 'none') != 'none')
-    # assume it is a video containg audio. Get the one with the highest resolution
-    for entry in result['formats']:
-        if filter_format(entry):
-            audio_video_streams.append(entry)
-    if audio_video_streams:
-            return max(audio_video_streams, key=lambda f: f['width'])['url'] 
-    # test if it is an audio only stream
-    if result.get('vcodec', 'none') == 'none': 
-        # in case of multiple audio streams get the best
-        audio_streams = []
-        filter_format = (lambda f: f.get('abr', 'none') != 'none')
-        for entry in result['formats']:
-            if filter_format(entry):
-                audio_streams.append(entry)
-        if audio_streams:
-            return max(audio_streams, key=lambda f: f['abr'])['url'] 
-        # not all extractors provide an abr (and other fields are also not guaranteed), try to get any audio 
-        if (entry.get('acodec', 'none') != 'none') or entry.get('ext', False) in ['mp3', 'wav', 'opus']:
-            return entry['url']      
-    # was not able to resolve
-    return None
-
-def get_adaptive_type_from_url(url):
-    supported_endings = [".m3u8", ".hls", ".mpd", ".rtmp", ".ism"]
-    file = url.split('/')[-1]
-    for ending in supported_endings:
-        if ending in file:
-            # adaptive input stream plugin needs the type which is not the same as the file ending
-            if ending  == ".m3u8":  
-                return "hls"
-            else:
-                return ending.lstrip('.')
-    log("Manifest type could not be identified for {}".format(file))
-    return False
-
-def check_if_kodi_supports_manifest(url):
-    from inputstreamhelper import Helper
-    adaptive_type = get_adaptive_type_from_url(url)
-    is_helper = Helper(adaptive_type) 
-    supported = is_helper.check_inputstream()
-    if not supported:
-        msg = "your kodi instance does not support the adaptive stream manifest of " + url + ", might need to install the adpative stream plugin"
-        showInfoNotification(msg)
-        log(msg=msg, level=xbmc.LOGWARNING)
-    return adaptive_type, supported
-
-def build_dash_manifest(result):
-    if not usedashbuilder:
-        return None
-    if 'requested_formats' not in result:
-        return None
-    if len(result['requested_formats']) != 2:
-        return None
-    video_format = result['requested_formats'][0]
-    audio_format = result['requested_formats'][1]
-    # Currently only support YouTube
-    if '.googlevideo.com' not in video_format['url']:
-        return None
-    if (video_format['acodec'] != 'none') or (audio_format['vcodec'] != 'none'):
-        return None
-    if ('container' not in video_format) or ('container' not in audio_format):
-        return None
-    if (video_format['container'] != "mp4_dash") and (video_format['container'] != "webm_dash"):
-        return None
-    if (audio_format['container'] != "m4a_dash") and (audio_format['container'] != "webm_dash"):
-        return None
-
-    import dash_builder as dash
-    builder = dash.Manifest(result['duration'])
-    builder.add_video_format(video_format)
-    builder.add_audio_format(audio_format)
-    manifest = builder.emit()
-    dash_url = dash.start_httpd(manifest)
-    log(f"Generated DASH manifest at {dash_url}")
-    return dash_url
+    def isa_supports(stream):
+        if stream is None or len(stream) < 1:
+            return False
+        return inputstreamhelper.Helper(stream).check_inputstream()
+except ImportError:
+    def isa_supports(stream):
+        return False
 
 def createListItemFromVideo(result):
     debug(result)
-    adaptive_type = False
-    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
-        url = extract_manifest_url(result)
+
+    url = None
+    isa = None
+    headers = None
+
+    # first try existing manifest
+    manifest_url = result.get('manifest_url') if usemanifest else None
+    if manifest_url is not None and isa_supports(guess_manifest_type(result, manifest_url)):
+        isa = True
+        url = manifest_url
+        headers = result.get('http_headers')
+        log("Picked original manifest")
+
+    # then move on to heuristic format selection
+    if url is None:
+        have_video = False
+        have_audio = False
+        dash_video = []
+        dash_audio = []
+        filtered_format = None
+        all_formats = result.get('formats', [])
+        for f in all_formats:
+            vcodec = f.get('vcodec', "none")
+            acodec = f.get('acodec', "none")
+            if vcodec != "none":
+                have_video = True
+            if acodec != "none":
+                have_audio = True
+
+            container = f.get('container', "")
+            if vcodec != "none" and acodec == "none" and container in ["mp4_dash", "webm_dash"]:
+                dash_video.append(f)
+            if vcodec == "none" and acodec != "none" and container in ["m4a_dash", "webm_dash"]:
+                dash_audio.append(f)
+
+        # workaround for unknown ISA bug that causes audio to fail when
+        # multiple streams are available, though seemingly only when they have
+        # different sample rates.
+        if len(dash_audio) > 1:
+            dash_audio = [dash_audio[-1]]
+
+        # ytdl returns formats from worst to best
+        for f in reversed(all_formats):
+            # assume that manifests are either video+audio regardless of acodec, or audio only
+            vcodec = f.get('vcodec')
+            acodec = f.get('acodec')
+            if (have_video and vcodec == "none") or (not have_video and acodec == "none"):
+                continue
+
+            # Streams with adaptive manifests:
+            # ytdl will sometimes return a manifest_url in individual formats
+            # but not a global one. When this happens it (always?) means that
+            # it's functionally a global manifest.
+            manifest_url = f.get('manifest_url') if usemanifest else None
+            if manifest_url is not None and isa_supports(guess_manifest_type(f, manifest_url)):
+                url = manifest_url
+                isa = True
+                headers = f.get('http_headers')
+                log("Picked format " + f.get('format', "") + " manifest")
+                break
+
+            # MPEG-DASH streams without adaptive manifest:
+            if usedashbuilder and (not have_video or len(dash_video) > 0) and (not have_audio or len(dash_audio) > 0) and ((have_video and f == dash_video[-1]) or (not have_video and f == dash_audio[-1])) and isa_supports("mpd"):
+                import dash_builder
+                builder = dash_builder.Manifest(result.get('duration', "0"))
+                video_success = not have_video
+                audio_success = not have_audio
+                for fvideo in dash_video:
+                    fid = fvideo.get('format', "")
+                    try:
+                        builder.add_video_format(fvideo)
+                        video_success = True
+                        log("Added video stream {} to DASH manifest".format(fid))
+                    except Exception as e:
+                        log("Failed to add DASH video stream {}: {}".format(fid, e))
+                for faudio in dash_audio:
+                    fid = faudio.get('format', "")
+                    try:
+                        builder.add_audio_format(faudio)
+                        audio_success = True
+                        log("Added audio stream {} to DASH manifest".format(fid))
+                    except Exception as e:
+                        log("Failed to add DASH audio stream {}: {}".format(fid, e))
+                if video_success and audio_success:
+                    url = dash_builder.start_httpd(builder.emit())
+                    isa = True
+                    headers = f.get('http_headers')
+                    log("Picked DASH with custom manifest")
+                    break
+
+            # Non-adaptive manifests or files on servers:
+            if not 'url' in f:
+                continue
+            # TODO: implement support for making/serving global HLS manifests for m3u8 and mp4 urls
+            if (have_video and vcodec == "none") or (have_audio and acodec == "none"):
+                continue
+            manifest_type = guess_manifest_type(f, f['url'])
+            if manifest_type is not None and not isa_supports(manifest_type):
+                continue
+            if int(f.get('width', "0")) > maxwidth:
+                if filtered_format is None:
+                    filtered_format = f
+                continue
+            url = f['url']
+            isa = isa_supports(manifest_type)
+            headers = f.get('http_headers')
+            log("Picked raw format " + f.get('format', ""))
+            break
+
+        # if nothing could be selected, try playing anything we can
+        if url is None and filtered_format is not None:
+            url = filtered_format['url']
+            isa = isa_supports(guess_manifest_type(filtered_format, url))
+            headers = f.get('http_headers')
+
+    if url is None:
+        # yeah we're definitely cooked
+        url = result.get('url')
         if url is not None:
-            log("found original manifest: " + url)
-            adaptive_type, supported = check_if_kodi_supports_manifest(url)
-            if not supported:
-                url = None
-        if url is None:
-            url = build_dash_manifest(result)
-            if url is not None:
-                adaptive_type, supported = check_if_kodi_supports_manifest(url)
-                if not supported:
-                    url = None
-        if url is None:
-            log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
-            url = extract_best_all_in_one_stream(result)
-        if url is None:
-            err_msg = "Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34"
-            log(err_msg)
-            showInfoNotification(err_msg)
-            raise Exception(err_msg)
-    else:
-        url = result['url']
+            isa = isa_supports(guess_manifest_type(result, url))
+            headers = result.get('http_headers')
+
+    if url is None:
+        msg = "No supported streams found"
+        showErrorNotification(msg)
+        raise Exception("Error: " + msg)
+
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
     video_info = list_item.getVideoInfoTag()
@@ -221,14 +251,16 @@ def createListItemFromVideo(result):
             for lang in subtitles
             for subtitleListEntry in subtitles[lang]
         ])
-    if adaptive_type:
+    if isa:
         list_item.setProperty('inputstream', 'inputstream.adaptive')
 
         # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
         # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
-        if 'http_headers' in result:
+        if headers is None:
+            headers = result.get('http_headers')
+        if headers is not None:
             from urllib.parse import urlencode
-            headers = urlencode(result['http_headers'])
+            headers = urlencode(headers)
             list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
             list_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
@@ -302,7 +334,7 @@ patch_strptime()
 #                Pass in 'in_playlist' to only show this behavior for
 #                playlist items.
 ydl_opts = {
-    'format': 'best',
+    'format': 'bv*+ba/b',
     'extract_flat': 'in_playlist'
 }
 
@@ -310,24 +342,9 @@ params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 
-if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
-    ydl_opts['format'] = 'bestvideo*+bestaudio/best'
-
+usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = (xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true') and (sys.version_info[0] >= 3)
-if usedashbuilder:
-    maxresolution = xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution")
-    preferavc1 = (xbmcplugin.getSetting(int(sys.argv[1]), "preferavc1") == 'true')
-
-    if preferavc1:
-        vcodec = '[vcodec*=avc1]'
-    else:
-        vcodec = ''
-
-    ydl_opts['format'] = f'bv{vcodec}[width<={maxresolution}]+ba/'
-    ydl_opts['format'] += f'bv[width<={maxresolution}]+ba/'
-    ydl_opts['format'] += f'b{vcodec}[width<={maxresolution}]/'
-    ydl_opts['format'] += f'b[width<={maxresolution}]/'
-    ydl_opts['format'] += f'b*'
+maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
