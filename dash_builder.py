@@ -137,6 +137,9 @@ class Manifest():
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
         rep.set('mimeType', f"audio/{format['ext']}")
+        kbps = format.get('tbr', format.get('abr'))
+        if kbps is not None:
+            rep.set('bandwidth', str(int(kbps * 1000)))
 
         channels = SubElement(rep, 'AudioChannelConfiguration')
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
@@ -163,6 +166,9 @@ class Manifest():
         rep.set('width', str(format['resolution']).split('x',1)[0])
         rep.set('height', str(format['resolution']).split('x',1)[1])
         rep.set('mimeType', f"video/{format['ext']}")
+        kbps = format.get('tbr', format.get('vbr'))
+        if kbps is not None:
+            rep.set('bandwidth', str(int(kbps * 1000)))
 
         url = transform_url(format['url'])
         base_url = SubElement(rep, 'BaseURL')
