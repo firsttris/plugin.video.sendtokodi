@@ -66,8 +66,8 @@ def _webm_find_init_and_index_ranges(r):
 def _mp4_find_init_and_index_ranges(r):
     # Walk over the stream and find the offset of the sidx box
     # Fortunately this is much easier than webm
-    init_range = None
-    index_range = None
+    init_range = (0,0)
+    index_range = (0,0)
     offset = 0
     while offset < len(r.content) - 8:
         box_size = max(struct.unpack('>I', r.content[offset:offset + 4])[0], 8)
