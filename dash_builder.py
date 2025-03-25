@@ -91,7 +91,7 @@ def _iso8601_duration(secs):
     m, s = divmod(secs, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)
-    return f"P{int(d)}DT{int(h)}H{int(m)}M{s}S"
+    return "P{}DT{}H{}M{}S".format(int(d), int(h), int(m), s)
 
 def transform_url(url):
     return url.replace('&', '/').replace('?', '/').replace('=', '/')
@@ -136,7 +136,7 @@ class Manifest():
         rep.set('codecs', format['acodec'])
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
-        rep.set('mimeType', f"audio/{format['ext']}")
+        rep.set('mimeType', "audio/{}".format(format['ext']))
 
         channels = SubElement(rep, 'AudioChannelConfiguration')
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
@@ -148,10 +148,10 @@ class Manifest():
 
         init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
-        segment_base.set('indexRange', f'{idx_range[0]}-{idx_range[1]}')
+        segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
         init = SubElement(segment_base, 'Initialization')
-        init.set('range', f'{init_range[0]}-{init_range[1]}')
+        init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def add_video_format(self, format):
         rep = SubElement(self.video_set, 'Representation')
@@ -162,7 +162,7 @@ class Manifest():
         rep.set('frameRate', str(format['fps']))
         rep.set('width', str(format['resolution']).split('x',1)[0])
         rep.set('height', str(format['resolution']).split('x',1)[1])
-        rep.set('mimeType', f"video/{format['ext']}")
+        rep.set('mimeType', "video/{}".format(format['ext']))
 
         url = transform_url(format['url'])
         base_url = SubElement(rep, 'BaseURL')
@@ -170,10 +170,10 @@ class Manifest():
 
         init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
-        segment_base.set('indexRange', f'{idx_range[0]}-{idx_range[1]}')
+        segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
         init = SubElement(segment_base, 'Initialization')
-        init.set('range', f'{init_range[0]}-{init_range[1]}')
+        init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def emit(self):
         indent(self.tree)
@@ -217,4 +217,4 @@ def start_httpd(manifest):
 
     thread = Thread(target=_handle_request, args=(httpd,))
     thread.start()
-    return f"http://127.0.0.1:{httpd.server_port}/manifest.mpd"
+    return "http://127.0.0.1:{}/manifest.mpd".format(httpd.server_port)

@@ -5,7 +5,7 @@ import os
 # Ensures yt-dlp is on the python path
 # Workaround for issue caused by upstream commit
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f"{dir_path}/lib/")
+sys.path.append(os.path.join(dir_path, 'lib'))
 
 import json
 import sys
@@ -178,7 +178,7 @@ def build_dash_manifest(result):
     builder.add_audio_format(audio_format)
     manifest = builder.emit()
     dash_url = dash.start_httpd(manifest)
-    log(f"Generated DASH manifest at {dash_url}")
+    log("Generated DASH manifest at {}".format(dash_url))
     return dash_url
 
 def createListItemFromVideo(result):
@@ -323,11 +323,11 @@ if usedashbuilder:
     else:
         vcodec = ''
 
-    ydl_opts['format'] = f'bv{vcodec}[width<={maxresolution}]+ba/'
-    ydl_opts['format'] += f'bv[width<={maxresolution}]+ba/'
-    ydl_opts['format'] += f'b{vcodec}[width<={maxresolution}]/'
-    ydl_opts['format'] += f'b[width<={maxresolution}]/'
-    ydl_opts['format'] += f'b*'
+    ydl_opts['format'] = 'bv{}[width<={}]+ba/'.format(vcodec, maxresolution)
+    ydl_opts['format'] += 'bv[width<={}]+ba/'.format(maxresolution)
+    ydl_opts['format'] += 'b{}[width<={}]/'.format(vcodec, maxresolution)
+    ydl_opts['format'] += 'b[width<={}]/'.format(maxresolution)
+    ydl_opts['format'] += 'b*'
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
