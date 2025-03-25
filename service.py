@@ -181,39 +181,74 @@ def build_dash_manifest(result):
     log(f"Generated DASH manifest at {dash_url}")
     return dash_url
 
-def createListItemFromVideo(result):
-    debug(result)
+# Helper function to get boolean settings
+def get_bool_setting(setting_name, default=False):
+    """Get a boolean setting value with proper validation"""
+    try:
+        # Using xbmcaddon is generally considered better practice
+        addon = xbmcaddon.Addon()
+        setting = addon.getSetting(setting_name).lower()
+        if setting in ('true', '1', 'yes'):
+            return True
+        elif setting in ('false', '0', 'no'):
+            return False
+        return default
+    except:
+        log(f"Error accessing setting: {setting_name}", xbmc.LOGWARNING)
+        return default
+
+
+def extract_video_url(result, use_manifest=False):
+    """Extract the best available URL from the result based on settings."""
     adaptive_type = False
-    if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
+    
+    if use_manifest:
+        # Try to find a manifest URL first
         url = extract_manifest_url(result)
         if url is not None:
             log("found original manifest: " + url)
             adaptive_type, supported = check_if_kodi_supports_manifest(url)
             if not supported:
                 url = None
+                
+        # Try to build a DASH manifest if original not found or not supported
         if url is None:
             url = build_dash_manifest(result)
             if url is not None:
                 adaptive_type, supported = check_if_kodi_supports_manifest(url)
                 if not supported:
                     url = None
+                    
+        # Fall back to best all-in-one stream if no manifests work
         if url is None:
             log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
             url = extract_best_all_in_one_stream(result)
-        if url is None:
-            err_msg = "Error: was not able to extract manifest or all-in-one stream. Implement https://github.com/firsttris/plugin.video.sendtokodi/issues/34"
-            log(err_msg)
-            showInfoNotification(err_msg)
-            raise Exception(err_msg)
     else:
-        url = result['url']
-    log("creating list item for url {}".format(url))
-    list_item = xbmcgui.ListItem(result['title'], path=url)
+        # Direct URL mode - first try direct URL, then fall back to extraction
+        if 'url' in result:
+            url = result['url']
+        else:
+            log("'url' key not found in result, falling back to extracting best all-in-one stream")
+            url = extract_best_all_in_one_stream(result)
+            
+    # Handle cases where no URL could be found
+    if url is None:
+        err_msg = "Error: unable to extract any playable stream URL"
+        log(err_msg)
+        showInfoNotification(err_msg)
+        raise Exception(err_msg)
+        
+    return url, adaptive_type
+
+def setup_list_item_metadata(list_item, result):
+    """Set up metadata for the list item."""
     video_info = list_item.getVideoInfoTag()
     video_info.setTitle(result['title'])
     video_info.setPlot(result.get('description', None))
+    
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
+        
     subtitles = result.get('subtitles', {})
     if subtitles:
         list_item.setSubtitles([
@@ -221,17 +256,34 @@ def createListItemFromVideo(result):
             for lang in subtitles
             for subtitleListEntry in subtitles[lang]
         ])
-    if adaptive_type:
-        list_item.setProperty('inputstream', 'inputstream.adaptive')
 
-        # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
-        # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
-        if 'http_headers' in result:
-            from urllib.parse import urlencode
-            headers = urlencode(result['http_headers'])
-            list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
-            list_item.setProperty('inputstream.adaptive.stream_headers', headers)
+def setup_adaptive_streaming(list_item, result, adaptive_type):
+    """Set up inputstream adaptive properties if needed."""
+    if not adaptive_type:
+        return
+        
+    list_item.setProperty('inputstream', 'inputstream.adaptive')
+    
+    # Many sites will throw a 403 unless the http headers match those originally sent by yt-dlp
+    if 'http_headers' in result:
+        from urllib.parse import urlencode
+        headers = urlencode(result['http_headers'])
+        list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
+        list_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
+def createListItemFromVideo(result):
+    debug(result)
+    
+    # Extract the best URL and check if it's an adaptive stream
+    url, adaptive_type = extract_video_url(result, get_bool_setting("usemanifest"))
+    
+    log("creating list item for url {}".format(url))
+    list_item = xbmcgui.ListItem(result['title'], path=url)
+    
+    # Set up metadata and adaptive streaming if needed
+    setup_list_item_metadata(list_item, result)
+    setup_adaptive_streaming(list_item, result, adaptive_type)
+    
     return list_item
 
 def createListItemFromFlatPlaylistItem(video):
@@ -310,15 +362,14 @@ params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 
-if xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true':
+if get_bool_setting("usemanifest"):
     ydl_opts['format'] = 'bestvideo*+bestaudio/best'
 
-usedashbuilder = (xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true') and (sys.version_info[0] >= 3)
+usedashbuilder = (get_bool_setting("usedashbuilder")) and (sys.version_info[0] >= 3)
 if usedashbuilder:
     maxresolution = xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution")
-    preferavc1 = (xbmcplugin.getSetting(int(sys.argv[1]), "preferavc1") == 'true')
 
-    if preferavc1:
+    if get_bool_setting("preferavc1"):
         vcodec = '[vcodec*=avc1]'
     else:
         vcodec = ''
