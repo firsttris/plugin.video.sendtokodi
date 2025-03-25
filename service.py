@@ -365,7 +365,7 @@ ydl_opts.update(params['ydlOpts'])
 if get_bool_setting("usemanifest"):
     ydl_opts['format'] = 'bestvideo*+bestaudio/best'
 
-usedashbuilder = (get_bool_setting("usedashbuilder")) and (sys.version_info[0] >= 3)
+usedashbuilder = get_bool_setting("usedashbuilder") and (sys.version_info[0] >= 3)
 if usedashbuilder:
     maxresolution = xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution")
 
