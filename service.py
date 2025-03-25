@@ -371,9 +371,6 @@ if 'entries' in result:
     #xbmc.Player().play(pl) # this probably works again
     # ...but start playback the same way the Youtube plugin does it:
     xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
-
-    showInfoNotification("Playing playlist " + result['title'])
 else:
     # Just a video, pass the item to the Kodi player.
-    showInfoNotification("Playing title " + result['title'])
     xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
