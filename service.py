@@ -200,36 +200,17 @@ def get_bool_setting(setting_name, default=False):
 
 def extract_video_url(result, use_manifest=False):
     """Extract the best available URL from the result based on settings."""
+    
+    url = None
     adaptive_type = False
     
+    # If manifest mode is enabled, try different manifest approaches
     if use_manifest:
-        # Try to find a manifest URL first
-        url = extract_manifest_url(result)
-        if url is not None:
-            log("found original manifest: " + url)
-            adaptive_type, supported = check_if_kodi_supports_manifest(url)
-            if not supported:
-                url = None
-                
-        # Try to build a DASH manifest if original not found or not supported
-        if url is None:
-            url = build_dash_manifest(result)
-            if url is not None:
-                adaptive_type, supported = check_if_kodi_supports_manifest(url)
-                if not supported:
-                    url = None
-                    
-        # Fall back to best all-in-one stream if no manifests work
-        if url is None:
-            log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
-            url = extract_best_all_in_one_stream(result)
+        # Try each method in sequence until we get a working URL
+        url, adaptive_type = try_get_manifest(result)
     else:
-        # Direct URL mode - first try direct URL, then fall back to extraction
-        if 'url' in result:
-            url = result['url']
-        else:
-            log("'url' key not found in result, falling back to extracting best all-in-one stream")
-            url = extract_best_all_in_one_stream(result)
+        # Direct URL mode - use URL directly or extract best stream
+        url = result.get('url') or extract_best_all_in_one_stream(result)
             
     # Handle cases where no URL could be found
     if url is None:
@@ -239,6 +220,27 @@ def extract_video_url(result, use_manifest=False):
         raise Exception(err_msg)
         
     return url, adaptive_type
+
+def try_get_manifest(result):
+    """Try different methods to get a working manifest"""
+    # Try original manifest
+    url = extract_manifest_url(result)
+    if url is not None:
+        log("found original manifest: " + url)
+        adaptive_type, supported = check_if_kodi_supports_manifest(url)
+        if supported:
+            return url, adaptive_type
+    
+    # Try to build DASH manifest
+    url = build_dash_manifest(result)
+    if url is not None:
+        adaptive_type, supported = check_if_kodi_supports_manifest(url)
+        if supported:
+            return url, adaptive_type
+    
+    # Fall back to best all-in-one stream
+    log("could not find an original manifest or manifest is not supported falling back to best all-in-one stream")
+    return extract_best_all_in_one_stream(result), False
 
 def setup_list_item_metadata(list_item, result):
     """Set up metadata for the list item."""
