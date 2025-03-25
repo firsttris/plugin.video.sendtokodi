@@ -5,7 +5,7 @@ import os
 # Ensures yt-dlp is on the python path
 # Workaround for issue caused by upstream commit
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f"{dir_path}/lib/")
+os.path.join(dir_path, 'lib')
 
 import json
 import sys
@@ -178,7 +178,7 @@ def build_dash_manifest(result):
     builder.add_audio_format(audio_format)
     manifest = builder.emit()
     dash_url = dash.start_httpd(manifest)
-    log(f"Generated DASH manifest at {dash_url}")
+    log("Generated DASH manifest at {}".format(dash_url))
     return dash_url
 
 def createListItemFromVideo(result):
