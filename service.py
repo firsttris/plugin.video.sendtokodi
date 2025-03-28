@@ -172,7 +172,7 @@ def createListItemFromVideo(result):
                 break
 
             # MPEG-DASH streams without adaptive manifest:
-            if usedashbuilder and (not have_video or len(dash_video) > 0) and (not have_audio or len(dash_audio) > 0) and ((have_video and f == dash_video[-1]) or (not have_video and f == dash_audio[-1])) and isa_supports("mpd"):
+            if usedashbuilder and (not have_video or len(dash_video) > 0) and (not have_audio or len(dash_audio) > 0) and ((have_video and f == dash_video[-1]) or (not have_video and have_audio and f == dash_audio[-1])) and isa_supports("mpd"):
                 import dash_builder
                 builder = dash_builder.Manifest(result.get('duration', "0"))
                 video_success = not have_video
