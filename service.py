@@ -377,12 +377,15 @@ if 'entries' in result:
 
     # populate the queue with unresolved entries so that the starting entry can be inserted
     for video in unresolvedEntries:
-        list_item = createListItemFromFlatPlaylistItem(video)
-        pl.add(list_item.getPath(), list_item)
+        if 'url' in video:
+            list_item = createListItemFromFlatPlaylistItem(video)
+            pl.add(list_item.getPath(), list_item)
 
     # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
-    startingVideoUrl = startingEntry['url']
-    startingItem = createListItemFromVideo(ydl.extract_info(startingVideoUrl, download=False))
+    if 'url' in startingEntry:
+        startingItem = createListItemFromVideo(ydl.extract_info(startingEntry['url'], download=False))
+    else:
+        startingItem = createListItemFromVideo(startingEntry)
     pl.add(startingItem.getPath(), startingItem, indexToStartAt)
     
     #xbmc.Player().play(pl) # this probably works again
