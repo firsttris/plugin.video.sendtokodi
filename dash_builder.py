@@ -66,8 +66,8 @@ def _webm_find_init_and_index_ranges(r):
 def _mp4_find_init_and_index_ranges(r):
     # Walk over the stream and find the offset of the sidx box
     # Fortunately this is much easier than webm
-    init_range = None
-    index_range = None
+    init_range = (0,0)
+    index_range = (0,0)
     offset = 0
     while offset < len(r.content) - 8:
         box_size = max(struct.unpack('>I', r.content[offset:offset + 4])[0], 8)
@@ -137,6 +137,9 @@ class Manifest():
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
         rep.set('mimeType', "audio/{}".format(format['ext']))
+        kbps = format.get('tbr', format.get('abr'))
+        if kbps is not None:
+            rep.set('bandwidth', str(int(kbps * 1000)))
 
         channels = SubElement(rep, 'AudioChannelConfiguration')
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
@@ -163,6 +166,9 @@ class Manifest():
         rep.set('width', str(format['resolution']).split('x',1)[0])
         rep.set('height', str(format['resolution']).split('x',1)[1])
         rep.set('mimeType', "video/{}".format(format['ext']))
+        kbps = format.get('tbr', format.get('vbr'))
+        if kbps is not None:
+            rep.set('bandwidth', str(int(kbps * 1000)))
 
         url = transform_url(format['url'])
         base_url = SubElement(rep, 'BaseURL')

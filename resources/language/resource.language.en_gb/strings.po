@@ -80,7 +80,3 @@ msgctxt "#33036"
 msgid "854x480 (SD)"
 msgstr ""
 
-msgctxt "#33040"
-msgid "Prefer AVC1/H.264/MP4"
-msgstr ""
-
