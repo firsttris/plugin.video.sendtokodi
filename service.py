@@ -5,7 +5,7 @@ import os
 # Ensures yt-dlp is on the python path
 # Workaround for issue caused by upstream commit
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f"{dir_path}/lib/")
+sys.path.append(os.path.join(dir_path, 'lib'))
 
 import json
 import sys
