@@ -343,7 +343,7 @@ url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
-usedashbuilder = (xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true') and (sys.version_info[0] >= 3)
+usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
 
 ydl = YoutubeDL(ydl_opts)
