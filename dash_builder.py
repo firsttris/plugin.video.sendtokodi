@@ -2,8 +2,11 @@ import requests
 import struct
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
-import http.server
 from threading import Thread
+try:
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+except ImportError:
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -193,7 +196,7 @@ class Manifest():
         return f.getvalue()
 
 
-class HttpHandler(http.server.BaseHTTPRequestHandler):
+class HttpHandler(BaseHTTPRequestHandler):
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
         self.mpd = None
@@ -221,7 +224,7 @@ def start_httpd(manifest):
     handler.mpd = manifest
 
     server_address = ('127.0.0.1', 0)
-    httpd = http.server.HTTPServer(server_address, handler)
+    httpd = HTTPServer(server_address, handler)
     httpd.timeout = 2  # Seconds
     httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
 
