@@ -333,10 +333,7 @@ patch_strptime()
 # extract_flat:  Do not resolve URLs, return the immediate result.
 #                Pass in 'in_playlist' to only show this behavior for
 #                playlist items.
-ydl_opts = {
-    'format': 'bv*+ba/b',
-    'extract_flat': 'in_playlist'
-}
+ydl_opts = {'extract_flat': 'in_playlist'}
 
 params = getParams()
 url = str(params['url'])
