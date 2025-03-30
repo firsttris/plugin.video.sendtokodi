@@ -49,6 +49,11 @@ def patch_strptime():
     datetime.datetime = proxydt
 
 
+def kodi_major_version():
+    version = xbmc.getInfoLabel('System.BuildVersionShort')
+    return int(version.split('.')[0]) if version else 9999
+
+
 def showInfoNotification(message):
     xbmcgui.Dialog().notification("SendToKodi", message, xbmcgui.NOTIFICATION_INFO, 5000)
 
@@ -239,9 +244,12 @@ def createListItemFromVideo(result):
 
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
-    video_info = list_item.getVideoInfoTag()
-    video_info.setTitle(result['title'])
-    video_info.setPlot(result.get('description', None))
+    if kodimajor >= 20:
+        video_info = list_item.getVideoInfoTag()
+        video_info.setTitle(result['title'])
+        video_info.setPlot(result.get('description', None))
+    else:
+        list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
     subtitles = result.get('subtitles', {})
@@ -282,8 +290,11 @@ def createListItemFromFlatPlaylistItem(video):
         label           = title
     )
 
-    video_info = listItem.getVideoInfoTag()
-    video_info.setTitle(title)
+    if kodimajor >= 20:
+        video_info = listItem.getVideoInfoTag()
+        video_info.setTitle(title)
+    else:
+        listItem.setInfo(type='Video', infoLabels={'Title': title})
 
     # both `true` and `false` are recommended here...
     listItem.setProperty("IsPlayable","true")
@@ -342,6 +353,8 @@ ydl_opts.update(params['ydlOpts'])
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
+
+kodimajor = kodi_major_version()
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
