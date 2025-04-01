@@ -209,7 +209,8 @@ def createListItemFromVideo(result):
             manifest_type = guess_manifest_type(f, f['url'])
             if manifest_type is not None and not isa_supports(manifest_type):
                 continue
-            if f.get('width', 0) > maxwidth:
+            width = f.get('width', 0)
+            if width is not None and width > maxwidth:
                 if filtered_format is None:
                     filtered_format = f
                 continue
