@@ -1,9 +1,12 @@
 import requests
 import struct
 from io import BytesIO
-from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment, indent
-import http.server
+from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 from threading import Thread
+try:
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+except ImportError:
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -91,7 +94,7 @@ def _iso8601_duration(secs):
     m, s = divmod(secs, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)
-    return f"P{int(d)}DT{int(h)}H{int(m)}M{s}S"
+    return "P{}DT{}H{}M{}S".format(int(d), int(h), int(m), s)
 
 def transform_url(url):
     return url.replace('&', '/').replace('?', '/').replace('=', '/')
@@ -136,7 +139,7 @@ class Manifest():
         rep.set('codecs', format['acodec'])
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
-        rep.set('mimeType', f"audio/{format['ext']}")
+        rep.set('mimeType', "audio/{}".format(format['ext']))
         kbps = format.get('tbr', format.get('abr'))
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
@@ -151,10 +154,10 @@ class Manifest():
 
         init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
-        segment_base.set('indexRange', f'{idx_range[0]}-{idx_range[1]}')
+        segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
         init = SubElement(segment_base, 'Initialization')
-        init.set('range', f'{init_range[0]}-{init_range[1]}')
+        init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def add_video_format(self, format):
         rep = SubElement(self.video_set, 'Representation')
@@ -165,7 +168,7 @@ class Manifest():
         rep.set('frameRate', str(format['fps']))
         rep.set('width', str(format['resolution']).split('x',1)[0])
         rep.set('height', str(format['resolution']).split('x',1)[1])
-        rep.set('mimeType', f"video/{format['ext']}")
+        rep.set('mimeType', "video/{}".format(format['ext']))
         kbps = format.get('tbr', format.get('vbr'))
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
@@ -176,20 +179,24 @@ class Manifest():
 
         init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
-        segment_base.set('indexRange', f'{idx_range[0]}-{idx_range[1]}')
+        segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
         init = SubElement(segment_base, 'Initialization')
-        init.set('range', f'{init_range[0]}-{init_range[1]}')
+        init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def emit(self):
-        indent(self.tree)
+        try:
+            from xml.etree.ElementTree import indent
+            indent(self.tree)
+        except:
+            pass
         f = BytesIO()
         self.tree.write(f, encoding='utf-8', xml_declaration=True)
         #self.tree.write('manifest.mpd', encoding='utf-8', xml_declaration=True)
         return f.getvalue()
 
 
-class HttpHandler(http.server.BaseHTTPRequestHandler):
+class HttpHandler(BaseHTTPRequestHandler):
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
         self.mpd = None
@@ -217,10 +224,10 @@ def start_httpd(manifest):
     handler.mpd = manifest
 
     server_address = ('127.0.0.1', 0)
-    httpd = http.server.HTTPServer(server_address, handler)
+    httpd = HTTPServer(server_address, handler)
     httpd.timeout = 2  # Seconds
     httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
 
     thread = Thread(target=_handle_request, args=(httpd,))
     thread.start()
-    return f"http://127.0.0.1:{httpd.server_port}/manifest.mpd"
+    return "http://127.0.0.1:{}/manifest.mpd".format(httpd.server_port)
