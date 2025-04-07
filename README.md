@@ -11,8 +11,8 @@ SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](htt
 The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first. 
 
 1. Download the repo file for your Kodi version:
-   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
-   - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-1.0.0.zip)
+   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi.leia/repository.sendtokodi-0.0.1.zip)
+   - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi/repository.sendtokodi.python3-1.0.0.zip)
 2. [Install the repo from zip](https://kodi.wiki/view/Add-on_manager).
 3. The addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
 
