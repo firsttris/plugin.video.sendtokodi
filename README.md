@@ -4,7 +4,7 @@
 
 SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](https://kodi.tv) and play them. It automatically resolves sent websites into a playable stream using [yt-dlp](https://github.com/yt-dlp/yt-dlp). 
 
-![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/icon.png)
+![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi.python3/icon.png)
 
 ## Installation 
 
