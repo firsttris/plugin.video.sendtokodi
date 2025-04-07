@@ -52,7 +52,7 @@ jobs:
         with:
           name: Addon-artifacts-Leia
       - name: Publish addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.git" 
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.leia.git" 
   publish-matrix:
     needs: [versioning, build-matrix]
     runs-on: ubuntu-latest
@@ -62,4 +62,4 @@ jobs:
         with:
           name: Addon-artifacts-Matrix
       - name: Publish addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.python3.git" 
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.git" 
