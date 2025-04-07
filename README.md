@@ -33,11 +33,7 @@ Once installed, you can send URLs to Kodi using one of the supported apps listed
 - [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
   - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons  
 - The **Official SendToKodi iOS App** has been retired for the time being, but if you have downloaded it before you should be able to do so again from your list of previously purchased apps in iOS App Store.
-- [Apple Shortcut](https://github.com/firsttris/plugin.video.sendtokodi/issues/104#issuecomment-2504081628) that shows up in the iOS share sheet when sharing a web address/link/URL. Download and open the .zip to install it to Apple's Shortcuts app, and then customize it with your details. Duplicate the shortcut for quick access to all your devices straight from the share sheet.
-
-### MacOS
-- [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
-- [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) forked from [Max Grass](https://github.com/maxgrass)
+- [Apple Shortcut](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut): This shortcut works on both iOS and macOS. On iOS, it appears in the share sheet when sharing a web address or URL. On macOS, it can be executed directly from the Shortcuts app. Duplicate the shortcut for quick access to all your devices straight from the share sheet.
 
 ## Integration
 - Supported [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
