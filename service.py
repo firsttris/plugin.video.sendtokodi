@@ -214,7 +214,8 @@ def createListItemFromVideo(result):
             manifest_type = guess_manifest_type(f, f['url'])
             if manifest_type is not None and not isa_supports(manifest_type):
                 continue
-            if f.get('width', 0) > maxwidth:
+            width = f.get('width', 0)
+            if width is not None and width > maxwidth:
                 if filtered_format is None:
                     filtered_format = f
                 continue
@@ -330,7 +331,12 @@ def playlistIndex(url, playlist):
     
     return None
 
-
+# Open the settings if no parameters have been passed. Prevents crash.
+# This happens when the addon is launched from within the Kodi OSD.
+if not sys.argv[2]:
+    xbmcaddon.Addon().openSettings()
+    exit()
+    
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
     from youtube_dl import YoutubeDL

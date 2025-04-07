@@ -4,15 +4,15 @@
 
 SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](https://kodi.tv) and play them. It automatically resolves sent websites into a playable stream using [yt-dlp](https://github.com/yt-dlp/yt-dlp). 
 
-![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/icon.png)
+![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi.python3/icon.png)
 
 ## Installation 
 
 The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first. 
 
 1. Download the repo file for your Kodi version:
-   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
-   - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi.python3/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-1.0.0.zip)
+   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi.leia/raw/master/repository.sendtokodi/repository.sendtokodi-0.0.1.zip)
+   - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi.python3/repository.sendtokodi.python3-1.0.0.zip)
 2. [Install the repo from zip](https://kodi.wiki/view/Add-on_manager).
 3. The addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
 
@@ -29,14 +29,13 @@ Once installed, you can send URLs to Kodi using one of the supported apps listed
 - [Mozilla Store](https://addons.mozilla.org/de/firefox/addon/sendtokodi/)
 - [Edge Store](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij)
 
+For feature requests or to report issues, visit the [Addon Repository](https://github.com/firsttris/chrome.sendtokodi).
+
 ### Mobile Apps
 - [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
   - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons  
-- [Official SendToKodi iOS App](https://itunes.apple.com/de/app/sendtokodi/id1113517603?mt=8)
-
-### MacOS
-- [MacOS Share Extension](https://github.com/maxgrass/SendToKodi/releases) by [Max Grass](https://github.com/maxgrass)
-- [MacOS Share Extension as System Service](https://github.com/anohren/SendToKodi) forked from [Max Grass](https://github.com/maxgrass) by [Andreas Öhrén](https://github.com/anohren) 
+- The **Official SendToKodi iOS App** has been retired for the time being, but if you have downloaded it before you should be able to do so again from your list of previously purchased apps in iOS App Store.
+- [Apple Shortcut](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut): This shortcut works on both iOS and macOS. On iOS, it appears in the share sheet when sharing a web address or URL. On macOS, it can be executed directly from the Shortcuts app. Duplicate the shortcut for quick access to all your devices straight from the share sheet.
 
 ## Integration
 - Supported [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
