@@ -2,8 +2,7 @@ name: build-pr
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
-  branches:
-    - 'legacy/leia'
+    branches: ['legacy/leia']
 env:
   VERSION: 'undefined'
   TOKEN: ${{secrets.PAT}}
