@@ -9,8 +9,8 @@ if [[ "$VERSION" == "undefined" || -z "$VERSION" ]]; then
     exit 190
 fi
 
+# adjust plugin version
 $GITHUB_WORKSPACE/.github/scripts/addon_xml_adjuster.py --plugin-version $VERSION
-mkdir $RUNNER_TEMP
 
 # create zip file. The file needs to include the plugin folder itself  
 cd ..
