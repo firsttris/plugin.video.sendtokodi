@@ -1,7 +1,9 @@
 name: build-pr
 on:
- pull_request:
-   types: [opened, synchronize, reopened, closed]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  branches:
+    - 'legacy/leia'
 env:
   VERSION: 'undefined'
   TOKEN: ${{secrets.PAT}}
@@ -18,29 +20,17 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: master
+          release_branches: 'legacy/leia'
           dry_run: true
-  build-leia:
+  build:
     needs: versioning
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Leia
-      - name: Upload Addon-artifacts-Leia
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA
+      - name: Upload Addon-artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Addon-artifacts-Leia
-          path: "${{ runner.temp }}/Leia/*.zip"
-  build-matrix:
-    needs: versioning
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA Matrix     
-      - name: Upload Addon-artifacts-Matrix
-        uses: actions/upload-artifact@v4
-        with:
-          name: Addon-artifacts-Matrix
-          path: "${{ runner.temp }}/Matrix/*.zip"
+          name: Addon-artifacts
+          path: "${{ runner.temp }}/*.zip"
