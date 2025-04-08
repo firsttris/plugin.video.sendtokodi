@@ -2,7 +2,7 @@ name: build-pr
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: ['legacy/leia']
+    branches: ['master']
 env:
   VERSION: 'undefined'
   TOKEN: ${{secrets.PAT}}
@@ -19,7 +19,7 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: 'legacy/leia'
+          release_branches: 'master'
           dry_run: true
   build:
     needs: versioning

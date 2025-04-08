@@ -2,7 +2,7 @@ name: build-publish-addon
 on:
   push:
     branches:
-      - 'legacy/leia'
+      - 'master'
 env:
   VERSION: 'undefined'
   TOKEN: ${{secrets.PAT}}
@@ -18,7 +18,7 @@ jobs:
         uses: mathieudutour/github-tag-action@v5.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: 'legacy/leia'
+          release_branches: 'master'
   build:
     needs: versioning
     runs-on: ubuntu-latest
@@ -40,4 +40,4 @@ jobs:
         with:
           name: Addon-artifacts
       - name: Publish addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.leia.git" 
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.git" 
