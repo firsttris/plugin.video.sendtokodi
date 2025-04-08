@@ -5,7 +5,7 @@ import os
 # Ensures yt-dlp is on the python path
 # Workaround for issue caused by upstream commit
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f"{dir_path}/lib/")
+sys.path.append(os.path.join(dir_path, 'lib'))
 
 import json
 import sys
@@ -47,6 +47,11 @@ def patch_strptime():
             return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
 
     datetime.datetime = proxydt
+
+
+def kodi_major_version():
+    version = xbmc.getInfoLabel('System.BuildVersionShort')
+    return int(version.split('.')[0]) if version else 9999
 
 
 def showInfoNotification(message):
@@ -240,9 +245,12 @@ def createListItemFromVideo(result):
 
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
-    video_info = list_item.getVideoInfoTag()
-    video_info.setTitle(result['title'])
-    video_info.setPlot(result.get('description', None))
+    if kodimajor >= 20:
+        video_info = list_item.getVideoInfoTag()
+        video_info.setTitle(result['title'])
+        video_info.setPlot(result.get('description', None))
+    else:
+        list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
     subtitles = result.get('subtitles', {})
@@ -283,8 +291,11 @@ def createListItemFromFlatPlaylistItem(video):
         label           = title
     )
 
-    video_info = listItem.getVideoInfoTag()
-    video_info.setTitle(title)
+    if kodimajor >= 20:
+        video_info = listItem.getVideoInfoTag()
+        video_info.setTitle(title)
+    else:
+        listItem.setInfo(type='Video', infoLabels={'Title': title})
 
     # both `true` and `false` are recommended here...
     listItem.setProperty("IsPlayable","true")
@@ -339,18 +350,17 @@ patch_strptime()
 # extract_flat:  Do not resolve URLs, return the immediate result.
 #                Pass in 'in_playlist' to only show this behavior for
 #                playlist items.
-ydl_opts = {
-    'format': 'bv*+ba/b',
-    'extract_flat': 'in_playlist'
-}
+ydl_opts = {'extract_flat': 'in_playlist'}
 
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
-usedashbuilder = (xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true') and (sys.version_info[0] >= 3)
+usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
+
+kodimajor = kodi_major_version()
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
