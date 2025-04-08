@@ -1,7 +1,7 @@
 import requests
 import struct
 from io import BytesIO
-from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment, indent
+from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 import http.server
 from threading import Thread
 
@@ -182,7 +182,11 @@ class Manifest():
         init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def emit(self):
-        indent(self.tree)
+        try:
+            from xml.etree.ElementTree import indent
+            indent(self.tree)
+        except:
+            pass
         f = BytesIO()
         self.tree.write(f, encoding='utf-8', xml_declaration=True)
         #self.tree.write('manifest.mpd', encoding='utf-8', xml_declaration=True)
