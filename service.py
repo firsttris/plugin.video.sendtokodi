@@ -14,6 +14,8 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
+from urllib.parse import urlparse, parse_qs, urlencode
+
 class replacement_stderr(sys.stderr.__class__):
     def isatty(self): return False
 
@@ -260,7 +262,6 @@ def createListItemFromVideo(result):
         if headers is None:
             headers = result.get('http_headers')
         if headers is not None:
-            from urllib.parse import urlencode
             headers = urlencode(headers)
             list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
             list_item.setProperty('inputstream.adaptive.stream_headers', headers)
@@ -291,33 +292,42 @@ def createListItemFromFlatPlaylistItem(video):
 
     return listItem
 
-# get the index of the first video to be played in the submitted playlist url
 def playlistIndex(url, playlist):
-    if sys.version_info[0] >= 3:
-        from urllib.parse import urlparse, parse_qs
-    else:
-        from urlparse import urlparse, parse_qs 
+    """
+    Get the index of the first video to be played in the submitted playlist URL.
+    
+    Args:
+        url (str): The URL containing playlist parameters
+        playlist (dict): The playlist data structure from yt-dlp/youtube-dl
+        
+    Returns:
+        int or None: The index of the video to play, or None if not found
+    """
     
     query = urlparse(url).query
-    queryParams = parse_qs(query)
+    query_params = parse_qs(query)
     
-    if 'v' not in queryParams:
+    if 'v' not in query_params:
         return None
     
-    v = queryParams['v'][0]
+    video_id = query_params['v'][0]
     
     try:
-        # youtube playlist indices start at 1
-        index = int(queryParams.get('index')[0]) - 1
-        if playlist['entries'][index]['id'] == v:
-            return index
-    except:
-        pass
+        # YouTube playlist indices start at 1
+        if 'index' in query_params:
+            index = int(query_params['index'][0]) - 1
+            if 0 <= index < len(playlist['entries']) and playlist['entries'][index].get('id') == video_id:
+                return index
+    except (ValueError, IndexError, KeyError):
+        # Handle conversion errors or missing data gracefully
+        log("Failed to use index parameter, falling back to search", xbmc.LOGDEBUG)
     
+    # Fall back to searching for the video by ID
     for i, entry in enumerate(playlist['entries']):
-        if entry['id'] == v:
+        if entry.get('id') == video_id:
             return i
     
+    # Video not found in playlist
     return None
 
 # Open the settings if no parameters have been passed. Prevents crash.
