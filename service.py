@@ -14,7 +14,8 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
-from urlparse import urlparse, parse_qs, urlencode
+from urlparse import urlparse, parse_qs
+from urllib import urlencode
 
 class replacement_stderr(sys.stderr.__class__):
     def isatty(self): return False
