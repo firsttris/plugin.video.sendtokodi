@@ -14,6 +14,8 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
+from urllib.parse import urlparse, parse_qs, urlencode
+
 class replacement_stderr(sys.stderr.__class__):
     def isatty(self): return False
 
@@ -260,7 +262,6 @@ def createListItemFromVideo(result):
         if headers is None:
             headers = result.get('http_headers')
         if headers is not None:
-            from urllib.parse import urlencode
             headers = urlencode(headers)
             list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
             list_item.setProperty('inputstream.adaptive.stream_headers', headers)
@@ -293,10 +294,6 @@ def createListItemFromFlatPlaylistItem(video):
 
 # get the index of the first video to be played in the submitted playlist url
 def playlistIndex(url, playlist):
-    if sys.version_info[0] >= 3:
-        from urllib.parse import urlparse, parse_qs
-    else:
-        from urlparse import urlparse, parse_qs 
     
     query = urlparse(url).query
     queryParams = parse_qs(query)
