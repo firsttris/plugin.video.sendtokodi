@@ -22,4 +22,4 @@ tpl_element.append(src_element)
 
 # write changes to the repo's addon.xml file
 dst_filename = os.path.join(args.repo_root, "addon.xml")
-tpl_tree.write(dst_filename, encoding='UTF-8', xml_declaration=True)  
+tpl_tree.write(dst_filename, encoding='UTF-8', xml_declaration=True)
