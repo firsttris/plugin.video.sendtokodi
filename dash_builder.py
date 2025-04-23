@@ -3,10 +3,7 @@ import struct
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 from threading import Thread
-try:
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-except ImportError:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 def _webm_decode_int(byte):
     # Returns size and value

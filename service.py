@@ -14,6 +14,9 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
+from urlparse import urlparse, parse_qs
+from urllib import urlencode
+
 class replacement_stderr(sys.stderr.__class__):
     def isatty(self): return False
 
@@ -47,11 +50,6 @@ def patch_strptime():
             return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
 
     datetime.datetime = proxydt
-
-
-def kodi_major_version():
-    version = xbmc.getInfoLabel('System.BuildVersionShort')
-    return int(version.split('.')[0]) if version else 9999
 
 
 def showInfoNotification(message):
@@ -245,12 +243,7 @@ def createListItemFromVideo(result):
 
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
-    if kodimajor >= 20:
-        video_info = list_item.getVideoInfoTag()
-        video_info.setTitle(result['title'])
-        video_info.setPlot(result.get('description', None))
-    else:
-        list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
+    list_item.setInfo(type='Video', infoLabels={'Title': result['title'], 'plot': result.get('description', None)})
     if result.get('thumbnail', None) is not None:
         list_item.setArt({'thumb': result['thumbnail']})
     subtitles = result.get('subtitles', {})
@@ -268,7 +261,6 @@ def createListItemFromVideo(result):
         if headers is None:
             headers = result.get('http_headers')
         if headers is not None:
-            from urllib.parse import urlencode
             headers = urlencode(headers)
             list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
             list_item.setProperty('inputstream.adaptive.stream_headers', headers)
@@ -291,11 +283,7 @@ def createListItemFromFlatPlaylistItem(video):
         label           = title
     )
 
-    if kodimajor >= 20:
-        video_info = listItem.getVideoInfoTag()
-        video_info.setTitle(title)
-    else:
-        listItem.setInfo(type='Video', infoLabels={'Title': title})
+    listItem.setInfo(type='Video', infoLabels={'Title': title})
 
     # both `true` and `false` are recommended here...
     listItem.setProperty("IsPlayable","true")
@@ -304,10 +292,6 @@ def createListItemFromFlatPlaylistItem(video):
 
 # get the index of the first video to be played in the submitted playlist url
 def playlistIndex(url, playlist):
-    if sys.version_info[0] >= 3:
-        from urllib.parse import urlparse, parse_qs
-    else:
-        from urlparse import urlparse, parse_qs 
     
     query = urlparse(url).query
     queryParams = parse_qs(query)
@@ -359,8 +343,6 @@ ydl_opts.update(params['ydlOpts'])
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
-
-kodimajor = kodi_major_version()
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
