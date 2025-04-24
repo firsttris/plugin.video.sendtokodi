@@ -7,12 +7,16 @@ import xml.etree.ElementTree as ET
 # check and parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("--repo-root", required=True)
+parser.add_argument("--version", required=True)
 args = parser.parse_args()
 
 # get the addon's XML element
 src_filename = "addon.xml"
 src_tree = ET.parse(src_filename)
 src_element = src_tree.getroot()
+
+# update version
+src_element.set("version", args.version)
 
 # instantiate the repo's XML template
 tpl_filename = os.path.join(args.repo_root, "addon.template.xml")
