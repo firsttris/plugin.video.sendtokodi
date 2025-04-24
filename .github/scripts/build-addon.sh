@@ -12,6 +12,6 @@ fi
 # adjust plugin version
 $GITHUB_WORKSPACE/.github/scripts/addon_xml_adjuster.py --plugin-version $VERSION
 
-# create zip file. The file needs to include the plugin folder itself  
+# create zip file. The file needs to include the plugin folder itself
 cd ..
 zip -r $RUNNER_TEMP/plugin.video.sendtokodi-$VERSION.zip plugin.video.sendtokodi -x "*.git*" # create zip

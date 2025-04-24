@@ -8,7 +8,7 @@ env:
   TOKEN: ${{secrets.PAT}}
 jobs:
  # for PRs the versioning does not append the SHA to indicate a prerelease, we do this manually in the build-* call below
-  versioning: 
+  versioning:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.tag_version.outputs.new_version }}
