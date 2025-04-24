@@ -35,8 +35,8 @@ def log(msg, level=xbmc.LOGINFO):
     xbmc.log('%s: %s' % (addonID, msg), level)
 
 
-# python embedded (as used in kodi) has a known bug for second calls of strptime. 
-# The python bug is docmumented here https://bugs.python.org/issue27400 
+# python embedded (as used in kodi) has a known bug for second calls of strptime.
+# The python bug is docmumented here https://bugs.python.org/issue27400
 # The following workaround patch is borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
 def patch_strptime():
     import datetime
@@ -278,7 +278,7 @@ def createListItemFromFlatPlaylistItem(video):
     if additionalParamsIndex != -1:
         additionalParamsString = paramstring[additionalParamsIndex:]
         listItemUrl = listItemUrl + " " + additionalParamsString
-    
+
     listItem = xbmcgui.ListItem(
         path            = listItemUrl,
         label           = title
@@ -294,15 +294,15 @@ def createListItemFromFlatPlaylistItem(video):
 
 # get the index of the first video to be played in the submitted playlist url
 def playlistIndex(url, playlist):
-    
+
     query = urlparse(url).query
     queryParams = parse_qs(query)
-    
+
     if 'v' not in queryParams:
         return None
-    
+
     v = queryParams['v'][0]
-    
+
     try:
         # youtube playlist indices start at 1
         index = int(queryParams.get('index')[0]) - 1
@@ -310,11 +310,11 @@ def playlistIndex(url, playlist):
             return index
     except:
         pass
-    
+
     for i, entry in enumerate(playlist['entries']):
         if entry['id'] == v:
             return i
-    
+
     return None
 
 # Open the settings if no parameters have been passed. Prevents crash.
@@ -322,14 +322,14 @@ def playlistIndex(url, playlist):
 if not sys.argv[2]:
     xbmcaddon.Addon().openSettings()
     exit()
-    
+
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
     from youtube_dl import YoutubeDL
 else:
    # import lib.yt_dlp as yt_dlp
     from yt_dlp import YoutubeDL
-    
+
 # patch broken strptime (see above)
 patch_strptime()
 
@@ -387,7 +387,7 @@ if 'entries' in result:
     else:
         startingItem = createListItemFromVideo(startingEntry)
     pl.add(startingItem.getPath(), startingItem, indexToStartAt)
-    
+
     #xbmc.Player().play(pl) # this probably works again
     # ...but start playback the same way the Youtube plugin does it:
     xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
