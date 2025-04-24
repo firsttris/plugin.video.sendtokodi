@@ -13,5 +13,5 @@ xml_tree = ET.parse(filename)
 # get the addon element and change the version of the plugin
 addon_element = xml_tree.getroot()
 addon_element.set("version",args.plugin_version)
-# write changes to the addon.xml file      
-xml_tree.write(filename,encoding='UTF-8',xml_declaration=True)  
+# write changes to the addon.xml file
+xml_tree.write(filename,encoding='UTF-8',xml_declaration=True)
