@@ -15,7 +15,7 @@ if [[ $GITHUB_REPOSITORY == "firsttris/plugin.video.sendtokodi" ]]; then
     mv plugin.video.sendtokodi-$VERSION.zip $REPO_FOLDER/plugin.video.sendtokodi/
 
     # Update repository's addon.xml with the addon's addon.xml
-    $GITHUB_WORKSPACE/.github/scripts/update-repo-xml.py --repo-root $REPO_FOLDER
+    $GITHUB_WORKSPACE/.github/scripts/update-repo-xml.py --repo-root $REPO_FOLDER --version $VERSION
     cd $REPO_FOLDER
     md5sum addon.xml > addon.xml.md5
 
