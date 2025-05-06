@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
-# Updates a single library (stored as plain files, not as a git submodule) by comparing it's local commit (stored in a file) and the latest remote commit  
-# In case the remote commit is different, this script clones the remote repo and adds just the desired folder to our repo. 
-LIB_NAME=$1    
+# Updates a single library (stored as plain files, not as a git submodule) by comparing it's local commit (stored in a file) and the latest remote commit
+# In case the remote commit is different, this script clones the remote repo and adds just the desired folder to our repo.
+LIB_NAME=$1
 LIB_GIT_URL=$2
 LIB_BRANCH=$3
 LIB_VERSION_FILE=${GITHUB_WORKSPACE}/lib/${LIB_NAME}_version

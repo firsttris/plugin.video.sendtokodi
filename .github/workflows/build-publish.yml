@@ -40,4 +40,4 @@ jobs:
         with:
           name: Addon-artifacts
       - name: Publish addon
-        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.leia.git" 
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.versioning.outputs.VERSION }} "github.com/firsttris/repository.sendtokodi.leia.git"

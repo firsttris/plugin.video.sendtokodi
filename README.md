@@ -2,13 +2,13 @@
 
 [![build-publish-addon](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml)
 
-SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](https://kodi.tv) and play them. It automatically resolves sent websites into a playable stream using [yt-dlp](https://github.com/yt-dlp/yt-dlp). 
+SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](https://kodi.tv) and play them. It automatically resolves sent websites into a playable stream using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/icon.png)
 
-## Installation 
+## Installation
 
-The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first. 
+The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first.
 
 1. Download the repo file for your Kodi version:
    - [Kodi 18](https://github.com/firsttris/repository.sendtokodi.leia/raw/master/repository.sendtokodi.leia-1.0.0.zip)
@@ -33,7 +33,7 @@ For feature requests or to report issues, visit the [Addon Repository](https://g
 
 ### Mobile Apps
 - [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
-  - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons  
+  - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons
 - The **Official SendToKodi iOS App** has been retired for the time being, but if you have downloaded it before you should be able to do so again from your list of previously purchased apps in iOS App Store.
 - [Apple Shortcut](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut): This shortcut works on both iOS and macOS. On iOS, it appears in the share sheet when sharing a web address or URL. On macOS, it can be executed directly from the Shortcuts app. Duplicate the shortcut for quick access to all your devices straight from the share sheet.
 
