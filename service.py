@@ -376,10 +376,17 @@ if 'entries' in result:
     startingEntry = unresolvedEntries.pop(indexToStartAt)
 
     # populate the queue with unresolved entries so that the starting entry can be inserted
-    for video in unresolvedEntries:
+    skippedPrecedingVideosCount = 0
+    for videoIndex, video in enumerate(unresolvedEntries):
         if 'url' in video:
             list_item = createListItemFromFlatPlaylistItem(video)
             pl.add(list_item.getPath(), list_item)
+        elif videoIndex < indexToStartAt:
+            skippedPrecedingVideosCount += 1
+        elif videoIndex == indexToStartAt:
+            indexToStartAt = 0
+    indexToStartAt -= skippedPrecedingVideosCount
+    indexToStartAt = max(0, indexToStartAt)
 
     # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
     if 'url' in startingEntry:
