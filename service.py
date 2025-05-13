@@ -93,7 +93,7 @@ def guess_manifest_type(f, url):
         offset = url.find(s, 0)
         while offset != -1:
             if offset == len(url) - len(s) or not url[offset + len(s)].isalnum():
-                if s.startswith("m3u"):
+                if s.startswith(".m3u"):
                     s = ".hls"
                 return s[1:]
             offset = url.find(s, offset + 1)
