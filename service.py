@@ -383,10 +383,7 @@ if 'entries' in result:
             pl.add(list_item.getPath(), list_item)
         elif videoIndex < indexToStartAt:
             skippedPrecedingVideosCount += 1
-        elif videoIndex == indexToStartAt:
-            indexToStartAt = 0
     indexToStartAt -= skippedPrecedingVideosCount
-    indexToStartAt = max(0, indexToStartAt)
 
     # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
     if 'url' in startingEntry:
