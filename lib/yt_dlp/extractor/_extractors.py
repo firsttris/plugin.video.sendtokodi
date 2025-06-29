@@ -805,9 +805,7 @@ from .holodex import HolodexIE
 from .hotnewhiphop import HotNewHipHopIE
 from .hotstar import (
     HotStarIE,
-    HotStarPlaylistIE,
     HotStarPrefixIE,
-    HotStarSeasonIE,
     HotStarSeriesIE,
 )
 from .hrefli import HrefLiRedirectIE
@@ -921,10 +919,6 @@ from .japandiet import (
     ShugiinItvVodIE,
 )
 from .jeuxvideo import JeuxVideoIE
-from .jiocinema import (
-    JioCinemaIE,
-    JioCinemaSeriesIE,
-)
 from .jiosaavn import (
     JioSaavnAlbumIE,
     JioSaavnArtistIE,
