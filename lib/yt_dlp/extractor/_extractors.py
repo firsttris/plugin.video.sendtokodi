@@ -58,13 +58,7 @@ from .adn import (
     ADNSeasonIE,
 )
 from .adobeconnect import AdobeConnectIE
-from .adobetv import (
-    AdobeTVChannelIE,
-    AdobeTVEmbedIE,
-    AdobeTVIE,
-    AdobeTVShowIE,
-    AdobeTVVideoIE,
-)
+from .adobetv import AdobeTVVideoIE
 from .adultswim import AdultSwimIE
 from .aenetworks import (
     AENetworksCollectionIE,
@@ -152,7 +146,6 @@ from .ard import (
     ARDBetaMediathekIE,
     ARDMediathekCollectionIE,
 )
-from .arkena import ArkenaIE
 from .arnes import ArnesIE
 from .art19 import (
     Art19IE,
@@ -1548,7 +1541,6 @@ from .pixivsketch import (
     PixivSketchIE,
     PixivSketchUserIE,
 )
-from .pladform import PladformIE
 from .planetmarathi import PlanetMarathiIE
 from .platzi import (
     PlatziCourseIE,
@@ -2313,10 +2305,6 @@ from .varzesh3 import Varzesh3IE
 from .vbox7 import Vbox7IE
 from .veo import VeoIE
 from .vesti import VestiIE
-from .vevo import (
-    VevoIE,
-    VevoPlaylistIE,
-)
 from .vgtv import (
     VGTVIE,
     BTArticleIE,
