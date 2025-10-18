@@ -100,8 +100,8 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                 },
             },
             'INNERTUBE_CONTEXT_CLIENT_NAME': 5,
+            'REQUIRE_PO_TOKEN': False,
             'REQUIRE_JS_PLAYER': False,
-            'REQUIRE_PO_TOKEN': True,
         },
         # mweb has 'ultralow' formats
         # See: https://github.com/yt-dlp/yt-dlp/pull/557
@@ -478,6 +478,7 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
     def _extract_thumbnails(data, *path_list, **kw_final_key):
         """
         Extract thumbnails from thumbnails dict
+
         @param path_list: path list to level that contains 'thumbnails' key
         """
         final_key = kw_final_key.get('final_key', 'thumbnails')
@@ -520,34 +521,26 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                 headers={'content-type': 'application/json'})
             if not search:
                 break
-            slr_contents = try_get(
+            slr_contents = traverse_obj(
                 search,
-                (lambda x: x['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents'],
-                 lambda x: x['onResponseReceivedCommands'][0]['appendContinuationItemsAction']['continuationItems']),
-                list)
+                ('contents', 'twoColumnSearchResultsRenderer', 'primaryContents',
+                 'sectionListRenderer', 'contents'),
+                ('onResponseReceivedCommands', 0, 'appendContinuationItemsAction',
+                 'continuationItems'),
+                expected_type=list)
             if not slr_contents:
                 break
-            for slr_content in slr_contents:
-                isr_contents = try_get(
-                    slr_content,
-                    lambda x: x['itemSectionRenderer']['contents'],
-                    list)
-                if not isr_contents:
-                    continue
-                for content in isr_contents:
-                    if not isinstance(content, dict):
-                        continue
-                    video = content.get('videoRenderer')
-                    if not isinstance(video, dict):
-                        continue
-                    video_id = video.get('videoId')
-                    if not video_id:
-                        continue
-                    yield self._extract_video(video)
-            token = try_get(
+            for video in traverse_obj(
+                    slr_contents,
+                    (Ellipsis, 'itemSectionRenderer', 'contents',
+                     Ellipsis, 'videoRenderer',
+                     T(lambda v: v if v.get('videoId') else None))):
+                yield self._extract_video(video)
+
+            token = traverse_obj(
                 slr_contents,
-                lambda x: x[-1]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token'],
-                compat_str)
+                (-1, 'continuationItemRenderer', 'continuationEndpoint',
+                 'continuationCommand', 'token', T(compat_str)))
             if not token:
                 break
             data['continuation'] = token
@@ -2176,7 +2169,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             raise ExtractorError('Invalid URL: %s' % url)
         return mobj.group(2)
 
-    def _extract_chapters_from_json(self, data, video_id, duration):
+    @staticmethod
+    def _extract_chapters_from_json(data, video_id, duration):
         chapters_list = try_get(
             data,
             lambda x: x['playerOverlays']
@@ -2472,7 +2466,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             return LazyList({
                 'url': update_url_query(f['url'], {
                     'range': '{0}-{1}'.format(range_start, min(range_start + CHUNK_SIZE - 1, f['filesize'])),
-                })
+                }),
             } for range_start in range(0, f['filesize'], CHUNK_SIZE))
 
         lower = lambda s: s.lower()
@@ -2778,7 +2772,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         'fmt': fmt,
                         # xosf=1 causes undesirable text position data for vtt, json3 & srv* subtitles
                         # See: https://github.com/yt-dlp/yt-dlp/issues/13654
-                        'xosf': []
+                        'xosf': [],
                     })
                     lang_subs.append({
                         'ext': fmt,
@@ -3426,13 +3420,9 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
 
     @staticmethod
     def _extract_grid_item_renderer(item):
-        assert isinstance(item, dict)
-        for key, renderer in item.items():
-            if not key.startswith('grid') or not key.endswith('Renderer'):
-                continue
-            if not isinstance(renderer, dict):
-                continue
-            return renderer
+        return traverse_obj(item, (
+            T(dict.items), lambda _, k_v: k_v[0].startswith('grid') and k_v[0].endswith('Renderer'),
+            1, T(dict)), get_all=False)
 
     @staticmethod
     def _get_text(r, k):
@@ -3515,8 +3505,8 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                 shelf_renderer, lambda x: x['title']['runs'][0]['text'], compat_str)
             yield self.url_result(shelf_url, video_title=title)
         # Shelf may not contain shelf URL, fallback to extraction from content
-        for entry in self._shelf_entries_from_content(shelf_renderer):
-            yield entry
+        for from_ in self._shelf_entries_from_content(shelf_renderer):
+            yield from_
 
     def _playlist_entries(self, video_list_renderer):
         for content in video_list_renderer['contents']:
@@ -3538,12 +3528,12 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         if content_type == 'LOCKUP_CONTENT_TYPE_VIDEO':
             ie = YoutubeIE
             url = update_url_query(
-                'https://www.youtube.com/watch', {'v': content_id}),
+                'https://www.youtube.com/watch', {'v': content_id})
             thumb_keys = (None,)
         elif content_type in ('LOCKUP_CONTENT_TYPE_PLAYLIST', 'LOCKUP_CONTENT_TYPE_PODCAST'):
             ie = YoutubeTabIE
             url = update_url_query(
-                'https://www.youtube.com/playlist', {'list': content_id}),
+                'https://www.youtube.com/playlist', {'list': content_id})
             thumb_keys = ('collectionThumbnailViewModel', 'primaryThumbnail')
         else:
             self.report_warning(
@@ -3606,15 +3596,10 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             yield self.url_result(ep_url, ie=YoutubeIE.ie_key(), video_id=video_id)
 
     def _post_thread_continuation_entries(self, post_thread_continuation):
-        contents = post_thread_continuation.get('contents')
-        if not isinstance(contents, list):
-            return
-        for content in contents:
-            renderer = content.get('backstagePostThreadRenderer')
-            if not isinstance(renderer, dict):
-                continue
-            for entry in self._post_thread_entries(renderer):
-                yield entry
+        for renderer in traverse_obj(post_thread_continuation, (
+                'contents', Ellipsis, 'backstagePostThreadRenderer', T(dict))):
+            for from_ in self._post_thread_entries(renderer):
+                yield from_
 
     def _rich_grid_entries(self, contents):
         for content in traverse_obj(
@@ -3689,17 +3674,10 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         if slr_renderer:
             is_channels_tab = tab.get('title') == 'Channels'
             continuation = None
-            slr_contents = try_get(slr_renderer, lambda x: x['contents'], list) or []
-            for slr_content in slr_contents:
-                if not isinstance(slr_content, dict):
-                    continue
-                is_renderer = try_get(slr_content, lambda x: x['itemSectionRenderer'], dict)
-                if not is_renderer:
-                    continue
-                isr_contents = try_get(is_renderer, lambda x: x['contents'], list) or []
-                for isr_content in isr_contents:
-                    if not isinstance(isr_content, dict):
-                        continue
+            for is_renderer in traverse_obj(slr_renderer, (
+                    'contents', Ellipsis, 'itemSectionRenderer', T(dict))):
+                for isr_content in traverse_obj(slr_renderer, (
+                        'contents', Ellipsis, T(dict))):
                     renderer = isr_content.get('playlistVideoListRenderer')
                     if renderer:
                         for entry in self._playlist_entries(renderer):
@@ -3894,18 +3872,34 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         uploader['channel'] = uploader['uploader']
         return uploader
 
-    @classmethod
-    def _extract_alert(cls, data):
-        alerts = []
-        for alert in traverse_obj(data, ('alerts', Ellipsis), expected_type=dict):
-            alert_text = traverse_obj(
-                alert, (None, lambda x: x['alertRenderer']['text']), get_all=False)
-            if not alert_text:
-                continue
-            text = cls._get_text(alert_text, 'text')
-            if text:
-                alerts.append(text)
-        return '\n'.join(alerts)
+    def _extract_and_report_alerts(self, data, expected=True, fatal=True, only_once=False):
+
+        def alerts():
+            for alert in traverse_obj(data, ('alerts', Ellipsis), expected_type=dict):
+                alert_dict = traverse_obj(
+                    alert, 'alertRenderer', None, expected_type=dict, get_all=False)
+                alert_type = traverse_obj(alert_dict, 'type')
+                if not alert_type:
+                    continue
+                message = self._get_text(alert_dict, 'text')
+                if message:
+                    yield alert_type, message
+
+        errors, warnings = [], []
+        _IGNORED_WARNINGS = T('Unavailable videos will be hidden during playback')
+        for alert_type, alert_message in alerts():
+            if alert_type.lower() == 'error' and fatal:
+                errors.append([alert_type, alert_message])
+            elif alert_message not in _IGNORED_WARNINGS:
+                warnings.append([alert_type, alert_message])
+
+        for alert_type, alert_message in itertools.chain(warnings, errors[:-1]):
+            self.report_warning(
+                'YouTube said: %s - %s' % (alert_type, alert_message),
+                only_once=only_once)
+        if errors:
+            raise ExtractorError(
+                'YouTube said: %s' % (errors[-1][1],), expected=expected)
 
     def _extract_from_tabs(self, item_id, webpage, data, tabs):
         selected_tab = self._extract_selected_tab(tabs)
@@ -4005,10 +3999,10 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             compat_str) or video_id
         if video_id:
             return self.url_result(video_id, ie=YoutubeIE.ie_key(), video_id=video_id)
+
         # Capture and output alerts
-        alert = self._extract_alert(data)
-        if alert:
-            raise ExtractorError(alert, expected=True)
+        self._extract_and_report_alerts(data)
+
         # Failed to recognize
         raise ExtractorError('Unable to recognize tab page')
 
@@ -4162,7 +4156,7 @@ class YoutubeFavouritesIE(YoutubeBaseInfoExtractor):
         'only_matching': True,
     }]
 
-    def _real_extract(self, url):
+    def _real_extract(self, _):
         return self.url_result(
             'https://www.youtube.com/playlist?list=LL',
             ie=YoutubeTabIE.ie_key())
@@ -4244,7 +4238,7 @@ class YoutubeFeedsInfoExtractor(YoutubeTabIE):
     def _real_initialize(self):
         self._login()
 
-    def _real_extract(self, url):
+    def _real_extract(self, _):
         return self.url_result(
             'https://www.youtube.com/feed/%s' % self._FEED_NAME,
             ie=YoutubeTabIE.ie_key())
@@ -4259,7 +4253,7 @@ class YoutubeWatchLaterIE(InfoExtractor):
         'only_matching': True,
     }]
 
-    def _real_extract(self, url):
+    def _real_extract(self, _):
         return self.url_result(
             'https://www.youtube.com/playlist?list=WL', ie=YoutubeTabIE.ie_key())
 
@@ -4339,7 +4333,7 @@ class YoutubeTruncatedURLIE(InfoExtractor):
         'only_matching': True,
     }]
 
-    def _real_extract(self, url):
+    def _real_extract(self, _):
         raise ExtractorError(
             'Did you forget to quote the URL? Remember that & is a meta '
             'character in most shells, so you want to put the URL in quotes, '
