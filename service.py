@@ -326,9 +326,11 @@ if not sys.argv[2]:
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
     from youtube_dl import YoutubeDL
+    using_yt_dlp = False
 else:
    # import lib.yt_dlp as yt_dlp
     from yt_dlp import YoutubeDL
+    using_yt_dlp = True
 
 # patch broken strptime (see above)
 patch_strptime()
@@ -341,6 +343,34 @@ ydl_opts = {'extract_flat': 'in_playlist'}
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
+
+# Configure Deno JavaScript runtime for yt-dlp (needed for YouTube extraction)
+if using_yt_dlp:
+    try:
+        from deno_manager import get_ydl_deno_config
+        
+        # Check if Deno auto-download is enabled
+        auto_download = xbmcplugin.getSetting(int(sys.argv[1]), "deno_autodownload") == 'true'
+        
+        # Get Deno configuration
+        deno_config = get_ydl_deno_config(auto_download=auto_download)
+        
+        if deno_config:
+            log("Configuring yt-dlp with Deno JavaScript runtime")
+            ydl_opts.update(deno_config)
+        else:
+            log("Deno not available - YouTube extraction may have limited functionality")
+            
+            # Add extractor args to suppress warning if configured
+            if xbmcplugin.getSetting(int(sys.argv[1]), "youtube_suppress_js_warning") == 'true':
+                if 'extractor_args' not in ydl_opts:
+                    ydl_opts['extractor_args'] = {}
+                if 'youtube' not in ydl_opts['extractor_args']:
+                    ydl_opts['extractor_args']['youtube'] = {}
+                ydl_opts['extractor_args']['youtube']['player_client'] = ['default']
+                log("Suppressing YouTube JS warning with player_client=default")
+    except Exception as e:
+        log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'

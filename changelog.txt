@@ -1,2 +1,10 @@
+100.0.1
+* Added automatic Deno JavaScript runtime support for yt-dlp (v2.6.4)
+* Improved YouTube extraction with proper JS engine integration
+* Added auto-download capability for Deno binaries (Linux, macOS, Windows)
+* Added settings to control Deno auto-download and YouTube JS warnings
+* Fixed issues with YouTube videos showing only audio or infinite loading
+* Deno permissions handled automatically by yt-dlp (secure by default)
+
 0.0.1
 * Initial Release

@@ -36,6 +36,14 @@ msgctxt "#32022"
 msgid "yt-dlp (kodi 19+ only)"
 msgstr ""
 
+msgctxt "#32023"
+msgid "Auto-download Deno (JavaScript runtime)"
+msgstr ""
+
+msgctxt "#32024"
+msgid "Suppress YouTube JS warning (fallback mode)"
+msgstr ""
+
 msgctxt "#33000"
 msgid "Adaptive"
 msgstr ""

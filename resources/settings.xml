@@ -14,6 +14,16 @@
                     </constraints>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting type="boolean" id="deno_autodownload" label="32023">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="youtube_suppress_js_warning" label="32024">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
         </category>
         <category id="adaptive" label="33000">

@@ -1,5 +1,13 @@
 
 # Development
+
+## Deno JavaScript Runtime
+
+SendToKodi includes automatic Deno runtime management for yt-dlp's JavaScript needs. See [DENO_INTEGRATION.md](./DENO_INTEGRATION.md) for:
+- User guide and troubleshooting
+- Developer integration details
+- Testing instructions
+
 ## Example JSON Request
 ```
 {

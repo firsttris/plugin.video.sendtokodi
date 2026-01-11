@@ -22,6 +22,16 @@ The plugin is not in the official Kodi addon repo. To install it with automatic 
 
 Once installed, you can send URLs to Kodi using one of the supported apps listed below.
 
+### YouTube Support with Deno
+
+**Important**: Modern yt-dlp requires a JavaScript runtime for proper YouTube extraction. SendToKodi automatically downloads and configures [Deno](https://deno.land/) (a JavaScript runtime) on first use to ensure full YouTube support.
+
+- This happens automatically in the background
+- Requires ~100MB disk space for Deno binary
+- Can be disabled in addon settings if you prefer to manage Deno yourself
+
+For more details, see [Deno Integration Documentation](./docs/DENO_INTEGRATION.md).
+
 ## Apps
 
 ### Browser Addons
