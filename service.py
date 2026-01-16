@@ -17,6 +17,9 @@ import xbmcplugin
 
 from urllib.parse import urlparse, parse_qs, urlencode
 
+# Import utility functions that can be tested independently
+from utils import parse_params, guess_manifest_type as _guess_manifest_type, create_strptime_proxy
+
 class replacement_stderr(sys.stderr.__class__):
     def isatty(self): return False
 
@@ -41,15 +44,7 @@ def log(msg, level=xbmc.LOGINFO):
 # The following workaround patch is borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
 def patch_strptime():
     import datetime
-
-    #fix for datatetime.strptime returns None
-    class proxydt(datetime.datetime):
-        @staticmethod
-        def strptime(date_string, format):
-            import time
-            return datetime.datetime(*(time.strptime(date_string, format)[0:6]))
-
-    datetime.datetime = proxydt
+    datetime.datetime = create_strptime_proxy()
 
 
 def showInfoNotification(message):
@@ -68,37 +63,11 @@ __handle__ = int(sys.argv[1])
 
 
 def getParams():
-    result = {}
-    paramstring = sys.argv[2]
-    additionalParamsIndex = paramstring.find(' ')
-    if additionalParamsIndex == -1:
-        result['url'] = paramstring[1:]
-        result['ydlOpts'] = {}
-    else:
-        result['url'] = paramstring[1:additionalParamsIndex]
-        additionalParamsString = paramstring[additionalParamsIndex:]
-        additionalParams = json.loads(additionalParamsString)
-        result['ydlOpts'] = additionalParams['ydlOpts']
-    return result
+    return parse_params(sys.argv[2])
 
 
 def guess_manifest_type(f, url):
-    protocol = f.get('protocol', "")
-    if protocol.startswith("m3u"):
-        return "hls"
-    elif protocol.startswith("rtmp") or protocol == "rtsp":
-        return "rtmp"
-    elif protocol == "ism":
-        return "ism"
-    for s in [".m3u", ".m3u8", ".hls", ".mpd", ".rtmp", ".ism"]:
-        offset = url.find(s, 0)
-        while offset != -1:
-            if offset == len(url) - len(s) or not url[offset + len(s)].isalnum():
-                if s.startswith("m3u"):
-                    s = ".hls"
-                return s[1:]
-            offset = url.find(s, offset + 1)
-    return None
+    return _guess_manifest_type(f, url)
 
 try:
     import inputstreamhelper

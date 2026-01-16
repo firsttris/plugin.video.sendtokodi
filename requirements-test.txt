@@ -1,0 +1,22 @@
+# Test dependencies for plugin.video.sendtokodi
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# HTTP mocking for dash_builder tests
+requests-mock>=1.11.0
+responses>=0.23.0
+
+# Code coverage
+coverage>=7.0.0
+
+# Linting (optional)
+flake8>=6.0.0
+
+# Type checking (optional)
+mypy>=1.0.0
+
+# Runtime dependencies for tests
+requests>=2.28.0
