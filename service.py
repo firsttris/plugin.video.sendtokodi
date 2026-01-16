@@ -4,8 +4,9 @@ import os
 
 # Ensures yt-dlp is on the python path
 # Workaround for issue caused by upstream commit
+# Use insert(0, ...) to prioritize bundled yt-dlp over system-installed version
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, 'lib'))
+sys.path.insert(0, os.path.join(dir_path, 'lib'))
 
 import json
 import sys
@@ -262,9 +263,19 @@ def createListItemFromVideo(result):
         if headers is None:
             headers = result.get('http_headers')
         if headers is not None:
-            headers = urlencode(headers)
-            list_item.setProperty('inputstream.adaptive.manifest_headers', headers)
-            list_item.setProperty('inputstream.adaptive.stream_headers', headers)
+            headers_encoded = urlencode(headers)
+            list_item.setProperty('inputstream.adaptive.manifest_headers', headers_encoded)
+            list_item.setProperty('inputstream.adaptive.stream_headers', headers_encoded)
+    else:
+        # For non-ISA streams, append headers to URL using Kodi's pipe notation
+        # This prevents 403 errors from sites like YouTube that require specific headers
+        if headers is None:
+            headers = result.get('http_headers')
+        if headers is not None and url:
+            headers_str = urlencode(headers)
+            url_with_headers = url + '|' + headers_str
+            list_item.setPath(url_with_headers)
+            log("Added headers to URL for non-ISA playback")
 
     return list_item
 

@@ -322,7 +322,7 @@ def get_ydl_deno_config(auto_download=True):
     
     return {
         'js_runtimes': {
-            'deno': {'location': deno_path}
+            'deno': {'path': deno_path}
         },
         'remote_components': ['ejs:github']
     }
