@@ -4,6 +4,7 @@ from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from xml.sax.saxutils import escape
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -97,7 +98,9 @@ def _iso8601_duration(secs):
     return "P{}DT{}H{}M{}S".format(int(d), int(h), int(m), s)
 
 def transform_url(url):
-    return url.replace('&', '/').replace('?', '/').replace('=', '/')
+    # Properly escape XML special characters in URLs
+    # This ensures the manifest remains valid XML while preserving all query parameters
+    return escape(url, quote=False)
 
 
 class Manifest():
