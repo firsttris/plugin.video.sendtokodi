@@ -4,7 +4,6 @@ from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from xml.sax.saxutils import escape
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -97,11 +96,6 @@ def _iso8601_duration(secs):
     d, h = divmod(h, 24)
     return "P{}DT{}H{}M{}S".format(int(d), int(h), int(m), s)
 
-def transform_url(url):
-    # Properly escape XML special characters in URLs
-    # This ensures the manifest remains valid XML while preserving all query parameters
-    return escape(url, quote=False)
-
 
 class Manifest():
     def __init__(self, duration):
@@ -151,11 +145,12 @@ class Manifest():
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
         channels.set('value', str(format['audio_channels']))
 
-        original_url = format['url']
+        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
-        base_url.text = transform_url(original_url)
+        # ElementTree handles XML escaping automatically, no need to manually escape
+        base_url.text = url
 
-        init_range, idx_range = find_init_and_index_ranges(original_url, format['container'], headers)
+        init_range, idx_range = find_init_and_index_ranges(url, format['container'], headers)
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
@@ -176,11 +171,12 @@ class Manifest():
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
 
-        original_url = format['url']
+        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
-        base_url.text = transform_url(original_url)
+        # ElementTree handles XML escaping automatically, no need to manually escape
+        base_url.text = url
 
-        init_range, idx_range = find_init_and_index_ranges(original_url, format['container'], headers)
+        init_range, idx_range = find_init_and_index_ranges(url, format['container'], headers)
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
