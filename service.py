@@ -180,10 +180,14 @@ def createListItemFromVideo(result):
                 builder = dash_builder.Manifest(result.get('duration', "0"))
                 video_success = not have_video
                 audio_success = not have_audio
+                # Get HTTP headers for requests (needed to avoid 403 from YouTube)
+                dash_headers = result.get('http_headers')
                 for fvideo in dash_video:
                     fid = fvideo.get('format', "")
                     try:
-                        builder.add_video_format(fvideo)
+                        # Use format-specific headers if available, otherwise use result headers
+                        fmt_headers = fvideo.get('http_headers', dash_headers)
+                        builder.add_video_format(fvideo, fmt_headers)
                         video_success = True
                         log("Added video stream {} to DASH manifest".format(fid))
                     except Exception as e:
@@ -191,7 +195,9 @@ def createListItemFromVideo(result):
                 for faudio in dash_audio:
                     fid = faudio.get('format', "")
                     try:
-                        builder.add_audio_format(faudio)
+                        # Use format-specific headers if available, otherwise use result headers
+                        fmt_headers = faudio.get('http_headers', dash_headers)
+                        builder.add_audio_format(faudio, fmt_headers)
                         audio_success = True
                         log("Added audio stream {} to DASH manifest".format(fid))
                     except Exception as e:
@@ -199,7 +205,7 @@ def createListItemFromVideo(result):
                 if video_success and audio_success:
                     url = dash_builder.start_httpd(builder.emit())
                     isa = True
-                    headers = f.get('http_headers')
+                    headers = dash_headers
                     log("Picked DASH with custom manifest")
                     break
 

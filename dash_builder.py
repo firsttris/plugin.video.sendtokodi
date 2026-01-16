@@ -79,10 +79,13 @@ def _mp4_find_init_and_index_ranges(r):
         offset = offset + box_size
     return init_range, index_range
 
-def find_init_and_index_ranges(url, container):
+def find_init_and_index_ranges(url, container, headers=None):
     # Download the first 1KiB of the stream
     size = 1024
-    r = requests.get(url, headers={'Range':'bytes=0-' + str(size - 1)})
+    request_headers = {'Range': 'bytes=0-' + str(size - 1)}
+    if headers:
+        request_headers.update(headers)
+    r = requests.get(url, headers=request_headers)
     if container == 'webm_dash':
         return _webm_find_init_and_index_ranges(r)
     return _mp4_find_init_and_index_ranges(r)
@@ -130,7 +133,7 @@ class Manifest():
 
         self.tree = ElementTree(self.mpd)
 
-    def add_audio_format(self, format):
+    def add_audio_format(self, format, headers=None):
         rep = SubElement(self.audio_set, 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])
         rep.set('codecs', format['acodec'])
@@ -145,18 +148,18 @@ class Manifest():
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
         channels.set('value', str(format['audio_channels']))
 
-        url = transform_url(format['url'])
+        original_url = format['url']
         base_url = SubElement(rep, 'BaseURL')
-        base_url.text = url
+        base_url.text = transform_url(original_url)
 
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+        init_range, idx_range = find_init_and_index_ranges(original_url, format['container'], headers)
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
         init = SubElement(segment_base, 'Initialization')
         init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
-    def add_video_format(self, format):
+    def add_video_format(self, format, headers=None):
         rep = SubElement(self.video_set, 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])
         rep.set('codecs', format['vcodec'])
@@ -170,11 +173,11 @@ class Manifest():
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
 
-        url = transform_url(format['url'])
+        original_url = format['url']
         base_url = SubElement(rep, 'BaseURL')
-        base_url.text = url
+        base_url.text = transform_url(original_url)
 
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+        init_range, idx_range = find_init_and_index_ranges(original_url, format['container'], headers)
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
