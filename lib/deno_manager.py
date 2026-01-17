@@ -57,8 +57,8 @@ def get_platform_info():
     elif machine in ['aarch64', 'arm64']:
         arch = 'aarch64'
     elif machine in ['armv7l', 'armv7']:
-        # Deno doesn't officially support 32-bit ARM, use aarch64 if possible
-        arch = 'aarch64'
+        # Deno doesn't officially support 32-bit ARM; fail fast instead of using an incompatible aarch64 binary
+        raise RuntimeError('Unsupported 32-bit ARM architecture: {}'.format(machine))
     else:
         arch = machine
     
