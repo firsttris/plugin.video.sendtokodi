@@ -142,7 +142,7 @@ if deno_config:
 Configuration returned:
 ```python
 {
-    'js_runtimes': {'deno': {'location': '/path/to/deno'}},
+    'js_runtimes': {'deno': {'path': '/path/to/deno'}},
     'remote_components': ['ejs:github']
 }
 ```
