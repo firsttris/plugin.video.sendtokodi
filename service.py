@@ -326,9 +326,11 @@ if not sys.argv[2]:
 # Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
 if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
     from youtube_dl import YoutubeDL
+    using_yt_dlp = False
 else:
    # import lib.yt_dlp as yt_dlp
     from yt_dlp import YoutubeDL
+    using_yt_dlp = True
 
 # patch broken strptime (see above)
 patch_strptime()
@@ -341,6 +343,16 @@ ydl_opts = {'extract_flat': 'in_playlist'}
 params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
+
+if using_yt_dlp:
+    try:
+        deno_enabled = xbmcplugin.getSetting(int(sys.argv[1]), "deno_enabled") == 'true'
+        if deno_enabled:
+            from deno_manager import get_ydl_opts
+            auto_download = xbmcplugin.getSetting(int(sys.argv[1]), "deno_autodownload") == 'true'
+            ydl_opts.update(get_ydl_opts(auto_download=auto_download))
+    except Exception as e:
+        log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
@@ -382,10 +394,16 @@ if 'entries' in result:
             pl.add(list_item.getPath(), list_item)
 
     # make sure the starting ListItem has a resolved url, to avoid recursion and crashes
-    if 'url' in startingEntry:
-        startingItem = createListItemFromVideo(ydl.extract_info(startingEntry['url'], download=False))
-    else:
-        startingItem = createListItemFromVideo(startingEntry)
+    try:
+        if 'url' in startingEntry:
+            startingItem = createListItemFromVideo(ydl.extract_info(startingEntry['url'], download=False))
+        else:
+            startingItem = createListItemFromVideo(startingEntry)
+    except Exception:
+        showErrorNotification("Could not resolve the url, check the log for more info")
+        import traceback
+        log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
+        exit()
     pl.add(startingItem.getPath(), startingItem, indexToStartAt)
 
     #xbmc.Player().play(pl) # this probably works again
@@ -393,4 +411,12 @@ if 'entries' in result:
     xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', indexToStartAt))
 else:
     # Just a video, pass the item to the Kodi player.
-    xbmcplugin.setResolvedUrl(__handle__, True, listitem=createListItemFromVideo(result))
+    try:
+        list_item = createListItemFromVideo(result)
+    except Exception:
+        showErrorNotification("Could not resolve the url, check the log for more info")
+        import traceback
+        log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
+        xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
+        exit()
+    xbmcplugin.setResolvedUrl(__handle__, True, listitem=list_item)
