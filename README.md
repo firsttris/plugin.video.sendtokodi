@@ -43,6 +43,15 @@ For feature requests or to report issues, visit the [Addon Repository](https://g
 - Send Websites to Kodi via [JSON-RPC](./docs/DEVELOPMENT.md#Example-JSON-Request)
 - Call SendToKodi from your [Kodi plugin](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
 
+## Development
+
+Run unit tests locally:
+
+```bash
+python -m pip install --upgrade pip pytest requests
+pytest -q
+```
+
 ## Code of Conduct
 See the [CODE](CODE_OF_CONDUCT.md)
 
