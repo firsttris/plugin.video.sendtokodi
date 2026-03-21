@@ -8,7 +8,6 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, 'lib'))
 
 import json
-import sys
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -323,14 +322,8 @@ if not sys.argv[2]:
     xbmcaddon.Addon().openSettings()
     exit()
 
-# Use the chosen resolver while forcing to use youtube_dl on legacy python 2 systems (dlp is python 3.6+)
-if xbmcplugin.getSetting(int(sys.argv[1]),"resolver") == "0" or sys.version_info[0] == 2:
-    from youtube_dl import YoutubeDL
-    using_yt_dlp = False
-else:
-   # import lib.yt_dlp as yt_dlp
-    from yt_dlp import YoutubeDL
-    using_yt_dlp = True
+# yt-dlp is the only supported resolver
+from yt_dlp import YoutubeDL
 
 # patch broken strptime (see above)
 patch_strptime()
@@ -344,15 +337,14 @@ params = getParams()
 url = str(params['url'])
 ydl_opts.update(params['ydlOpts'])
 
-if using_yt_dlp:
-    try:
-        deno_enabled = xbmcplugin.getSetting(int(sys.argv[1]), "deno_enabled") == 'true'
-        if deno_enabled:
-            from deno_manager import get_ydl_opts
-            auto_download = xbmcplugin.getSetting(int(sys.argv[1]), "deno_autodownload") == 'true'
-            ydl_opts.update(get_ydl_opts(auto_download=auto_download))
-    except Exception as e:
-        log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
+try:
+    deno_enabled = xbmcplugin.getSetting(int(sys.argv[1]), "deno_enabled") == 'true'
+    if deno_enabled:
+        from deno_manager import get_ydl_opts
+        auto_download = xbmcplugin.getSetting(int(sys.argv[1]), "deno_autodownload") == 'true'
+        ydl_opts.update(get_ydl_opts(auto_download=auto_download))
+except Exception as e:
+    log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'

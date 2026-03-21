@@ -13,7 +13,7 @@
 	"id": 1
 }
 ```
-## Example JSON Request with youtube-dl authentication
+## Example JSON Request with yt-dlp authentication
 ```
 {
 	"jsonrpc": "2.0",
@@ -26,7 +26,7 @@
 	"id": 1
 }
 ```
-Note: ydlOpts object will be passed directly to youtube-dl, so you can pass any [options](https://github.com/rg3/youtube-dl#options) that youtube-dl provides.
+Note: ydlOpts object will be passed directly to yt-dlp, so you can pass any [options](https://github.com/yt-dlp/yt-dlp#usage-and-options) that yt-dlp provides.
 
 ## Call SendToKodi Plugin from Kodi
 

@@ -11,12 +11,9 @@ SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](htt
 The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first.
 
 1. Download the repo file for your Kodi version:
-   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi.leia/raw/master/repository.sendtokodi.leia-1.0.0.zip)
    - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
 2. [Install the repo from zip](https://kodi.wiki/view/Add-on_manager).
 3. The addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
-
-*Please note that kodi 18 is internally limited to python2 but the addon uses yt-dlp to resolve URLs which requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck but it has been resumed. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
 
 ## Usage
 
