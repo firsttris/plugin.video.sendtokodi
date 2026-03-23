@@ -32,6 +32,14 @@ msgctxt "#32024"
 msgid "Enable Deno JavaScript runtime"
 msgstr ""
 
+msgctxt "#32040"
+msgid "Auto-download resolved media before playback"
+msgstr ""
+
+msgctxt "#32041"
+msgid "Media download path"
+msgstr ""
+
 msgctxt "#33000"
 msgid "Adaptive"
 msgstr ""

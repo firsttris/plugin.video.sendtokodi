@@ -1,6 +1,9 @@
 import json
 
 
+DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
+
+
 def parse_cli_paramstring(paramstring):
     additional_params_index = paramstring.find(' ')
     if additional_params_index == -1:
@@ -42,3 +45,12 @@ def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
 
     auto_download = get_setting(handle, "deno_autodownload") == 'true'
     return get_deno_ydl_opts(auto_download=auto_download)
+
+
+def resolve_media_download_settings(handle, get_setting):
+    enabled = get_setting(handle, "media_autodownload") == 'true'
+    custom_path = get_setting(handle, "media_download_path")
+    return {
+        'enabled': enabled,
+        'path': custom_path or DEFAULT_MEDIA_DOWNLOAD_PATH,
+    }

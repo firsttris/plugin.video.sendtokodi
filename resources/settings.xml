@@ -13,6 +13,16 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting type="boolean" id="media_autodownload" label="32040">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="media_download_path" label="32041" parent="media_autodownload">
+                    <level>1</level>
+                    <default>special://profile/addon_data/plugin.video.sendtokodi/downloads</default>
+                    <control type="edit" format="string"/>
+                </setting>
             </group>
         </category>
         <category id="adaptive" label="33000">

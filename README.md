@@ -41,6 +41,17 @@ To test local changes from this repository in Kodi, use one of these methods:
 
 Once installed, you can send URLs to Kodi using one of the supported apps listed below.
 
+### Optional: auto-download media before playback
+
+In addon settings (`General`), you can enable `Auto-download resolved media before playback`.
+By default this is disabled.
+
+Default download path (cross-platform Kodi virtual path):
+
+`special://profile/addon_data/plugin.video.sendtokodi/downloads`
+
+You can change this path in `Media download path`.
+
 ## Apps
 
 ### Browser Addons

@@ -11,6 +11,7 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 from core import dash_builder
 
 from core.addon_params import (
@@ -19,6 +20,7 @@ from core.addon_params import (
     resolve_playlist_item_title,
     build_ydl_opts,
     resolve_deno_opts,
+    resolve_media_download_settings,
 )
 from core.service_runtime import install_stderr_workaround, patch_strptime
 from core.playback_selection import (
@@ -53,6 +55,19 @@ def showInfoNotification(message):
 def showErrorNotification(message):
     xbmcgui.Dialog().notification("SendToKodi", message,
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
+
+
+def resolve_downloaded_file_path(result):
+    requested_downloads = result.get('requested_downloads', [])
+    for downloaded_item in requested_downloads:
+        file_path = downloaded_item.get('filepath') or downloaded_item.get('filename')
+        if file_path:
+            return file_path
+
+    if '_filename' in result:
+        return result['_filename']
+
+    return None
 
 
 # Get the plugin url in plugin:// notation.
@@ -100,6 +115,18 @@ def createListItemFromVideo(result):
         msg = "No supported streams found"
         showErrorNotification(msg)
         raise Exception("Error: " + msg)
+
+    downloaded_file_path = resolve_downloaded_file_path(result)
+    if downloaded_file_path is not None and xbmcvfs.exists(downloaded_file_path):
+        log("using downloaded file {}".format(downloaded_file_path))
+        url = downloaded_file_path
+        isa = False
+        headers = None
+    elif downloaded_file_path is not None:
+        log(
+            "downloaded file does not exist, falling back to stream {}".format(downloaded_file_path),
+            xbmc.LOGWARNING,
+        )
 
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result['title'], path=url)
@@ -152,6 +179,15 @@ def extract_result_with_progress(ydl, target_url):
         progress.close()
 
 
+def download_result_with_progress(ydl, target_url):
+    progress = xbmcgui.DialogProgressBG()
+    progress.create("Downloading " + target_url)
+    try:
+        return ydl.extract_info(target_url, download=True)
+    finally:
+        progress.close()
+
+
 def play_playlist_result(result, target_url, ydl):
     pl = xbmc.PlayList(1)
     pl.clear()
@@ -163,7 +199,10 @@ def play_playlist_result(result, target_url, ydl):
         list_item = createListItemFromFlatPlaylistItem(video)
         pl.add(list_item.getPath(), list_item)
 
-    starting_item = createListItemFromVideo(resolve_starting_entry(starting_entry, ydl.extract_info))
+    def extract_starting_entry(url, download):
+        return ydl.extract_info(url, download=media_download_enabled)
+
+    starting_item = createListItemFromVideo(resolve_starting_entry(starting_entry, extract_starting_entry))
     pl.add(starting_item.getPath(), starting_item, index_to_start_at)
 
     xbmc.executebuiltin('Playlist.PlayOffset(%s,%d)' % ('video', index_to_start_at))
@@ -206,6 +245,21 @@ except Exception as e:
 
 ydl_opts = build_ydl_opts(params, deno_opts)
 
+media_download_settings = resolve_media_download_settings(int(sys.argv[1]), xbmcplugin.getSetting)
+media_download_enabled = media_download_settings['enabled']
+media_download_path = media_download_settings['path']
+
+if media_download_enabled:
+    translated_media_download_path = xbmcvfs.translatePath(media_download_path)
+    if not xbmcvfs.exists(translated_media_download_path):
+        if not xbmcvfs.mkdirs(translated_media_download_path):
+            log(
+                "Failed to create media download path {}".format(translated_media_download_path),
+                xbmc.LOGWARNING,
+            )
+    ydl_opts['paths'] = {'home': translated_media_download_path}
+    log("Media auto-download enabled. Target path: {}".format(translated_media_download_path))
+
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
@@ -216,6 +270,8 @@ ydl.add_default_info_extractors()
 with ydl:
     try:
         result = extract_result_with_progress(ydl, url)
+        if media_download_enabled and 'entries' not in result:
+            result = download_result_with_progress(ydl, url)
     except Exception:
         handle_resolve_failure()
 

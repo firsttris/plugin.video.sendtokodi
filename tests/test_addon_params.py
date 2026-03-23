@@ -1,9 +1,11 @@
 from core.addon_params import (
+    DEFAULT_MEDIA_DOWNLOAD_PATH,
     parse_cli_paramstring,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
     resolve_deno_opts,
+    resolve_media_download_settings,
 )
 
 
@@ -101,3 +103,35 @@ def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
     )
 
     assert opts == {"auto_download": False}
+
+
+def test_resolve_media_download_settings_defaults_to_disabled_and_default_path():
+    def get_setting(_handle, name):
+        if name == "media_autodownload":
+            return "false"
+        if name == "media_download_path":
+            return ""
+        return ""
+
+    settings = resolve_media_download_settings(1, get_setting)
+
+    assert settings == {
+        "enabled": False,
+        "path": DEFAULT_MEDIA_DOWNLOAD_PATH,
+    }
+
+
+def test_resolve_media_download_settings_uses_custom_path_when_set():
+    def get_setting(_handle, name):
+        if name == "media_autodownload":
+            return "true"
+        if name == "media_download_path":
+            return "/tmp/sendtokodi-downloads"
+        return ""
+
+    settings = resolve_media_download_settings(1, get_setting)
+
+    assert settings == {
+        "enabled": True,
+        "path": "/tmp/sendtokodi-downloads",
+    }
