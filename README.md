@@ -15,6 +15,28 @@ The plugin is not in the official Kodi addon repo. To install it with automatic 
 2. [Install the repo from zip](https://kodi.wiki/view/Add-on_manager).
 3. The addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
 
+### Local Development Installation
+
+To test local changes from this repository in Kodi, use one of these methods:
+
+1. **Symlink (recommended for active development)**
+  ```bash
+  # Standard Kodi install
+  rm -rf ~/.kodi/addons/plugin.video.sendtokodi
+  ln -s /home/tristan/Projects/plugin.video.sendtokodi ~/.kodi/addons/plugin.video.sendtokodi
+
+  # Flatpak Kodi install
+  rm -rf /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
+  ln -s /home/tristan/Projects/plugin.video.sendtokodi /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
+  ```
+  Restart Kodi (or disable/enable the addon) to pick up changes.
+
+2. **Install a local ZIP**
+  ```bash
+  zip -r plugin.video.sendtokodi-local.zip . -x "*.git*" "__pycache__/*" ".pytest_cache/*"
+  ```
+  Then in Kodi, use **Install from zip file** and select `plugin.video.sendtokodi-local.zip`.
+
 ## Usage
 
 Once installed, you can send URLs to Kodi using one of the supported apps listed below.
