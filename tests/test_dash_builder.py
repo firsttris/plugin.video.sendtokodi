@@ -1,4 +1,4 @@
-import dash_builder
+from core import dash_builder
 
 
 class DummyResponse:

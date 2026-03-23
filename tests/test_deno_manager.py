@@ -1,6 +1,6 @@
 import pytest
 
-import deno_manager
+from core import deno_manager
 
 
 def test_detect_platform_supported(monkeypatch):
