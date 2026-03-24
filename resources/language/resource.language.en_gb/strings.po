@@ -24,24 +24,20 @@ msgctxt "#32001"
 msgid "URL Resolver"
 msgstr ""
 
-msgctxt "#32020"
-msgid "Resolve with"
-msgstr ""
-
-msgctxt "#32021"
-msgid "youtube-dl"
-msgstr ""
-
-msgctxt "#32022"
-msgid "yt-dlp (kodi 19+ only)"
-msgstr ""
-
 msgctxt "#32023"
 msgid "Auto-download Deno JavaScript runtime"
 msgstr ""
 
 msgctxt "#32024"
 msgid "Enable Deno JavaScript runtime"
+msgstr ""
+
+msgctxt "#32040"
+msgid "Auto-download resolved media before playback"
+msgstr ""
+
+msgctxt "#32041"
+msgid "Media download path"
 msgstr ""
 
 msgctxt "#33000"

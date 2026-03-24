@@ -8,13 +8,13 @@
   <extension point="xbmc.python.pluginsource" library="service.py">
       <provides>video</provides>
   </extension>
-  <!-- Export lib so that youtube-dl and yt-dlp can be accessed by other addons. -->
+  <!-- Export lib so that yt-dlp can be accessed by other addons. -->
   <extension point="xbmc.python.module" library="lib" />
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SendToKodi</summary>
     <description lang="en">SendToKodi</description>
     <description lang="de">SendToKodi</description>
-    <disclaimer lang="en">The sent URLs are resolved with an external library. In case a website/stream does not work, check if youtube-dl or youtube-dlp can download them outside of kodi before opening a bug.</disclaimer>
+    <disclaimer lang="en">The sent URLs are resolved with an external library. In case a website/stream does not work, check if yt-dlp can download them outside of Kodi before opening a bug.</disclaimer>
     <platform>all</platform>
     <license>MIT License</license>
     <website>https://teufel-it.de/</website>

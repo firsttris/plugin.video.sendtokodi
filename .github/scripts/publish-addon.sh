@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-# this script publishes the addon zip file to the unofficial python2/3 kodi repo
+# this script publishes the addon zip file to the add-on repository
 
 VERSION=$1
 REPO_URL=$2

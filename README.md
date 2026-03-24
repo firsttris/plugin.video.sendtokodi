@@ -1,50 +1,163 @@
-# plugin.video.sendtokodi
+# SendToKodi (Kodi Add-on)
 
-[![build-publish-addon](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/firsttris/chrome.sendtokodi/master/public/banner/1280x800.png" alt="SendToKodi Banner" />
+</p>
 
-SendToKodi is a plugin that allows you to send video or audio URLs to [Kodi](https://kodi.tv) and play them. It automatically resolves sent websites into a playable stream using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+<p align="center">
+  <a href="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml"><img src="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg" alt="Build" /></a>
+  <a href="https://kodi.tv"><img src="https://img.shields.io/badge/Kodi-19%2B-17B2E7" alt="Kodi 19+" /></a>
+  <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/v/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Extension" alt="Chrome Extension" /></a>
+  <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/users/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Users" alt="Chrome Users" /></a>
+  <a href="https://addons.mozilla.org/firefox/addon/sendtokodi/"><img src="https://img.shields.io/amo/v/sendtokodi?label=Firefox%20Add-on" alt="Firefox Add-on" /></a>
+  <a href="https://addons.mozilla.org/firefox/addon/sendtokodi/"><img src="https://img.shields.io/amo/users/sendtokodi?label=Firefox%20Users" alt="Firefox Users" /></a>
+</p>
 
-![SendToKodi Logo](https://github.com/firsttris/repository.sendtokodi/raw/master/repository.sendtokodi/icon.png)
+Send video or audio links from your browser or phone directly to [Kodi](https://kodi.tv).
+SendToKodi resolves supported websites to playable streams using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
-## Installation
+## ✨ Features
 
-The plugin is not in the official Kodi addon repo. To install it with automatic updates, you need to add our repo first.
+- 🎬 Stream links from supported websites directly in Kodi
+- 🌐 Works with browser extensions and mobile share flows
+- 📋 Playlist support via `.m3u`
+- 🔧 JSON-RPC and plugin integration support
+- 💾 Optional auto-download before playback
 
-1. Download the repo file for your Kodi version:
-   - [Kodi 18](https://github.com/firsttris/repository.sendtokodi.leia/raw/master/repository.sendtokodi.leia-1.0.0.zip)
-   - [Kodi 19+](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
-2. [Install the repo from zip](https://kodi.wiki/view/Add-on_manager).
-3. The addon `sendtokodi` can be found in the [install from repository](https://kodi.wiki/view/Add-on_manager) section.
+## 🚀 Quick Start
 
-*Please note that kodi 18 is internally limited to python2 but the addon uses yt-dlp to resolve URLs which requires python 3.6+. Therefore, the kodi 18 version uses [youtube-dl](https://youtube-dl.org/) instead. Unfortunately, the development of youtube-dl was stuck but it has been resumed. So the kodi 18 version of this plugin might not be as stable as the kodi 19 version.*
+1. Install the SendToKodi Kodi add-on (steps below).
+2. Install one of the companion apps/extensions.
+3. Share or send a video URL to Kodi and start playback.
 
-## Usage
+## 📦 Install in Kodi
 
-Once installed, you can send URLs to Kodi using one of the supported apps listed below.
+This add-on is not in the official Kodi add-on repository.
+For automatic updates, first add the SendToKodi repo:
 
-## Apps
+1. Download repository ZIP for Kodi 19+:
+   - [repository.sendtokodi-1.0.0.zip](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
+2. In Kodi, go to **Add-ons → Install from zip file** and install the ZIP.
+3. Then go to **Add-ons → Install from repository** and install `plugin.video.sendtokodi`.
 
-### Browser Addons
-- [Chrome Store](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
-- [Mozilla Store](https://addons.mozilla.org/de/firefox/addon/sendtokodi/)
-- [Edge Store](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij)
+Reference: [Kodi Add-on Manager](https://kodi.wiki/view/Add-on_manager)
 
-For feature requests or to report issues, visit the [Addon Repository](https://github.com/firsttris/chrome.sendtokodi).
+## 📱 Companion Apps
 
-### Mobile Apps
-- [Kore, Official Andorid Remote for Kodi](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
-  - Check the app settings to always use sendtokodi if you get warnings about other missing kodi addons
-- The **Official SendToKodi iOS App** has been retired for the time being, but if you have downloaded it before you should be able to do so again from your list of previously purchased apps in iOS App Store.
-- [Apple Shortcut](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut): This shortcut works on both iOS and macOS. On iOS, it appears in the share sheet when sharing a web address or URL. On macOS, it can be executed directly from the Shortcuts app. Duplicate the shortcut for quick access to all your devices straight from the share sheet.
+### Browser extensions
 
-## Integration
-- Supported [Websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-- Ability to [call SendToKodi from a .m3u playlist](./playlist-example.m3u)
-- Send Websites to Kodi via [JSON-RPC](./docs/DEVELOPMENT.md#Example-JSON-Request)
-- Call SendToKodi from your [Kodi plugin](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
+- [Chrome Web Store](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
+- [Mozilla Add-ons](https://addons.mozilla.org/firefox/addon/sendtokodi/)
+- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij)
+
+Extension source & issues: [firsttris/chrome.sendtokodi](https://github.com/firsttris/chrome.sendtokodi)
+
+### Mobile
+
+- [Kore (official Kodi Android remote)](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
+  - If prompted, set SendToKodi as the preferred add-on in Kore settings.
+- The official iOS SendToKodi app is currently retired.
+- [Apple Shortcut (iOS + macOS)](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut)
+
+## ⚙️ Usage Notes
+
+### Optional: auto-download before playback
+
+In add-on settings (**General**), enable:
+
+`Auto-download resolved media before playback`
+
+Default path:
+
+`special://profile/addon_data/plugin.video.sendtokodi/downloads`
+
+You can change it with:
+
+`Media download path`
+
+## 🔌 Integration
+
+- Supported sites: [yt-dlp supported websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+- Call from playlists: [playlist-example.m3u](./playlist-example.m3u)
+- Send URLs via JSON-RPC: [Development docs](./docs/DEVELOPMENT.md#Example-JSON-Request)
+- Call from another Kodi plugin: [Development docs](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
+
+## 💻 Development
+
+Run unit tests locally (recommended: inside a virtual environment):
+
+1. Install venv support (Ubuntu/Debian):
+
+```bash
+sudo apt install python3-venv
+```
+
+2. Create a virtual environment in the project root:
+
+```bash
+python3 -m venv .venv
+```
+
+3. Activate it (choose your shell):
+
+- fish:
+
+  ```bash
+  source .venv/bin/activate.fish
+  ```
+
+- bash/zsh:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+4. Install test dependencies and run tests:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+pytest
+```
+
+Coverage reports are generated automatically:
+
+- Console report with missing lines
+- `coverage.xml` for CI integrations
+- `htmlcov/index.html` as a human-readable report
+
+### Local add-on installation for development
+
+1. **Symlink (recommended)**
+
+```bash
+# Standard Kodi install
+rm -rf ~/.kodi/addons/plugin.video.sendtokodi
+ln -s /home/tristan/Projects/plugin.video.sendtokodi ~/.kodi/addons/plugin.video.sendtokodi
+
+# Flatpak Kodi install
+rm -rf /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
+ln -s /home/tristan/Projects/plugin.video.sendtokodi /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
+```
+
+Restart Kodi (or disable/enable the add-on) after changes.
+
+2. **Install local ZIP**
+
+```bash
+zip -r plugin.video.sendtokodi-local.zip . -x "*.git*" "__pycache__/*" ".pytest_cache/*"
+```
+
+Then install via **Add-ons → Install from zip file**.
+
+## 🤝 Contributing
+
+Contributions are welcome. Please open an issue or submit a pull request.
 
 ## Code of Conduct
-See the [CODE](CODE_OF_CONDUCT.md)
+
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
-See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
+
+This project is licensed under MIT. See [LICENSE.md](LICENSE.md).
