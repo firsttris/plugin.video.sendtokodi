@@ -1,0 +1,9 @@
+[run]
+omit =
+    tests/*
+    lib/yt_dlp/*
+    */__pycache__/*
+
+[report]
+show_missing = True
+skip_covered = False

@@ -84,12 +84,47 @@ You can change it with:
 
 ## 💻 Development
 
-Run unit tests locally:
+Run unit tests locally (recommended: inside a virtual environment):
+
+1. Install venv support (Ubuntu/Debian):
 
 ```bash
-python -m pip install --upgrade pip pytest requests
-pytest -q
+sudo apt install python3-venv
 ```
+
+2. Create a virtual environment in the project root:
+
+```bash
+python3 -m venv .venv
+```
+
+3. Activate it (choose your shell):
+
+- fish:
+
+  ```bash
+  source .venv/bin/activate.fish
+  ```
+
+- bash/zsh:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+4. Install test dependencies and run tests:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+pytest
+```
+
+Coverage reports are generated automatically:
+
+- Console report with missing lines
+- `coverage.xml` for CI integrations
+- `htmlcov/index.html` as a human-readable report
 
 ### Local add-on installation for development
 
