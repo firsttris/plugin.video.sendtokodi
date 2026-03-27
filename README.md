@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml"><img src="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg" alt="Build" /></a>
+  <a href="https://app.codecov.io/gh/firsttris/plugin.video.sendtokodi"><img src="https://codecov.io/gh/firsttris/plugin.video.sendtokodi/graph/badge.svg" alt="Coverage" /></a>
   <a href="https://kodi.tv"><img src="https://img.shields.io/badge/Kodi-19%2B-17B2E7" alt="Kodi 19+" /></a>
   <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/v/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Extension" alt="Chrome Extension" /></a>
   <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/users/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Users" alt="Chrome Users" /></a>

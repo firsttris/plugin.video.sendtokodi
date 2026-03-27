@@ -35,6 +35,11 @@ jobs:
           python -m pip install -r requirements-dev.txt
       - name: Run unit tests
         run: pytest
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
