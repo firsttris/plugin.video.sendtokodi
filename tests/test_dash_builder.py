@@ -51,3 +51,192 @@ def test_iso8601_duration_formatting():
 def test_transform_url_replaces_query_separators():
     url = "https://example.com/v?id=123&quality=high"
     assert dash_builder.transform_url(url) == "https://example.com/v/id/123/quality/high"
+
+
+def test_webm_decode_int_covers_longer_prefix_lengths():
+    assert dash_builder._webm_decode_int(0b00001000) == (5, 0)
+    assert dash_builder._webm_decode_int(0b00000100) == (6, 0)
+    assert dash_builder._webm_decode_int(0b00000010) == (7, 0)
+
+
+def test_webm_find_ranges_finds_cues_element():
+    ebml = bytes.fromhex("1A45DFA3")
+    filler = b"\x00"
+    segment = bytes.fromhex("1853806780")
+    cues = bytes.fromhex("1C53BB6B80")
+    payload = ebml + filler + segment + cues + (b"\x00" * 20)
+
+    init_range, index_range = dash_builder._webm_find_init_and_index_ranges(DummyResponse(payload))
+
+    assert init_range == (0, 9)
+    assert index_range == (10, 14)
+
+
+def test_find_init_and_index_ranges_dispatches_by_container(monkeypatch):
+    called = []
+
+    class DummyRequestsResponse:
+        content = b"dummy"
+
+    def fake_get(url, headers):
+        called.append((url, headers))
+        return DummyRequestsResponse()
+
+    monkeypatch.setattr(dash_builder.requests, "get", fake_get)
+    monkeypatch.setattr(dash_builder, "_webm_find_init_and_index_ranges", lambda _r: ((1, 2), (3, 4)))
+    monkeypatch.setattr(dash_builder, "_mp4_find_init_and_index_ranges", lambda _r: ((5, 6), (7, 8)))
+
+    assert dash_builder.find_init_and_index_ranges("https://x", "webm_dash") == ((1, 2), (3, 4))
+    assert dash_builder.find_init_and_index_ranges("https://x", "mp4_dash") == ((5, 6), (7, 8))
+    assert called[0][1]["Range"] == "bytes=0-1023"
+
+
+def test_manifest_add_formats_and_emit(monkeypatch):
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 9), (10, 19)))
+
+    manifest = dash_builder.Manifest(duration=12.5)
+    manifest.add_audio_format(
+        {
+            "format_id": "140-dash",
+            "acodec": "mp4a.40.2",
+            "asr": 44100,
+            "ext": "mp4",
+            "tbr": 128,
+            "audio_channels": 2,
+            "url": "https://example.com/a?id=1&x=2",
+            "container": "mp4_dash",
+        }
+    )
+    manifest.add_video_format(
+        {
+            "format_id": "137-dash",
+            "vcodec": "avc1.640028",
+            "fps": 30,
+            "resolution": "1920x1080",
+            "ext": "mp4",
+            "vbr": 2500,
+            "url": "https://example.com/v?id=1&x=2",
+            "container": "mp4_dash",
+        }
+    )
+
+    xml_bytes = manifest.emit()
+    xml_text = xml_bytes.decode("utf-8")
+
+    assert "<MPD" in xml_text
+    assert "audio/mp4" in xml_text
+    assert "video/mp4" in xml_text
+    assert "indexRange=\"10-19\"" in xml_text
+    assert "range=\"0-9\"" in xml_text
+
+
+def test_manifest_add_formats_without_bandwidth(monkeypatch):
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 1), (2, 3)))
+    manifest = dash_builder.Manifest(duration=1)
+
+    manifest.add_audio_format(
+        {
+            "format_id": "251",
+            "acodec": "opus",
+            "asr": 48000,
+            "ext": "webm",
+            "audio_channels": 2,
+            "url": "https://example.com/a",
+            "container": "webm_dash",
+        }
+    )
+    manifest.add_video_format(
+        {
+            "format_id": "248",
+            "vcodec": "vp9",
+            "fps": 24,
+            "resolution": "1280x720",
+            "ext": "webm",
+            "url": "https://example.com/v",
+            "container": "webm_dash",
+        }
+    )
+
+    xml_text = manifest.emit().decode("utf-8")
+    assert "bandwidth=" not in xml_text
+
+
+def test_http_handler_head_and_get_methods_write_headers_and_body():
+    class DummyWFile:
+        def __init__(self):
+            self.written = b""
+
+        def write(self, data):
+            self.written += data
+
+    class DummyHandler:
+        def __init__(self):
+            self.mpd = b"manifest"
+            self.calls = []
+            self.wfile = DummyWFile()
+
+        def send_response(self, code, msg):
+            self.calls.append(("response", code, msg))
+
+        def send_header(self, key, value):
+            self.calls.append(("header", key, value))
+
+        def end_headers(self):
+            self.calls.append(("end",))
+
+        def do_HEAD(self):
+            dash_builder.HttpHandler.do_HEAD(self)
+
+    handler = DummyHandler()
+    dash_builder.HttpHandler.do_HEAD(handler)
+    dash_builder.HttpHandler.do_GET(handler)
+
+    assert ("response", 200, "OK") in handler.calls
+    assert ("header", "Content-type", "application/dash+xml") in handler.calls
+    assert ("header", "Content-Length", str(len(b"manifest"))) in handler.calls
+    assert handler.wfile.written == b"manifest"
+
+
+def test_handle_request_stops_after_timeout():
+    class DummyHttpd:
+        def __init__(self):
+            self.calls = 0
+
+        def handle_request(self):
+            self.calls += 1
+            raise TimeoutError()
+
+    httpd = DummyHttpd()
+    dash_builder._handle_request(httpd)
+    assert httpd.calls == 1
+
+
+def test_start_httpd_uses_server_and_thread(monkeypatch):
+    started = {"called": False}
+
+    class FakeHTTPServer:
+        def __init__(self, server_address, handler):
+            self.server_address = server_address
+            self.handler = handler
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
+
+        def handle_request(self):
+            raise TimeoutError()
+
+    class FakeThread:
+        def __init__(self, target, args):
+            self.target = target
+            self.args = args
+
+        def start(self):
+            started["called"] = True
+
+    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+
+    url = dash_builder.start_httpd(b"manifest")
+
+    assert started["called"] is True
+    assert url == "http://127.0.0.1:8123/manifest.mpd"
