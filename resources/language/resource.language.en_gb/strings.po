@@ -24,6 +24,14 @@ msgctxt "#32001"
 msgid "URL Resolver"
 msgstr ""
 
+msgctxt "#32060"
+msgid "Deno"
+msgstr ""
+
+msgctxt "#32061"
+msgid "yt-dlp"
+msgstr ""
+
 msgctxt "#32023"
 msgid "Auto-update Deno JavaScript runtime"
 msgstr ""

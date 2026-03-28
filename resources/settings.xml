@@ -3,6 +3,66 @@
     <section id="plugin.video.sendtokodi">
         <category id="general" label="32000">
             <group id="1">
+                <setting type="boolean" id="media_autodownload" label="32040">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="media_download_path" label="32041" parent="media_autodownload">
+                    <level>1</level>
+                    <default>special://profile/addon_data/plugin.video.sendtokodi/downloads</default>
+                    <control type="edit" format="string"/>
+                </setting>
+            </group>
+        </category>
+        <category id="deno" label="32060">
+            <group id="3">
+                <setting type="boolean" id="deno_enabled" label="32024">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="deno_autodownload" label="32023">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="deno_installed_version_display" label="32026">
+                    <level>0</level>
+                    <default>not installed</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting id="deno_select_version_action" label="32025" type="action">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_select_version)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="deno_update_now_action" label="32028" type="action">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_update_now)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting type="string" id="deno_version" label="32027">
+                    <level>3</level>
+                    <default>latest</default>
+                    <control type="edit" format="string"/>
+                </setting>
+            </group>
+        </category>
+        <category id="ytdlp" label="32061">
+            <group id="4">
+                <setting type="boolean" id="ytdlp_autodownload" label="32051">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="ytdlp_installed_version_display" label="32055">
+                    <level>0</level>
+                    <default>not installed</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string"/>
+                </setting>
                 <setting id="ytdlp_select_version_action" label="32052" type="action">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_select_version)</data>
@@ -22,52 +82,6 @@
                 <setting type="string" id="ytdlp_version" label="32054">
                     <level>3</level>
                     <default>latest</default>
-                    <control type="edit" format="string"/>
-                </setting>
-                <setting type="boolean" id="ytdlp_autodownload" label="32051">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting type="boolean" id="deno_enabled" label="32024">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="deno_select_version_action" label="32025" type="action">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_select_version)</data>
-                    <control type="button" format="action"/>
-                </setting>
-                <setting id="deno_update_now_action" label="32028" type="action">
-                    <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_update_now)</data>
-                    <control type="button" format="action"/>
-                </setting>
-                <setting type="string" id="deno_installed_version_display" label="32026">
-                    <level>0</level>
-                    <default>not installed</default>
-                    <enable>false</enable>
-                    <control type="edit" format="string"/>
-                </setting>
-                <setting type="boolean" id="deno_autodownload" label="32023">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting type="string" id="deno_version" label="32027">
-                    <level>3</level>
-                    <default>latest</default>
-                    <control type="edit" format="string"/>
-                </setting>
-                <setting type="boolean" id="media_autodownload" label="32040">
-                    <level>0</level>
-                    <default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting type="string" id="media_download_path" label="32041" parent="media_autodownload">
-                    <level>1</level>
-                    <default>special://profile/addon_data/plugin.video.sendtokodi/downloads</default>
                     <control type="edit" format="string"/>
                 </setting>
             </group>
