@@ -2,6 +2,7 @@ import io
 import os
 import sys
 import tarfile
+import json
 
 from core import ytdlp_manager
 
@@ -64,7 +65,7 @@ def test_extract_yt_dlp_from_tarball(monkeypatch, tmp_path):
 def test_ensure_ready_returns_missing_when_no_install_and_autodownload_off(monkeypatch):
     monkeypatch.setattr(ytdlp_manager, "_find_installed_runtime", lambda: (None, None))
 
-    result = ytdlp_manager.ensure_ytdlp_ready(auto_download=False, requested_version="latest")
+    result = ytdlp_manager.ensure_ytdlp_ready(allow_install=False, requested_version="latest")
 
     assert result["ready"] is False
     assert result["reason"] == "missing"
@@ -79,7 +80,7 @@ def test_ensure_ready_downloads_when_missing(monkeypatch):
         lambda version: "/addon/ytdlp/versions/{}".format(version),
     )
 
-    result = ytdlp_manager.ensure_ytdlp_ready(auto_download=True, requested_version="latest")
+    result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="latest")
 
     assert result["ready"] is True
     assert result["version"] == "2026.03.26"
@@ -93,7 +94,7 @@ def test_ensure_ready_reports_mismatch_without_autodownload(monkeypatch):
         lambda: ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
     )
 
-    result = ytdlp_manager.ensure_ytdlp_ready(auto_download=False, requested_version="2026.03.26")
+    result = ytdlp_manager.ensure_ytdlp_ready(allow_install=False, requested_version="2026.03.26")
 
     assert result["ready"] is False
     assert result["reason"] == "version_mismatch"
@@ -121,13 +122,50 @@ def test_get_runtime_status_reports_versions(monkeypatch):
         lambda: ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
     )
     monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda: "2026.03.26")
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "list_installed_versions",
+        lambda: ["2026.03.10", "2026.03.01"],
+    )
 
     status = ytdlp_manager.get_runtime_status("latest")
 
     assert status["requested_version"] == "latest"
     assert status["installed_version"] == "2026.03.10"
+    assert status["installed_versions"] == ["2026.03.10", "2026.03.01"]
     assert status["latest_version"] == "2026.03.26"
     assert status["is_latest_installed"] is False
+
+
+def test_ensure_ready_switches_to_existing_requested_version_without_download(monkeypatch):
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "_find_installed_runtime",
+        lambda: ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
+    )
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda: "2026.03.26")
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "_find_runtime_for_version",
+        lambda version: "/addon/ytdlp/versions/{}".format(version)
+        if version == "2026.03.26"
+        else None,
+    )
+
+    writes = []
+    monkeypatch.setattr(ytdlp_manager, "_write_installed_version", lambda version: writes.append(version))
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "_download_and_install",
+        lambda _version: (_ for _ in ()).throw(AssertionError("download should not run")),
+    )
+
+    result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="2026.03.26")
+
+    assert result["ready"] is True
+    assert result["version"] == "2026.03.26"
+    assert result["runtime_path"] == "/addon/ytdlp/versions/2026.03.26"
+    assert writes == ["2026.03.26"]
 
 
 def test_get_runtime_status_handles_latest_lookup_error(monkeypatch):
@@ -143,3 +181,54 @@ def test_get_runtime_status_handles_latest_lookup_error(monkeypatch):
     assert status["requested_version"] == "2026.03.01"
     assert status["latest_version"] is None
     assert status["latest_error"] == "network error"
+
+
+def test_ensure_ready_falls_back_to_installed_runtime_on_error(monkeypatch):
+    calls = [
+        ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
+        ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
+    ]
+    monkeypatch.setattr(ytdlp_manager, "_find_installed_runtime", lambda: calls.pop(0))
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "_resolve_latest_version",
+        lambda: (_ for _ in ()).throw(RuntimeError("rate limit exceeded")),
+    )
+
+    result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="latest")
+
+    assert result["ready"] is True
+    assert result["version"] == "2026.03.10"
+    assert result["runtime_path"] == "/addon/ytdlp/versions/2026.03.10"
+    assert result["error"] == "rate limit exceeded"
+
+
+def test_list_available_versions(monkeypatch):
+    payload = [
+        {"tag_name": "2026.03.26"},
+        {"tag_name": "2026.03.20"},
+    ]
+
+    class FakeResponse:
+        def __init__(self, body):
+            self._body = body
+
+        def read(self):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    body = json.dumps(payload).encode("utf-8")
+    monkeypatch.setattr(
+        ytdlp_manager.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(body),
+    )
+
+    versions = ytdlp_manager.list_available_versions(limit=10)
+
+    assert versions == ["2026.03.26", "2026.03.20"]

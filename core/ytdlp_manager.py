@@ -20,6 +20,7 @@ import urllib.request
 YTDLP_LATEST_SENTINEL = "latest"
 
 _LATEST_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+_RELEASES_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases?per_page=100&page={page}"
 _TARBALL_URL = "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz"
 
 
@@ -106,16 +107,38 @@ def _yt_dlp_package_path(runtime_path):
     return os.path.join(runtime_path, "yt_dlp")
 
 
+def _find_runtime_for_version(version):
+    runtime_path = _runtime_path_for_version(version)
+    package_path = _yt_dlp_package_path(runtime_path)
+    if os.path.isdir(package_path):
+        return runtime_path
+    return None
+
+
 def _find_installed_runtime():
     version = _read_installed_version()
     if version is None:
         return None, None
 
-    runtime_path = _runtime_path_for_version(version)
-    package_path = _yt_dlp_package_path(runtime_path)
-    if os.path.isdir(package_path):
+    runtime_path = _find_runtime_for_version(version)
+    if runtime_path is not None:
         return version, runtime_path
     return None, None
+
+
+def list_installed_versions():
+    versions_dir = _versions_dir()
+    if not os.path.isdir(versions_dir):
+        return []
+
+    versions = []
+    for name in os.listdir(versions_dir):
+        runtime_path = os.path.join(versions_dir, name)
+        if not os.path.isdir(runtime_path):
+            continue
+        if os.path.isdir(_yt_dlp_package_path(runtime_path)):
+            versions.append(name)
+    return sorted(versions, reverse=True)
 
 
 def _resolve_latest_version():
@@ -127,6 +150,40 @@ def _resolve_latest_version():
     if not tag:
         raise RuntimeError("GitHub latest release response has no tag_name")
     return tag
+
+
+def list_available_versions(limit=20):
+    """Return available yt-dlp release tags (newest first)."""
+    if limit <= 0:
+        return []
+
+    versions = []
+    page = 1
+
+    try:
+        while len(versions) < limit:
+            url = _RELEASES_API.format(page=page)
+            with urllib.request.urlopen(url, timeout=20) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+
+            if not isinstance(payload, list) or not payload:
+                break
+
+            for release in payload:
+                tag = (release.get("tag_name") or "").strip()
+                if not tag or tag in versions:
+                    continue
+                versions.append(tag)
+                if len(versions) >= limit:
+                    break
+
+            if len(payload) < 100:
+                break
+            page += 1
+    except Exception as exc:
+        _warn("Could not list yt-dlp releases: {}".format(exc))
+
+    return versions
 
 
 def _safe_join(base_dir, relative_path):
@@ -210,13 +267,14 @@ def get_runtime_status(requested_version=YTDLP_LATEST_SENTINEL):
         "requested_version": requested,
         "installed_version": installed_version,
         "installed_runtime_path": installed_runtime_path,
+        "installed_versions": list_installed_versions(),
         "latest_version": latest_version,
         "is_latest_installed": is_latest_installed,
         "latest_error": latest_error,
     }
 
 
-def ensure_ytdlp_ready(auto_download=True, requested_version=YTDLP_LATEST_SENTINEL):
+def ensure_ytdlp_ready(allow_install=True, requested_version=YTDLP_LATEST_SENTINEL):
     """
     Ensure a managed yt-dlp runtime is available.
 
@@ -229,96 +287,82 @@ def ensure_ytdlp_ready(auto_download=True, requested_version=YTDLP_LATEST_SENTIN
       - installed_runtime_path (path of installed managed runtime, if any)
       - error (error message when reason == "error")
     """
+    def _ready(version, runtime_path, error=None):
+        return {
+            "ready": True,
+            "reason": None,
+            "version": version,
+            "runtime_path": runtime_path,
+            "installed_version": version,
+            "installed_runtime_path": runtime_path,
+            "error": error,
+        }
+
+    def _not_ready(reason, version, installed_version, installed_runtime_path, error=None):
+        return {
+            "ready": False,
+            "reason": reason,
+            "version": version,
+            "runtime_path": None,
+            "installed_version": installed_version,
+            "installed_runtime_path": installed_runtime_path,
+            "error": error,
+        }
+
     try:
         requested = _normalize_requested_version(requested_version)
         installed_version, installed_runtime_path = _find_installed_runtime()
 
         target_version = requested
         if requested == YTDLP_LATEST_SENTINEL:
-            if auto_download or installed_version is None:
+            if allow_install:
                 target_version = _resolve_latest_version()
-            else:
+            elif installed_version is not None:
                 target_version = None
 
         if installed_version is not None and target_version is not None:
             if installed_version == target_version:
-                return {
-                    "ready": True,
-                    "reason": None,
-                    "version": installed_version,
-                    "runtime_path": installed_runtime_path,
-                    "installed_version": installed_version,
-                    "installed_runtime_path": installed_runtime_path,
-                    "error": None,
-                }
+                return _ready(installed_version, installed_runtime_path)
 
-            if auto_download:
+            existing_runtime = _find_runtime_for_version(target_version)
+            if existing_runtime is not None:
+                _write_installed_version(target_version)
+                return _ready(target_version, existing_runtime)
+
+            if allow_install:
                 runtime_path = _download_and_install(target_version)
-                return {
-                    "ready": True,
-                    "reason": None,
-                    "version": target_version,
-                    "runtime_path": runtime_path,
-                    "installed_version": target_version,
-                    "installed_runtime_path": runtime_path,
-                    "error": None,
-                }
+                return _ready(target_version, runtime_path)
 
-            return {
-                "ready": False,
-                "reason": "version_mismatch",
-                "version": target_version,
-                "runtime_path": None,
-                "installed_version": installed_version,
-                "installed_runtime_path": installed_runtime_path,
-                "error": None,
-            }
+            return _not_ready(
+                "version_mismatch",
+                target_version,
+                installed_version,
+                installed_runtime_path,
+            )
 
         if installed_version is not None:
-            return {
-                "ready": True,
-                "reason": None,
-                "version": installed_version,
-                "runtime_path": installed_runtime_path,
-                "installed_version": installed_version,
-                "installed_runtime_path": installed_runtime_path,
-                "error": None,
-            }
+            return _ready(installed_version, installed_runtime_path)
 
-        if not auto_download:
-            return {
-                "ready": False,
-                "reason": "missing",
-                "version": target_version,
-                "runtime_path": None,
-                "installed_version": None,
-                "installed_runtime_path": None,
-                "error": None,
-            }
+        if not allow_install:
+            return _not_ready("missing", target_version, None, None)
 
         if target_version is None:
             target_version = _resolve_latest_version()
         runtime_path = _download_and_install(target_version)
-        return {
-            "ready": True,
-            "reason": None,
-            "version": target_version,
-            "runtime_path": runtime_path,
-            "installed_version": target_version,
-            "installed_runtime_path": runtime_path,
-            "error": None,
-        }
+        return _ready(target_version, runtime_path)
     except Exception as exc:
         _warn("Could not ensure yt-dlp runtime: {}".format(exc))
-        return {
-            "ready": False,
-            "reason": "error",
-            "version": None,
-            "runtime_path": None,
-            "installed_version": None,
-            "installed_runtime_path": None,
-            "error": str(exc),
-        }
+
+        fallback_version, fallback_runtime_path = _find_installed_runtime()
+        if fallback_version is not None and fallback_runtime_path is not None:
+            _warn(
+                "Falling back to installed yt-dlp version {}".format(
+                    fallback_version
+                )
+            )
+            return _ready(fallback_version, fallback_runtime_path, error=str(exc))
+
+        return _not_ready("error", None, None, None, error=str(exc))
 
 
 def activate_runtime(runtime_path):

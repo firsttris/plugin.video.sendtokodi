@@ -1,10 +1,12 @@
 from core.addon_params import (
+    DEFAULT_DENO_VERSION,
     DEFAULT_MEDIA_DOWNLOAD_PATH,
     DEFAULT_YTDLP_VERSION,
     parse_cli_paramstring,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
+    resolve_deno_settings,
     resolve_deno_opts,
     resolve_media_download_settings,
     resolve_ytdlp_settings,
@@ -101,10 +103,60 @@ def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
     opts = resolve_deno_opts(
         1,
         get_setting,
-        lambda auto_download: {"auto_download": auto_download},
+        lambda auto_download, requested_version: {
+            "auto_update": auto_download,
+            "requested_version": requested_version,
+        },
     )
 
-    assert opts == {"auto_download": False}
+    assert opts == {
+        "auto_update": False,
+        "requested_version": DEFAULT_DENO_VERSION,
+    }
+
+
+def test_resolve_deno_settings_reads_all_values():
+    def get_setting(_handle, name):
+        if name == "deno_enabled":
+            return "true"
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return "v2.7.4"
+        return ""
+
+    settings = resolve_deno_settings(1, get_setting)
+
+    assert settings == {
+        "enabled": True,
+        "auto_update": False,
+        "version": "v2.7.4",
+    }
+
+
+def test_resolve_deno_opts_forces_latest_when_auto_update_enabled():
+    def get_setting(_handle, name):
+        if name == "deno_enabled":
+            return "true"
+        if name == "deno_autodownload":
+            return "true"
+        if name == "deno_version":
+            return "v2.7.5"
+        return ""
+
+    opts = resolve_deno_opts(
+        1,
+        get_setting,
+        lambda auto_download, requested_version: {
+            "auto_update": auto_download,
+            "requested_version": requested_version,
+        },
+    )
+
+    assert opts == {
+        "auto_update": True,
+        "requested_version": DEFAULT_DENO_VERSION,
+    }
 
 
 def test_resolve_media_download_settings_defaults_to_disabled_and_default_path():
@@ -141,31 +193,21 @@ def test_resolve_media_download_settings_uses_custom_path_when_set():
 
 def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
     def get_setting(_handle, name):
-        if name == "ytdlp_autodownload":
-            return "false"
         if name == "ytdlp_version":
             return ""
         return ""
 
     settings = resolve_ytdlp_settings(1, get_setting)
 
-    assert settings == {
-        "auto_download": False,
-        "version": DEFAULT_YTDLP_VERSION,
-    }
+    assert settings == {"version": DEFAULT_YTDLP_VERSION}
 
 
 def test_resolve_ytdlp_settings_reads_all_values():
     def get_setting(_handle, name):
-        if name == "ytdlp_autodownload":
-            return "true"
         if name == "ytdlp_version":
             return "2026.03.26"
         return ""
 
     settings = resolve_ytdlp_settings(1, get_setting)
 
-    assert settings == {
-        "auto_download": True,
-        "version": "2026.03.26",
-    }
+    assert settings == {"version": "2026.03.26"}

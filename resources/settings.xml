@@ -3,26 +3,57 @@
     <section id="plugin.video.sendtokodi">
         <category id="general" label="32000">
             <group id="1">
-                <setting type="boolean" id="ytdlp_autodownload" label="32051">
+                <setting id="ytdlp_select_version_action" label="32052" type="action">
                     <level>0</level>
-                    <default>false</default>
-                    <control type="toggle"/>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_select_version)</data>
+                    <control type="button" format="action"/>
                 </setting>
-                <setting type="string" id="ytdlp_version" label="32052">
-                    <level>1</level>
+                <setting id="ytdlp_update_now_action" label="32056" type="action">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_update_now)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting type="string" id="ytdlp_installed_version_display" label="32055">
+                    <level>0</level>
+                    <default>not installed</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting type="string" id="ytdlp_version" label="32054">
+                    <level>3</level>
                     <default>latest</default>
                     <control type="edit" format="string"/>
                 </setting>
-                <setting label="32053" type="action" action="RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_manage)"/>
                 <setting type="boolean" id="deno_enabled" label="32024">
                     <level>0</level>
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="deno_select_version_action" label="32025" type="action">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_select_version)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="deno_update_now_action" label="32028" type="action">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_update_now)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting type="string" id="deno_installed_version_display" label="32026">
+                    <level>0</level>
+                    <default>not installed</default>
+                    <enable>false</enable>
+                    <control type="edit" format="string"/>
+                </setting>
                 <setting type="boolean" id="deno_autodownload" label="32023">
-                    <level>2</level>
+                    <level>0</level>
                     <default>true</default>
                     <control type="toggle"/>
+                </setting>
+                <setting type="string" id="deno_version" label="32027">
+                    <level>3</level>
+                    <default>latest</default>
+                    <control type="edit" format="string"/>
                 </setting>
                 <setting type="boolean" id="media_autodownload" label="32040">
                     <level>0</level>
@@ -38,7 +69,11 @@
         </category>
         <category id="adaptive" label="33000">
             <group id="2">
-                <setting label="33010" type="action" action="RunScript(script.module.inputstreamhelper,info)"/>
+                <setting id="adaptive_check_action" label="33010" type="action">
+                    <level>0</level>
+                    <data>RunScript(script.module.inputstreamhelper,info)</data>
+                    <control type="button" format="action"/>
+                </setting>
                 <setting type="boolean" id="usemanifest" label="33011">
                     <level>0</level>
                     <default>true</default>

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import urllib.parse
+import importlib
 
 import xbmc
 import xbmcaddon
@@ -14,6 +15,7 @@ from core.addon_params import (
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
+    resolve_deno_settings,
     resolve_deno_opts,
     resolve_media_download_settings,
     resolve_ytdlp_settings,
@@ -58,6 +60,25 @@ def showTextDialog(title, message):
         xbmcgui.Dialog().textviewer(title, message)
     except Exception:
         xbmcgui.Dialog().ok(title, message)
+
+
+def run_with_progress(title, message, operation):
+    progress = None
+    try:
+        progress = xbmcgui.DialogProgress()
+        progress.create(title, message)
+        progress.update(10, message)
+    except Exception:
+        progress = None
+
+    try:
+        result = operation()
+        if progress is not None:
+            progress.update(100, message)
+        return result
+    finally:
+        if progress is not None:
+            progress.close()
 
 
 def resolve_downloaded_file_path(result):
@@ -240,84 +261,261 @@ def resolve_action_param(paramstring):
     return values[0]
 
 
-def format_ytdlp_status_text(status, configured_version):
-    installed_version = status.get("installed_version") or "not installed"
-    latest_version = status.get("latest_version") or "unknown"
+def choose_deno_version_from_release_list(settings, status, list_available_versions):
+    remote_versions = run_with_progress(
+        "SendToKodi",
+        "Loading Deno versions...",
+        lambda: list_available_versions(limit=20),
+    )
 
-    latest_state = status.get("is_latest_installed")
-    if latest_state is True:
-        latest_line = "Installed version is latest: yes"
-    elif latest_state is False:
-        latest_line = "Installed version is latest: no"
+    installed_version = status.get("installed_version")
+    installed_versions = set(status.get("installed_versions") or [])
+    if installed_version:
+        installed_versions.add(installed_version)
+
+    if not remote_versions:
+        if not installed_versions:
+            showErrorNotification("Could not load Deno release list from GitHub")
+            return None
+        showInfoNotification("GitHub unavailable: showing installed Deno versions")
+        log("Deno release list unavailable; showing locally installed versions", xbmc.LOGWARNING)
+        versions = sorted(installed_versions, reverse=True)
     else:
-        latest_line = "Installed version is latest: unknown"
+        versions = list(remote_versions)
+        for local_version in sorted(installed_versions, reverse=True):
+            if local_version not in versions:
+                versions.append(local_version)
 
-    lines = [
-        "Configured version: {}".format(configured_version),
-        "Installed version: {}".format(installed_version),
-        "Latest upstream version: {}".format(latest_version),
-        latest_line,
-    ]
+    remote_set = set(remote_versions or [])
+    configured_version = settings['version']
 
-    latest_error = status.get("latest_error")
-    if latest_error:
-        lines.append("Latest check error: {}".format(latest_error))
+    entries = []
+    version_values = []
 
-    return "\n".join(lines)
+    for version in versions:
+        flags = []
+        if version == configured_version:
+            flags.append("configured")
+        if version in installed_versions:
+            flags.append("installed")
+        if version not in remote_set:
+            flags.append("local")
+
+        label = version
+        if flags:
+            label = "{} [{}]".format(version, ", ".join(flags))
+
+        entries.append(label)
+        version_values.append(version)
+
+    selected = xbmcgui.Dialog().select("SendToKodi - select Deno version", entries)
+    if selected < 0:
+        return None
+    return version_values[selected]
 
 
-def open_ytdlp_manage_dialog(handle):
-    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
-    from core.ytdlp_manager import get_runtime_status, ensure_ytdlp_ready, YTDLP_LATEST_SENTINEL
+def set_deno_version_setting(version):
+    xbmcaddon.Addon().setSetting("deno_version", version)
 
-    while True:
+
+def set_deno_installed_version_display(version):
+    display_value = (version or "").strip() or "not installed"
+    xbmcaddon.Addon().setSetting("deno_installed_version_display", display_value)
+
+
+def refresh_deno_installed_version_display(handle):
+    try:
+        settings = resolve_deno_settings(handle, xbmcplugin.getSetting)
+        from core.deno_manager import get_runtime_status
+
+        status = get_runtime_status(settings['version'], include_latest=False)
+        set_deno_installed_version_display(status.get('installed_version'))
+    except Exception as exc:
+        log("Could not refresh Deno installed version display: {}".format(exc), xbmc.LOGWARNING)
+
+
+def install_deno_version(selected_version, get_deno_ydl_opts):
+    opts = run_with_progress(
+        "SendToKodi",
+        "Installing Deno {}...".format(selected_version),
+        lambda: get_deno_ydl_opts(auto_download=True, requested_version=selected_version),
+    )
+    deno_path = opts.get("js_runtimes", {}).get("deno", {}).get("path")
+    if deno_path:
+        try:
+            from core.deno_manager import get_runtime_status
+
+            status = get_runtime_status(selected_version, include_latest=False)
+            installed_version = status.get('installed_version') or selected_version
+        except Exception:
+            installed_version = selected_version
+
+        set_deno_installed_version_display(installed_version)
+        showInfoNotification("Deno {} is installed".format(installed_version))
+        return True
+
+    showErrorNotification("Deno install failed")
+    return False
+
+
+def open_deno_select_version_dialog(handle):
+    settings = resolve_deno_settings(handle, xbmcplugin.getSetting)
+    from core.deno_manager import get_runtime_status, list_available_versions, get_ydl_opts
+
+    status = get_runtime_status(settings['version'], include_latest=False)
+    set_deno_installed_version_display(status.get('installed_version'))
+
+    selected_version = choose_deno_version_from_release_list(
+        settings,
+        status,
+        list_available_versions,
+    )
+    if selected_version is None:
+        return
+
+    set_deno_version_setting(selected_version)
+    install_deno_version(selected_version, get_ydl_opts)
+
+
+def update_deno_now(handle):
+    settings = resolve_deno_settings(handle, xbmcplugin.getSetting)
+    from core.deno_manager import get_ydl_opts
+
+    install_deno_version(settings['version'], get_ydl_opts)
+
+
+def choose_ytdlp_version_from_release_list(settings, status, list_available_versions):
+    remote_versions = run_with_progress(
+        "SendToKodi",
+        "Loading yt-dlp versions...",
+        lambda: list_available_versions(limit=20),
+    )
+
+    installed_version = status.get("installed_version")
+    installed_versions = set(status.get("installed_versions") or [])
+    if installed_version:
+        installed_versions.add(installed_version)
+
+    if not remote_versions:
+        if not installed_versions:
+            showErrorNotification("Could not load release list from GitHub")
+            return None
+        showInfoNotification("GitHub unavailable: showing installed yt-dlp versions")
+        log("yt-dlp release list unavailable; showing locally installed versions", xbmc.LOGWARNING)
+        versions = sorted(installed_versions, reverse=True)
+    else:
+        versions = list(remote_versions)
+        for local_version in sorted(installed_versions, reverse=True):
+            if local_version not in versions:
+                versions.append(local_version)
+
+    remote_set = set(remote_versions or [])
+    configured_version = settings['version']
+
+    entries = []
+    version_values = []
+
+    for version in versions:
+        flags = []
+        if version == configured_version:
+            flags.append("configured")
+        if version in installed_versions:
+            flags.append("installed")
+        if version not in remote_set:
+            flags.append("local")
+
+        label = version
+        if flags:
+            label = "{} [{}]".format(version, ", ".join(flags))
+
+        entries.append(label)
+        version_values.append(version)
+
+    selected = xbmcgui.Dialog().select("SendToKodi - select yt-dlp version", entries)
+    if selected < 0:
+        return None
+    return version_values[selected]
+
+
+def set_ytdlp_version_setting(version):
+    xbmcaddon.Addon().setSetting("ytdlp_version", version)
+
+
+def set_ytdlp_installed_version_display(version):
+    display_value = (version or "").strip() or "not installed"
+    xbmcaddon.Addon().setSetting("ytdlp_installed_version_display", display_value)
+
+
+def refresh_ytdlp_installed_version_display(handle):
+    try:
+        settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+        from core.ytdlp_manager import get_runtime_status
+
         status = get_runtime_status(settings['version'])
-        status_text = format_ytdlp_status_text(status, settings['version'])
+        set_ytdlp_installed_version_display(status.get('installed_version'))
+    except Exception as exc:
+        log("Could not refresh yt-dlp installed version display: {}".format(exc), xbmc.LOGWARNING)
 
-        actions = [
-            "Show status details",
-            "Install/update latest version",
-            "Install configured version ({})".format(settings['version']),
-            "Install specific version...",
-            "Close",
-        ]
-        choice = xbmcgui.Dialog().select("SendToKodi - yt-dlp manager", actions)
 
-        if choice < 0 or choice == 4:
-            return
+def install_ytdlp_version(selected_version, ensure_ytdlp_ready):
+    result = run_with_progress(
+        "SendToKodi",
+        "Installing yt-dlp {}...".format(selected_version),
+        lambda: ensure_ytdlp_ready(allow_install=True, requested_version=selected_version),
+    )
+    if result['ready']:
+        set_ytdlp_installed_version_display(result.get('installed_version') or result.get('version'))
+        showInfoNotification("yt-dlp {} is installed".format(result['version']))
+        return True
 
-        if choice == 0:
-            showTextDialog("SendToKodi - yt-dlp status", status_text)
-            continue
+    error_message = result.get('error') or result.get('reason') or "unknown error"
+    showErrorNotification("yt-dlp install failed: {}".format(error_message))
+    return False
 
-        requested_version = settings['version']
-        if choice == 1:
-            requested_version = YTDLP_LATEST_SENTINEL
-        elif choice == 3:
-            keyboard = xbmc.Keyboard(settings['version'], "Enter yt-dlp version (tag or latest)")
-            keyboard.doModal()
-            if not keyboard.isConfirmed():
-                continue
 
-            requested_version = keyboard.getText().strip() or YTDLP_LATEST_SENTINEL
-            xbmcaddon.Addon().setSetting("ytdlp_version", requested_version)
-            settings['version'] = requested_version
+def open_ytdlp_select_version_dialog(handle):
+    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    from core.ytdlp_manager import get_runtime_status, ensure_ytdlp_ready, list_available_versions
 
-        result = ensure_ytdlp_ready(auto_download=True, requested_version=requested_version)
-        if result['ready']:
-            showInfoNotification("yt-dlp {} is installed".format(result['version']))
-        else:
-            error_message = result.get('error') or result.get('reason') or "unknown error"
-            showErrorNotification("yt-dlp install failed: {}".format(error_message))
+    status = get_runtime_status(settings['version'])
+    set_ytdlp_installed_version_display(status.get('installed_version'))
+    selected_version = choose_ytdlp_version_from_release_list(
+        settings,
+        status,
+        list_available_versions,
+    )
+    if selected_version is None:
+        return
+
+    set_ytdlp_version_setting(selected_version)
+    install_ytdlp_version(selected_version, ensure_ytdlp_ready)
+
+
+def update_ytdlp_now(handle):
+    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    from core.ytdlp_manager import ensure_ytdlp_ready
+
+    install_ytdlp_version(settings['version'], ensure_ytdlp_ready)
 
 
 def handle_preplay_action(handle, paramstring):
     action = resolve_action_param(paramstring)
-    if action != "ytdlp_manage":
-        return False
+    if action == "deno_select_version":
+        open_deno_select_version_dialog(handle)
+        return True
 
-    open_ytdlp_manage_dialog(handle)
-    return True
+    if action == "deno_update_now":
+        update_deno_now(handle)
+        return True
+
+    if action == "ytdlp_select_version":
+        open_ytdlp_select_version_dialog(handle)
+        return True
+
+    if action == "ytdlp_update_now":
+        update_ytdlp_now(handle)
+        return True
+    return False
 
 
 def configure_managed_ytdlp(handle):
@@ -325,9 +523,10 @@ def configure_managed_ytdlp(handle):
     from core.ytdlp_manager import ensure_ytdlp_ready, activate_runtime
 
     status = ensure_ytdlp_ready(
-        auto_download=ytdlp_settings['auto_download'],
+        allow_install=False,
         requested_version=ytdlp_settings['version'],
     )
+    set_ytdlp_installed_version_display(status.get('installed_version'))
 
     if not status['ready'] and status['reason'] in ('missing', 'version_mismatch'):
         wanted = ytdlp_settings['version']
@@ -342,9 +541,10 @@ def configure_managed_ytdlp(handle):
         )
         if should_download:
             status = ensure_ytdlp_ready(
-                auto_download=True,
+                allow_install=True,
                 requested_version=ytdlp_settings['version'],
             )
+            set_ytdlp_installed_version_display(status.get('installed_version'))
 
     if status['ready'] and status['runtime_path'] is not None:
         activate_runtime(status['runtime_path'])
@@ -353,17 +553,23 @@ def configure_managed_ytdlp(handle):
 
     error_message = status.get('error')
     if error_message:
-        showErrorNotification("Managed yt-dlp unavailable: {}".format(error_message))
-        log("Managed yt-dlp unavailable: {}".format(error_message), xbmc.LOGERROR)
+        log(
+            "Managed yt-dlp unavailable, falling back to bundled/system yt-dlp: {}".format(
+                error_message
+            ),
+            xbmc.LOGWARNING,
+        )
     else:
-        showErrorNotification("Managed yt-dlp is required but not installed")
-        log("Managed yt-dlp is required but not installed", xbmc.LOGERROR)
-
-    exit()
+        log(
+            "Managed yt-dlp unavailable, falling back to bundled/system yt-dlp",
+            xbmc.LOGWARNING,
+        )
 
 # Open the settings if no parameters have been passed. Prevents crash.
 # This happens when the addon is launched from within the Kodi OSD.
 if not sys.argv[2]:
+    refresh_deno_installed_version_display(int(sys.argv[1]))
+    refresh_ytdlp_installed_version_display(int(sys.argv[1]))
     xbmcaddon.Addon().openSettings()
     exit()
 
@@ -373,7 +579,12 @@ if handle_preplay_action(int(sys.argv[1]), sys.argv[2]):
 configure_managed_ytdlp(int(sys.argv[1]))
 
 # yt-dlp is the only supported resolver
-from yt_dlp import YoutubeDL
+try:
+    YoutubeDL = importlib.import_module("yt_dlp").YoutubeDL
+except Exception as exc:
+    showErrorNotification("yt-dlp is unavailable")
+    log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
+    exit()
 
 # patch broken strptime (see above)
 patch_strptime()
@@ -385,6 +596,7 @@ deno_opts = {}
 try:
     from core.deno_manager import get_ydl_opts
     deno_opts = resolve_deno_opts(int(sys.argv[1]), xbmcplugin.getSetting, get_ydl_opts)
+    refresh_deno_installed_version_display(int(sys.argv[1]))
 except Exception as e:
     log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
 

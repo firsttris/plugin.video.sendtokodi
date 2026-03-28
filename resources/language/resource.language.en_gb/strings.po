@@ -25,23 +25,47 @@ msgid "URL Resolver"
 msgstr ""
 
 msgctxt "#32023"
-msgid "Auto-download Deno JavaScript runtime"
+msgid "Auto-update Deno JavaScript runtime"
 msgstr ""
 
 msgctxt "#32024"
 msgid "Enable Deno JavaScript runtime"
 msgstr ""
 
+msgctxt "#32025"
+msgid "Select and install Deno version"
+msgstr ""
+
+msgctxt "#32026"
+msgid "Installed Deno version"
+msgstr ""
+
+msgctxt "#32027"
+msgid "Deno version override (advanced)"
+msgstr ""
+
+msgctxt "#32028"
+msgid "Update Deno now"
+msgstr ""
+
 msgctxt "#32051"
-msgid "Auto-download/update yt-dlp"
+msgid "Auto-update yt-dlp"
 msgstr ""
 
 msgctxt "#32052"
-msgid "yt-dlp version (latest or tag)"
+msgid "Select and install yt-dlp version"
 msgstr ""
 
-msgctxt "#32053"
-msgid "Show yt-dlp status / switch version"
+msgctxt "#32055"
+msgid "Installed yt-dlp version"
+msgstr ""
+
+msgctxt "#32056"
+msgid "Update yt-dlp now"
+msgstr ""
+
+msgctxt "#32054"
+msgid "yt-dlp version override (advanced)"
 msgstr ""
 
 msgctxt "#32040"
