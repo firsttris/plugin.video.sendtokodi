@@ -286,20 +286,17 @@ def choose_deno_version_from_release_list(settings, status, list_available_versi
             if local_version not in versions:
                 versions.append(local_version)
 
-    remote_set = set(remote_versions or [])
-    configured_version = settings['version']
+    active_version = status.get("installed_version")
 
     entries = []
     version_values = []
 
     for version in versions:
         flags = []
-        if version == configured_version:
-            flags.append("configured")
+        if version == active_version:
+            flags.append("active")
         if version in installed_versions:
             flags.append("installed")
-        if version not in remote_set:
-            flags.append("local")
 
         label = version
         if flags:
@@ -308,7 +305,7 @@ def choose_deno_version_from_release_list(settings, status, list_available_versi
         entries.append(label)
         version_values.append(version)
 
-    selected = xbmcgui.Dialog().select("SendToKodi - select Deno version", entries)
+    selected = xbmcgui.Dialog().select("SendToKodi - manage Deno version", entries)
     if selected < 0:
         return None
     return version_values[selected]
@@ -409,20 +406,17 @@ def choose_ytdlp_version_from_release_list(settings, status, list_available_vers
             if local_version not in versions:
                 versions.append(local_version)
 
-    remote_set = set(remote_versions or [])
-    configured_version = settings['version']
+    active_version = status.get("installed_version")
 
     entries = []
     version_values = []
 
     for version in versions:
         flags = []
-        if version == configured_version:
-            flags.append("configured")
+        if version == active_version:
+            flags.append("active")
         if version in installed_versions:
             flags.append("installed")
-        if version not in remote_set:
-            flags.append("local")
 
         label = version
         if flags:
@@ -431,7 +425,7 @@ def choose_ytdlp_version_from_release_list(settings, status, list_available_vers
         entries.append(label)
         version_values.append(version)
 
-    selected = xbmcgui.Dialog().select("SendToKodi - select yt-dlp version", entries)
+    selected = xbmcgui.Dialog().select("SendToKodi - manage yt-dlp version", entries)
     if selected < 0:
         return None
     return version_values[selected]
