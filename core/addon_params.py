@@ -2,6 +2,7 @@ import json
 
 
 DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
+DEFAULT_YTDLP_VERSION = 'latest'
 
 
 def parse_cli_paramstring(paramstring):
@@ -53,4 +54,13 @@ def resolve_media_download_settings(handle, get_setting):
     return {
         'enabled': enabled,
         'path': custom_path or DEFAULT_MEDIA_DOWNLOAD_PATH,
+    }
+
+
+def resolve_ytdlp_settings(handle, get_setting):
+    auto_download = get_setting(handle, "ytdlp_autodownload") == 'true'
+    version = (get_setting(handle, "ytdlp_version") or '').strip()
+    return {
+        'auto_download': auto_download,
+        'version': version or DEFAULT_YTDLP_VERSION,
     }

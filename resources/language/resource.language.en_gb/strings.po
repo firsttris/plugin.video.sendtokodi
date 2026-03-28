@@ -32,6 +32,18 @@ msgctxt "#32024"
 msgid "Enable Deno JavaScript runtime"
 msgstr ""
 
+msgctxt "#32051"
+msgid "Auto-download/update yt-dlp"
+msgstr ""
+
+msgctxt "#32052"
+msgid "yt-dlp version (latest or tag)"
+msgstr ""
+
+msgctxt "#32053"
+msgid "Show yt-dlp status / switch version"
+msgstr ""
+
 msgctxt "#32040"
 msgid "Auto-download resolved media before playback"
 msgstr ""

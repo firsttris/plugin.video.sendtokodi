@@ -3,6 +3,17 @@
     <section id="plugin.video.sendtokodi">
         <category id="general" label="32000">
             <group id="1">
+                <setting type="boolean" id="ytdlp_autodownload" label="32051">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="ytdlp_version" label="32052">
+                    <level>1</level>
+                    <default>latest</default>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting label="32053" type="action" action="RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_manage)"/>
                 <setting type="boolean" id="deno_enabled" label="32024">
                     <level>0</level>
                     <default>true</default>

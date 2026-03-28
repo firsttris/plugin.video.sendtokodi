@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
-import os
-
-# Ensures yt-dlp is on the python path
-# Workaround for issue caused by upstream commit
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, 'lib'))
+import urllib.parse
 
 import xbmc
 import xbmcaddon
@@ -21,6 +16,7 @@ from core.addon_params import (
     build_ydl_opts,
     resolve_deno_opts,
     resolve_media_download_settings,
+    resolve_ytdlp_settings,
 )
 from core.service_runtime import install_stderr_workaround, patch_strptime
 from core.playback_selection import (
@@ -55,6 +51,13 @@ def showInfoNotification(message):
 def showErrorNotification(message):
     xbmcgui.Dialog().notification("SendToKodi", message,
                                   xbmcgui.NOTIFICATION_ERROR, 5000)
+
+
+def showTextDialog(title, message):
+    try:
+        xbmcgui.Dialog().textviewer(title, message)
+    except Exception:
+        xbmcgui.Dialog().ok(title, message)
 
 
 def resolve_downloaded_file_path(result):
@@ -221,11 +224,153 @@ def handle_resolve_failure(set_resolved_false=False):
         xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
     exit()
 
+
+def resolve_action_param(paramstring):
+    if not paramstring or not paramstring.startswith("?"):
+        return None
+
+    query_part = paramstring[1:]
+    if " " in query_part:
+        query_part = query_part.split(" ", 1)[0]
+
+    parsed = urllib.parse.parse_qs(query_part)
+    values = parsed.get("action")
+    if not values:
+        return None
+    return values[0]
+
+
+def format_ytdlp_status_text(status, configured_version):
+    installed_version = status.get("installed_version") or "not installed"
+    latest_version = status.get("latest_version") or "unknown"
+
+    latest_state = status.get("is_latest_installed")
+    if latest_state is True:
+        latest_line = "Installed version is latest: yes"
+    elif latest_state is False:
+        latest_line = "Installed version is latest: no"
+    else:
+        latest_line = "Installed version is latest: unknown"
+
+    lines = [
+        "Configured version: {}".format(configured_version),
+        "Installed version: {}".format(installed_version),
+        "Latest upstream version: {}".format(latest_version),
+        latest_line,
+    ]
+
+    latest_error = status.get("latest_error")
+    if latest_error:
+        lines.append("Latest check error: {}".format(latest_error))
+
+    return "\n".join(lines)
+
+
+def open_ytdlp_manage_dialog(handle):
+    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    from core.ytdlp_manager import get_runtime_status, ensure_ytdlp_ready, YTDLP_LATEST_SENTINEL
+
+    while True:
+        status = get_runtime_status(settings['version'])
+        status_text = format_ytdlp_status_text(status, settings['version'])
+
+        actions = [
+            "Show status details",
+            "Install/update latest version",
+            "Install configured version ({})".format(settings['version']),
+            "Install specific version...",
+            "Close",
+        ]
+        choice = xbmcgui.Dialog().select("SendToKodi - yt-dlp manager", actions)
+
+        if choice < 0 or choice == 4:
+            return
+
+        if choice == 0:
+            showTextDialog("SendToKodi - yt-dlp status", status_text)
+            continue
+
+        requested_version = settings['version']
+        if choice == 1:
+            requested_version = YTDLP_LATEST_SENTINEL
+        elif choice == 3:
+            keyboard = xbmc.Keyboard(settings['version'], "Enter yt-dlp version (tag or latest)")
+            keyboard.doModal()
+            if not keyboard.isConfirmed():
+                continue
+
+            requested_version = keyboard.getText().strip() or YTDLP_LATEST_SENTINEL
+            xbmcaddon.Addon().setSetting("ytdlp_version", requested_version)
+            settings['version'] = requested_version
+
+        result = ensure_ytdlp_ready(auto_download=True, requested_version=requested_version)
+        if result['ready']:
+            showInfoNotification("yt-dlp {} is installed".format(result['version']))
+        else:
+            error_message = result.get('error') or result.get('reason') or "unknown error"
+            showErrorNotification("yt-dlp install failed: {}".format(error_message))
+
+
+def handle_preplay_action(handle, paramstring):
+    action = resolve_action_param(paramstring)
+    if action != "ytdlp_manage":
+        return False
+
+    open_ytdlp_manage_dialog(handle)
+    return True
+
+
+def configure_managed_ytdlp(handle):
+    ytdlp_settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    from core.ytdlp_manager import ensure_ytdlp_ready, activate_runtime
+
+    status = ensure_ytdlp_ready(
+        auto_download=ytdlp_settings['auto_download'],
+        requested_version=ytdlp_settings['version'],
+    )
+
+    if not status['ready'] and status['reason'] in ('missing', 'version_mismatch'):
+        wanted = ytdlp_settings['version']
+        if wanted == 'latest':
+            prompt_msg = "Managed yt-dlp is not available. Download latest version now?"
+        else:
+            prompt_msg = "Managed yt-dlp {} is not installed. Download it now?".format(wanted)
+
+        should_download = xbmcgui.Dialog().yesno(
+            "SendToKodi",
+            prompt_msg,
+        )
+        if should_download:
+            status = ensure_ytdlp_ready(
+                auto_download=True,
+                requested_version=ytdlp_settings['version'],
+            )
+
+    if status['ready'] and status['runtime_path'] is not None:
+        activate_runtime(status['runtime_path'])
+        log("Using managed yt-dlp version {}".format(status['version']))
+        return
+
+    error_message = status.get('error')
+    if error_message:
+        showErrorNotification("Managed yt-dlp unavailable: {}".format(error_message))
+        log("Managed yt-dlp unavailable: {}".format(error_message), xbmc.LOGERROR)
+    else:
+        showErrorNotification("Managed yt-dlp is required but not installed")
+        log("Managed yt-dlp is required but not installed", xbmc.LOGERROR)
+
+    exit()
+
 # Open the settings if no parameters have been passed. Prevents crash.
 # This happens when the addon is launched from within the Kodi OSD.
 if not sys.argv[2]:
     xbmcaddon.Addon().openSettings()
     exit()
+
+if handle_preplay_action(int(sys.argv[1]), sys.argv[2]):
+    exit()
+
+configure_managed_ytdlp(int(sys.argv[1]))
 
 # yt-dlp is the only supported resolver
 from yt_dlp import YoutubeDL
