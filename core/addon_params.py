@@ -76,7 +76,9 @@ def resolve_media_download_settings(handle, get_setting):
 
 
 def resolve_ytdlp_settings(handle, get_setting):
+    auto_update = get_setting(handle, "ytdlp_autodownload") == 'true'
     version = (get_setting(handle, "ytdlp_version") or '').strip()
     return {
+        'auto_update': auto_update,
         'version': version or DEFAULT_YTDLP_VERSION,
     }

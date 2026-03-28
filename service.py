@@ -335,7 +335,11 @@ def install_deno_version(selected_version, get_deno_ydl_opts):
     opts = run_with_progress(
         "SendToKodi",
         "Installing Deno {}...".format(selected_version),
-        lambda: get_deno_ydl_opts(auto_download=True, requested_version=selected_version),
+        lambda: get_deno_ydl_opts(
+            auto_download=True,
+            requested_version=selected_version,
+            force_refresh_latest=True,
+        ),
     )
     deno_path = opts.get("js_runtimes", {}).get("deno", {}).get("path")
     if deno_path:
@@ -455,7 +459,11 @@ def install_ytdlp_version(selected_version, ensure_ytdlp_ready):
     result = run_with_progress(
         "SendToKodi",
         "Installing yt-dlp {}...".format(selected_version),
-        lambda: ensure_ytdlp_ready(allow_install=True, requested_version=selected_version),
+        lambda: ensure_ytdlp_ready(
+            allow_install=True,
+            requested_version=selected_version,
+            force_refresh_latest=True,
+        ),
     )
     if result['ready']:
         set_ytdlp_installed_version_display(result.get('installed_version') or result.get('version'))
@@ -517,7 +525,7 @@ def configure_managed_ytdlp(handle):
     from core.ytdlp_manager import ensure_ytdlp_ready, activate_runtime
 
     status = ensure_ytdlp_ready(
-        allow_install=False,
+        allow_install=ytdlp_settings['auto_update'],
         requested_version=ytdlp_settings['version'],
     )
     set_ytdlp_installed_version_display(status.get('installed_version'))

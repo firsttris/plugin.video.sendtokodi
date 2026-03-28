@@ -23,10 +23,18 @@ import platform
 import shutil
 import stat
 import json
+import time
 import urllib.request
+import urllib.error
 import zipfile
 import io
 import logging
+from core.update_policy import (
+    UPDATE_CHECK_INTERVAL_SECONDS,
+    UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
+    UPDATE_BACKOFF_STEPS_SECONDS,
+    UPDATE_MAX_COOLDOWN_SECONDS,
+)
 
 DENO_LATEST_SENTINEL = "latest"
 
@@ -108,6 +116,92 @@ def _version_file():
     return os.path.join(_addon_data_dir(), "deno_version.txt")
 
 
+def _update_state_file():
+    return os.path.join(_addon_data_dir(), "deno_update_state.json")
+
+
+def _default_update_state():
+    return {
+        "last_checked_at": 0,
+        "next_check_at": 0,
+        "latest_known_version": None,
+        "etag": None,
+        "cooldown_until": 0,
+        "consecutive_failures": 0,
+        "last_error": None,
+    }
+
+
+def _load_update_state():
+    path = _update_state_file()
+    try:
+        with open(path, "r") as f:
+            raw = json.load(f)
+    except Exception:
+        return _default_update_state()
+
+    state = _default_update_state()
+    if isinstance(raw, dict):
+        state.update(raw)
+    return state
+
+
+def _save_update_state(state):
+    os.makedirs(_addon_data_dir(), exist_ok=True)
+    path = _update_state_file()
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp_path, path)
+
+
+def _parse_retry_after(headers):
+    if headers is None:
+        return None
+
+    value = headers.get("Retry-After")
+    if not value:
+        return None
+
+    try:
+        seconds = int(value)
+    except Exception:
+        return None
+
+    if seconds <= 0:
+        return None
+    return min(seconds, UPDATE_MAX_COOLDOWN_SECONDS)
+
+
+def _compute_failure_cooldown(consecutive_failures):
+    index = max(0, min(consecutive_failures - 1, len(UPDATE_BACKOFF_STEPS_SECONDS) - 1))
+    return UPDATE_BACKOFF_STEPS_SECONDS[index]
+
+
+def _apply_success_state(state, latest_version, etag, check_interval_seconds):
+    now = int(time.time())
+    state["last_checked_at"] = now
+    state["next_check_at"] = now + check_interval_seconds
+    state["cooldown_until"] = 0
+    state["consecutive_failures"] = 0
+    state["last_error"] = None
+    state["latest_known_version"] = latest_version
+    if etag:
+        state["etag"] = etag
+
+
+def _apply_failure_state(state, error_message, retry_after=None):
+    now = int(time.time())
+    failures = int(state.get("consecutive_failures") or 0) + 1
+    cooldown = retry_after or _compute_failure_cooldown(failures)
+
+    state["last_checked_at"] = now
+    state["next_check_at"] = now + cooldown
+    state["cooldown_until"] = now + cooldown
+    state["consecutive_failures"] = failures
+    state["last_error"] = error_message
+
+
 def _versions_dir():
     return os.path.join(_addon_data_dir(), "versions")
 
@@ -157,14 +251,70 @@ def _normalize_requested_version(version):
     return requested
 
 
-def _resolve_latest_version():
-    with urllib.request.urlopen(_LATEST_RELEASE_API, timeout=20) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+def _resolve_latest_version(force_refresh=False):
+    state = _load_update_state()
+    now = int(time.time())
+    cached_version = state.get("latest_known_version")
 
-    tag = (payload.get("tag_name") or "").strip()
-    if not tag:
-        raise RuntimeError("GitHub latest release response has no tag_name")
-    return tag
+    if not force_refresh:
+        next_check_at = int(state.get("next_check_at") or 0)
+        cooldown_until = int(state.get("cooldown_until") or 0)
+        if cached_version and now < max(next_check_at, cooldown_until):
+            return cached_version
+
+    request = urllib.request.Request(_LATEST_RELEASE_API)
+    etag = state.get("etag")
+    if etag:
+        request.add_header("If-None-Match", etag)
+
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        tag = (payload.get("tag_name") or "").strip()
+        if not tag:
+            raise RuntimeError("GitHub latest release response has no tag_name")
+
+        _apply_success_state(
+            state,
+            tag,
+            response.headers.get("ETag"),
+            UPDATE_CHECK_INTERVAL_SECONDS,
+        )
+        _save_update_state(state)
+        return tag
+    except urllib.error.HTTPError as exc:
+        if exc.code == 304 and cached_version:
+            _apply_success_state(
+                state,
+                cached_version,
+                exc.headers.get("ETag") or etag,
+                UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
+            )
+            _save_update_state(state)
+            return cached_version
+
+        if exc.code == 429:
+            retry_after = _parse_retry_after(exc.headers)
+            error_message = "GitHub API rate limit hit (HTTP 429)"
+            _apply_failure_state(state, error_message, retry_after=retry_after)
+            _save_update_state(state)
+            if cached_version:
+                return cached_version
+            raise RuntimeError(error_message)
+
+        error_message = "GitHub latest release lookup failed: HTTP {}".format(exc.code)
+        _apply_failure_state(state, error_message)
+        _save_update_state(state)
+        if cached_version:
+            return cached_version
+        raise RuntimeError(error_message)
+    except Exception as exc:
+        _apply_failure_state(state, str(exc))
+        _save_update_state(state)
+        if cached_version:
+            return cached_version
+        raise
 
 
 def list_available_versions(limit=20):
@@ -340,7 +490,11 @@ def _download_deno(show_progress=True, version=None):
     return os.path.join(runtime_dir, binary_name)
 
 
-def get_runtime_status(requested_version=DENO_LATEST_SENTINEL, include_latest=False):
+def get_runtime_status(
+    requested_version=DENO_LATEST_SENTINEL,
+    include_latest=False,
+    force_refresh_latest=False,
+):
     requested = _normalize_requested_version(requested_version)
     installed_version, installed_path = _find_installed_runtime()
 
@@ -348,7 +502,10 @@ def get_runtime_status(requested_version=DENO_LATEST_SENTINEL, include_latest=Fa
     latest_error = None
     if include_latest:
         try:
-            latest_version = _resolve_latest_version()
+            if force_refresh_latest:
+                latest_version = _resolve_latest_version(force_refresh=True)
+            else:
+                latest_version = _resolve_latest_version()
         except Exception as exc:
             latest_error = str(exc)
 
@@ -367,7 +524,7 @@ def get_runtime_status(requested_version=DENO_LATEST_SENTINEL, include_latest=Fa
     }
 
 
-def get_ydl_opts(auto_download=True, requested_version=None):
+def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_latest=False):
     """
     Return a yt-dlp options dict that configures Deno as the JS runtime.
 
@@ -392,7 +549,10 @@ def get_ydl_opts(auto_download=True, requested_version=None):
         if requested == DENO_LATEST_SENTINEL:
             if auto_download:
                 try:
-                    target_version = _resolve_latest_version()
+                    if force_refresh_latest:
+                        target_version = _resolve_latest_version(force_refresh=True)
+                    else:
+                        target_version = _resolve_latest_version()
                 except Exception as exc:
                     _warn("Could not resolve latest Deno version: {}".format(exc))
                     # In auto-update mode we should not silently downgrade/pin to

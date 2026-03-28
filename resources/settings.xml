@@ -24,6 +24,11 @@
                     <default>latest</default>
                     <control type="edit" format="string"/>
                 </setting>
+                <setting type="boolean" id="ytdlp_autodownload" label="32051">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting type="boolean" id="deno_enabled" label="32024">
                     <level>0</level>
                     <default>true</default>

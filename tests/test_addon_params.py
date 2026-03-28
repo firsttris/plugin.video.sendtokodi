@@ -193,21 +193,31 @@ def test_resolve_media_download_settings_uses_custom_path_when_set():
 
 def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
     def get_setting(_handle, name):
+        if name == "ytdlp_autodownload":
+            return "true"
         if name == "ytdlp_version":
             return ""
         return ""
 
     settings = resolve_ytdlp_settings(1, get_setting)
 
-    assert settings == {"version": DEFAULT_YTDLP_VERSION}
+    assert settings == {
+        "auto_update": True,
+        "version": DEFAULT_YTDLP_VERSION,
+    }
 
 
 def test_resolve_ytdlp_settings_reads_all_values():
     def get_setting(_handle, name):
+        if name == "ytdlp_autodownload":
+            return "false"
         if name == "ytdlp_version":
             return "2026.03.26"
         return ""
 
     settings = resolve_ytdlp_settings(1, get_setting)
 
-    assert settings == {"version": "2026.03.26"}
+    assert settings == {
+        "auto_update": False,
+        "version": "2026.03.26",
+    }

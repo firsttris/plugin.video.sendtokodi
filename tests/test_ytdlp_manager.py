@@ -3,6 +3,8 @@ import os
 import sys
 import tarfile
 import json
+import urllib.error
+import pytest
 
 from core import ytdlp_manager
 
@@ -232,3 +234,100 @@ def test_list_available_versions(monkeypatch):
     versions = ytdlp_manager.list_available_versions(limit=10)
 
     assert versions == ["2026.03.26", "2026.03.20"]
+
+
+def test_resolve_latest_version_uses_cached_value_before_next_check(monkeypatch, tmp_path):
+    state_file = tmp_path / "ytdlp_update_state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "last_checked_at": 1000,
+                "next_check_at": 2000,
+                "latest_known_version": "2026.03.26",
+                "etag": "etag-1",
+                "cooldown_until": 0,
+                "consecutive_failures": 0,
+                "last_error": None,
+            }
+        )
+    )
+
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1500)
+    monkeypatch.setattr(
+        ytdlp_manager.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("network should not run")),
+    )
+
+    assert ytdlp_manager._resolve_latest_version() == "2026.03.26"
+
+
+def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, tmp_path):
+    state_file = tmp_path / "ytdlp_update_state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "last_checked_at": 0,
+                "next_check_at": 0,
+                "latest_known_version": "2026.03.26",
+                "etag": "etag-1",
+                "cooldown_until": 0,
+                "consecutive_failures": 0,
+                "last_error": None,
+            }
+        )
+    )
+
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1000)
+
+    seen_headers = {}
+
+    def fake_urlopen(request, **_kwargs):
+        seen_headers.update(dict(request.header_items()))
+        raise urllib.error.HTTPError(
+            ytdlp_manager._LATEST_RELEASE_API,
+            304,
+            "Not Modified",
+            {"ETag": "etag-2"},
+            None,
+        )
+
+    monkeypatch.setattr(ytdlp_manager.urllib.request, "urlopen", fake_urlopen)
+
+    assert ytdlp_manager._resolve_latest_version() == "2026.03.26"
+    assert seen_headers.get("If-none-match") == "etag-1"
+
+    state = json.loads(state_file.read_text())
+    assert state["etag"] == "etag-2"
+    assert state["next_check_at"] == 1000 + (24 * 60 * 60)
+
+
+def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_path):
+    state_file = tmp_path / "ytdlp_update_state.json"
+    state_file.write_text(json.dumps(ytdlp_manager._default_update_state()))
+
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1000)
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise urllib.error.HTTPError(
+            ytdlp_manager._LATEST_RELEASE_API,
+            429,
+            "Too Many Requests",
+            {"Retry-After": "120"},
+            None,
+        )
+
+    monkeypatch.setattr(ytdlp_manager.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError):
+        ytdlp_manager._resolve_latest_version(force_refresh=True)
+
+    state = json.loads(state_file.read_text())
+    assert state["consecutive_failures"] == 1
+    assert state["cooldown_until"] == 1120
+    assert state["next_check_at"] == 1120
