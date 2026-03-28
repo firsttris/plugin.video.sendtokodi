@@ -192,6 +192,13 @@ def _write_installed_version(version):
         _warn("Could not write yt-dlp version file: {}".format(exc))
 
 
+def _clear_installed_version():
+    try:
+        os.remove(_installed_version_file())
+    except Exception:
+        pass
+
+
 def _runtime_path_for_version(version):
     # Runtime path must be the parent directory that contains the yt_dlp package.
     return os.path.join(_versions_dir(), version)
@@ -233,6 +240,44 @@ def list_installed_versions():
         if os.path.isdir(_yt_dlp_package_path(runtime_path)):
             versions.append(name)
     return sorted(versions, reverse=True)
+
+
+def activate_installed_version(version):
+    target = (version or "").strip()
+    if not target:
+        return None
+
+    runtime_path = _find_runtime_for_version(target)
+    if runtime_path is None:
+        return None
+
+    _write_installed_version(target)
+    return runtime_path
+
+
+def delete_installed_version(version):
+    target = (version or "").strip()
+    if not target:
+        return False
+
+    runtime_path = _runtime_path_for_version(target)
+    if not os.path.isdir(runtime_path):
+        return False
+
+    try:
+        shutil.rmtree(runtime_path)
+    except Exception as exc:
+        _warn("Could not delete yt-dlp version {}: {}".format(target, exc))
+        return False
+
+    if _read_installed_version() == target:
+        remaining_versions = list_installed_versions()
+        if remaining_versions:
+            _write_installed_version(remaining_versions[0])
+        else:
+            _clear_installed_version()
+
+    return True
 
 
 def _resolve_latest_version(force_refresh=False):

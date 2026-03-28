@@ -233,10 +233,18 @@ def _get_installed_version():
 def _set_installed_version(version):
     """Write the installed Deno version to the version tracking file."""
     try:
+        os.makedirs(_addon_data_dir(), exist_ok=True)
         with open(_version_file(), "w") as f:
             f.write(version)
     except Exception as e:
         _warn("Could not write Deno version file: {}".format(e))
+
+
+def _clear_installed_version():
+    try:
+        os.remove(_version_file())
+    except Exception:
+        pass
 
 
 def _normalize_requested_version(version):
@@ -389,6 +397,44 @@ def list_installed_versions():
         if _find_runtime_for_version(name) is not None:
             versions.append(name)
     return sorted(versions, reverse=True)
+
+
+def activate_installed_version(version):
+    target = (version or "").strip()
+    if not target:
+        return None
+
+    runtime_path = _find_runtime_for_version(target)
+    if runtime_path is None:
+        return None
+
+    _set_installed_version(target)
+    return runtime_path
+
+
+def delete_installed_version(version):
+    target = (version or "").strip()
+    if not target:
+        return False
+
+    runtime_dir = _runtime_dir_for_version(target)
+    if not os.path.isdir(runtime_dir):
+        return False
+
+    try:
+        shutil.rmtree(runtime_dir)
+    except Exception as exc:
+        _warn("Could not delete Deno version {}: {}".format(target, exc))
+        return False
+
+    if _get_installed_version() == target:
+        remaining_versions = list_installed_versions()
+        if remaining_versions:
+            _set_installed_version(remaining_versions[0])
+        else:
+            _clear_installed_version()
+
+    return True
 
 
 def _find_in_path():

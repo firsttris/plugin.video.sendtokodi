@@ -39,6 +39,73 @@ def test_write_and_read_installed_version(monkeypatch, tmp_path):
     assert ytdlp_manager._read_installed_version() == "2026.03.26"
 
 
+def test_activate_installed_version_switches_to_existing_local_version(monkeypatch):
+    monkeypatch.setattr(
+        ytdlp_manager,
+        "_find_runtime_for_version",
+        lambda version: "/addon/ytdlp/versions/{}".format(version)
+        if version == "2026.03.26"
+        else None,
+    )
+
+    writes = []
+    monkeypatch.setattr(ytdlp_manager, "_write_installed_version", lambda version: writes.append(version))
+
+    runtime = ytdlp_manager.activate_installed_version("2026.03.26")
+
+    assert runtime == "/addon/ytdlp/versions/2026.03.26"
+    assert writes == ["2026.03.26"]
+
+
+def test_activate_installed_version_returns_none_when_missing(monkeypatch):
+    monkeypatch.setattr(ytdlp_manager, "_find_runtime_for_version", lambda _version: None)
+
+    runtime = ytdlp_manager.activate_installed_version("2026.03.26")
+
+    assert runtime is None
+
+
+def test_delete_installed_version_removes_runtime_and_promotes_new_active(monkeypatch, tmp_path):
+    versions_dir = tmp_path / "versions"
+    old_runtime = versions_dir / "2026.03.26" / "yt_dlp"
+    old_runtime.mkdir(parents=True)
+    (old_runtime / "__init__.py").write_text("x")
+
+    keep_runtime = versions_dir / "2026.03.20" / "yt_dlp"
+    keep_runtime.mkdir(parents=True)
+    (keep_runtime / "__init__.py").write_text("x")
+
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(ytdlp_manager, "_read_installed_version", lambda: "2026.03.26")
+
+    writes = []
+    monkeypatch.setattr(ytdlp_manager, "_write_installed_version", lambda version: writes.append(version))
+
+    deleted = ytdlp_manager.delete_installed_version("2026.03.26")
+
+    assert deleted is True
+    assert not os.path.isdir(str(versions_dir / "2026.03.26"))
+    assert writes == ["2026.03.20"]
+
+
+def test_delete_installed_version_clears_active_marker_when_last_removed(monkeypatch, tmp_path):
+    versions_dir = tmp_path / "versions"
+    runtime = versions_dir / "2026.03.26" / "yt_dlp"
+    runtime.mkdir(parents=True)
+    (runtime / "__init__.py").write_text("x")
+
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(ytdlp_manager, "_read_installed_version", lambda: "2026.03.26")
+
+    cleared = []
+    monkeypatch.setattr(ytdlp_manager, "_clear_installed_version", lambda: cleared.append(True))
+
+    deleted = ytdlp_manager.delete_installed_version("2026.03.26")
+
+    assert deleted is True
+    assert cleared == [True]
+
+
 def test_find_installed_runtime_from_version_file(monkeypatch, tmp_path):
     runtime_path = tmp_path / "versions" / "2026.03.26"
     package_path = runtime_path / "yt_dlp"

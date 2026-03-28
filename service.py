@@ -308,7 +308,36 @@ def choose_deno_version_from_release_list(settings, status, list_available_versi
     selected = xbmcgui.Dialog().select("SendToKodi - manage Deno version", entries)
     if selected < 0:
         return None
-    return version_values[selected]
+
+    selected_version = version_values[selected]
+    is_installed = selected_version in installed_versions
+    is_active = selected_version == active_version
+
+    actions = []
+    action_values = []
+
+    if is_installed and not is_active:
+        actions.append("Activate local version")
+        action_values.append("activate")
+
+    if not is_installed:
+        actions.append("Install version")
+        action_values.append("install")
+
+    if is_installed:
+        actions.append("Delete local version")
+        action_values.append("delete")
+
+    if len(action_values) == 1:
+        return selected_version, action_values[0]
+
+    action_index = xbmcgui.Dialog().select(
+        "SendToKodi - Deno action ({})".format(selected_version),
+        actions,
+    )
+    if action_index < 0:
+        return None
+    return selected_version, action_values[action_index]
 
 
 def set_deno_version_setting(version):
@@ -359,23 +388,77 @@ def install_deno_version(selected_version, get_deno_ydl_opts):
     return False
 
 
+def activate_deno_version(selected_version, activate_installed_version, get_runtime_status):
+    runtime_path = activate_installed_version(selected_version)
+    if runtime_path is None:
+        showErrorNotification("Deno {} is not installed locally".format(selected_version))
+        return False
+
+    status = get_runtime_status(selected_version, include_latest=False)
+    installed_version = status.get('installed_version') or selected_version
+    set_deno_version_setting(installed_version)
+    set_deno_installed_version_display(installed_version)
+    showInfoNotification("Deno {} is active".format(installed_version))
+    return True
+
+
+def delete_deno_version(selected_version, delete_installed_version, get_runtime_status):
+    should_delete = xbmcgui.Dialog().yesno(
+        "SendToKodi",
+        "Delete local Deno version {}?".format(selected_version),
+    )
+    if not should_delete:
+        return False
+
+    deleted = delete_installed_version(selected_version)
+    if not deleted:
+        showErrorNotification("Could not delete Deno {}".format(selected_version))
+        return False
+
+    status = get_runtime_status(None, include_latest=False)
+    remaining_version = status.get('installed_version')
+    if remaining_version:
+        set_deno_version_setting(remaining_version)
+        set_deno_installed_version_display(remaining_version)
+        showInfoNotification(
+            "Deno {} deleted; {} is now active".format(selected_version, remaining_version)
+        )
+    else:
+        set_deno_version_setting('latest')
+        set_deno_installed_version_display(None)
+        showInfoNotification("Deno {} deleted".format(selected_version))
+    return True
+
+
 def open_deno_select_version_dialog(handle):
     settings = resolve_deno_settings(handle, xbmcplugin.getSetting)
-    from core.deno_manager import get_runtime_status, list_available_versions, get_ydl_opts
+    from core.deno_manager import (
+        get_runtime_status,
+        list_available_versions,
+        get_ydl_opts,
+        activate_installed_version,
+        delete_installed_version,
+    )
 
     status = get_runtime_status(settings['version'], include_latest=False)
     set_deno_installed_version_display(status.get('installed_version'))
 
-    selected_version = choose_deno_version_from_release_list(
+    selection = choose_deno_version_from_release_list(
         settings,
         status,
         list_available_versions,
     )
-    if selected_version is None:
+    if selection is None:
         return
 
-    set_deno_version_setting(selected_version)
-    install_deno_version(selected_version, get_ydl_opts)
+    selected_version, action = selection
+    if action == "install":
+        set_deno_version_setting(selected_version)
+        install_deno_version(selected_version, get_ydl_opts)
+    elif action == "activate":
+        activate_deno_version(selected_version, activate_installed_version, get_runtime_status)
+    elif action == "delete":
+        delete_deno_version(selected_version, delete_installed_version, get_runtime_status)
 
 
 def update_deno_now(handle):
@@ -432,7 +515,36 @@ def choose_ytdlp_version_from_release_list(settings, status, list_available_vers
     selected = xbmcgui.Dialog().select("SendToKodi - manage yt-dlp version", entries)
     if selected < 0:
         return None
-    return version_values[selected]
+
+    selected_version = version_values[selected]
+    is_installed = selected_version in installed_versions
+    is_active = selected_version == active_version
+
+    actions = []
+    action_values = []
+
+    if is_installed and not is_active:
+        actions.append("Activate local version")
+        action_values.append("activate")
+
+    if not is_installed:
+        actions.append("Install version")
+        action_values.append("install")
+
+    if is_installed:
+        actions.append("Delete local version")
+        action_values.append("delete")
+
+    if len(action_values) == 1:
+        return selected_version, action_values[0]
+
+    action_index = xbmcgui.Dialog().select(
+        "SendToKodi - yt-dlp action ({})".format(selected_version),
+        actions,
+    )
+    if action_index < 0:
+        return None
+    return selected_version, action_values[action_index]
 
 
 def set_ytdlp_version_setting(version):
@@ -475,22 +587,76 @@ def install_ytdlp_version(selected_version, ensure_ytdlp_ready):
     return False
 
 
+def activate_ytdlp_version(selected_version, activate_installed_version, get_runtime_status):
+    runtime_path = activate_installed_version(selected_version)
+    if runtime_path is None:
+        showErrorNotification("yt-dlp {} is not installed locally".format(selected_version))
+        return False
+
+    status = get_runtime_status(selected_version)
+    installed_version = status.get('installed_version') or selected_version
+    set_ytdlp_version_setting(installed_version)
+    set_ytdlp_installed_version_display(installed_version)
+    showInfoNotification("yt-dlp {} is active".format(installed_version))
+    return True
+
+
+def delete_ytdlp_version(selected_version, delete_installed_version, get_runtime_status):
+    should_delete = xbmcgui.Dialog().yesno(
+        "SendToKodi",
+        "Delete local yt-dlp version {}?".format(selected_version),
+    )
+    if not should_delete:
+        return False
+
+    deleted = delete_installed_version(selected_version)
+    if not deleted:
+        showErrorNotification("Could not delete yt-dlp {}".format(selected_version))
+        return False
+
+    status = get_runtime_status(None)
+    remaining_version = status.get('installed_version')
+    if remaining_version:
+        set_ytdlp_version_setting(remaining_version)
+        set_ytdlp_installed_version_display(remaining_version)
+        showInfoNotification(
+            "yt-dlp {} deleted; {} is now active".format(selected_version, remaining_version)
+        )
+    else:
+        set_ytdlp_version_setting('latest')
+        set_ytdlp_installed_version_display(None)
+        showInfoNotification("yt-dlp {} deleted".format(selected_version))
+    return True
+
+
 def open_ytdlp_select_version_dialog(handle):
     settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
-    from core.ytdlp_manager import get_runtime_status, ensure_ytdlp_ready, list_available_versions
+    from core.ytdlp_manager import (
+        get_runtime_status,
+        ensure_ytdlp_ready,
+        list_available_versions,
+        activate_installed_version,
+        delete_installed_version,
+    )
 
     status = get_runtime_status(settings['version'])
     set_ytdlp_installed_version_display(status.get('installed_version'))
-    selected_version = choose_ytdlp_version_from_release_list(
+    selection = choose_ytdlp_version_from_release_list(
         settings,
         status,
         list_available_versions,
     )
-    if selected_version is None:
+    if selection is None:
         return
 
-    set_ytdlp_version_setting(selected_version)
-    install_ytdlp_version(selected_version, ensure_ytdlp_ready)
+    selected_version, action = selection
+    if action == "install":
+        set_ytdlp_version_setting(selected_version)
+        install_ytdlp_version(selected_version, ensure_ytdlp_ready)
+    elif action == "activate":
+        activate_ytdlp_version(selected_version, activate_installed_version, get_runtime_status)
+    elif action == "delete":
+        delete_ytdlp_version(selected_version, delete_installed_version, get_runtime_status)
 
 
 def update_ytdlp_now(handle):

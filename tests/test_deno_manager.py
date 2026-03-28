@@ -44,6 +44,78 @@ def test_get_and_set_installed_version(monkeypatch, tmp_path):
     assert deno_manager._get_installed_version() == "v-test"
 
 
+def test_activate_installed_version_switches_to_existing_local_version(monkeypatch):
+    monkeypatch.setattr(
+        deno_manager,
+        "_find_runtime_for_version",
+        lambda version: "/addon/deno/versions/{}/deno".format(version)
+        if version == "v2.7.5"
+        else None,
+    )
+
+    writes = []
+    monkeypatch.setattr(deno_manager, "_set_installed_version", lambda version: writes.append(version))
+
+    runtime = deno_manager.activate_installed_version("v2.7.5")
+
+    assert runtime == "/addon/deno/versions/v2.7.5/deno"
+    assert writes == ["v2.7.5"]
+
+
+def test_activate_installed_version_returns_none_when_missing(monkeypatch):
+    monkeypatch.setattr(deno_manager, "_find_runtime_for_version", lambda _version: None)
+
+    runtime = deno_manager.activate_installed_version("v2.7.5")
+
+    assert runtime is None
+
+
+def test_delete_installed_version_removes_runtime_and_promotes_new_active(monkeypatch, tmp_path):
+    old_dir = tmp_path / "versions" / "v2.7.5"
+    old_dir.mkdir(parents=True)
+    old_binary = old_dir / "deno"
+    old_binary.write_bytes(b"x")
+    old_binary.chmod(0o755)
+
+    keep_dir = tmp_path / "versions" / "v2.7.4"
+    keep_dir.mkdir(parents=True)
+    keep_binary = keep_dir / "deno"
+    keep_binary.write_bytes(b"x")
+    keep_binary.chmod(0o755)
+
+    monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
+    monkeypatch.setattr(deno_manager, "_get_installed_version", lambda: "v2.7.5")
+
+    writes = []
+    monkeypatch.setattr(deno_manager, "_set_installed_version", lambda version: writes.append(version))
+
+    deleted = deno_manager.delete_installed_version("v2.7.5")
+
+    assert deleted is True
+    assert not os.path.isdir(str(old_dir))
+    assert writes == ["v2.7.4"]
+
+
+def test_delete_installed_version_clears_active_marker_when_last_removed(monkeypatch, tmp_path):
+    runtime_dir = tmp_path / "versions" / "v2.7.5"
+    runtime_dir.mkdir(parents=True)
+    binary = runtime_dir / "deno"
+    binary.write_bytes(b"x")
+    binary.chmod(0o755)
+
+    monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(deno_manager, "_get_installed_version", lambda: "v2.7.5")
+
+    cleared = []
+    monkeypatch.setattr(deno_manager, "_clear_installed_version", lambda: cleared.append(True))
+
+    deleted = deno_manager.delete_installed_version("v2.7.5")
+
+    assert deleted is True
+    assert cleared == [True]
+
+
 def test_get_ydl_opts_prefers_existing_addon_binary(monkeypatch):
     monkeypatch.setattr(deno_manager, "_find_in_addon_data", lambda: "/addon/deno")
     monkeypatch.setattr(deno_manager, "_get_installed_version", lambda: "v-test")
