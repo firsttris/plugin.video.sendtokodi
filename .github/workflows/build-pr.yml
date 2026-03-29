@@ -1,61 +1,27 @@
 name: build-pr
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
     branches: ['master']
-env:
-  VERSION: 'undefined'
-  TOKEN: ${{secrets.PAT}}
 jobs:
- # for PRs the versioning does not append the SHA to indicate a prerelease, we do this manually in the build-* call below
-  versioning:
-    runs-on: ubuntu-latest
-    outputs:
-      VERSION: ${{ steps.tag_version.outputs.new_version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: 'master'
-          dry_run: true
   tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
-      - name: Run unit tests
-        run: pytest
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-pr
-          path: |
-            coverage.xml
-            htmlcov/
-          if-no-files-found: warn
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      upload_coverage: true
+      coverage_artifact_name: coverage-report-pr
+    secrets: inherit
   build:
-    needs: [versioning, tests]
+    needs: [tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Read addon version
+        id: addon_version
+        run: |
+          VERSION=$(python "$GITHUB_WORKSPACE/.github/scripts/read_addon_version.py")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build addon
-        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ needs.versioning.outputs.VERSION }}.$GITHUB_SHA
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ steps.addon_version.outputs.version }}
       - name: Upload Addon-artifacts
         uses: actions/upload-artifact@v4
         with:

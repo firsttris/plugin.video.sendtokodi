@@ -1,11 +1,8 @@
-name: build-publish-addon
+name: publish-addon-manual
 on:
-  push:
-    branches:
-      - 'master'
+  workflow_dispatch:
 env:
-  VERSION: 'undefined'
-  TOKEN: ${{secrets.PAT}}
+  TOKEN: ${{ secrets.PAT }}
 jobs:
   versioning:
     runs-on: ubuntu-latest
@@ -20,33 +17,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           release_branches: 'master'
   tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
-      - name: Run unit tests
-        run: pytest
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: |
-            coverage.xml
-            htmlcov/
-          if-no-files-found: warn
+    uses: ./.github/workflows/reusable-tests.yml
+    secrets: inherit
   build:
     needs: [versioning, tests]
     runs-on: ubuntu-latest
@@ -60,7 +32,7 @@ jobs:
           name: Addon-artifacts
           path: "${{ runner.temp }}/*.zip"
   publish:
-    needs: [versioning, tests, build]
+    needs: [versioning, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

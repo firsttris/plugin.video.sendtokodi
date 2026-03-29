@@ -1,0 +1,42 @@
+name: reusable-tests
+on:
+  workflow_call:
+    inputs:
+      upload_coverage:
+        required: false
+        type: boolean
+        default: false
+      coverage_artifact_name:
+        required: false
+        type: string
+        default: coverage-report
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+      - name: Run unit tests
+        run: pytest
+      - name: Upload coverage to Codecov
+        if: ${{ inputs.upload_coverage }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+      - name: Upload coverage report
+        if: ${{ inputs.upload_coverage }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coverage_artifact_name }}
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: warn
