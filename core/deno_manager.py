@@ -29,6 +29,15 @@ import urllib.error
 import zipfile
 import io
 import logging
+from core.runtime_update_state import (
+    apply_failure_state,
+    apply_success_state,
+    compute_failure_cooldown,
+    default_update_state,
+    load_update_state,
+    parse_retry_after,
+    save_update_state,
+)
 from core.update_policy import (
     UPDATE_CHECK_INTERVAL_SECONDS,
     UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
@@ -121,85 +130,36 @@ def _update_state_file():
 
 
 def _default_update_state():
-    return {
-        "last_checked_at": 0,
-        "next_check_at": 0,
-        "latest_known_version": None,
-        "etag": None,
-        "cooldown_until": 0,
-        "consecutive_failures": 0,
-        "last_error": None,
-    }
+    return default_update_state()
 
 
 def _load_update_state():
-    path = _update_state_file()
-    try:
-        with open(path, "r") as f:
-            raw = json.load(f)
-    except Exception:
-        return _default_update_state()
-
-    state = _default_update_state()
-    if isinstance(raw, dict):
-        state.update(raw)
-    return state
+    return load_update_state(_update_state_file())
 
 
 def _save_update_state(state):
-    os.makedirs(_addon_data_dir(), exist_ok=True)
-    path = _update_state_file()
-    tmp_path = path + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(state, f)
-    os.replace(tmp_path, path)
+    save_update_state(_addon_data_dir(), _update_state_file(), state)
 
 
 def _parse_retry_after(headers):
-    if headers is None:
-        return None
-
-    value = headers.get("Retry-After")
-    if not value:
-        return None
-
-    try:
-        seconds = int(value)
-    except Exception:
-        return None
-
-    if seconds <= 0:
-        return None
-    return min(seconds, UPDATE_MAX_COOLDOWN_SECONDS)
+    return parse_retry_after(headers, UPDATE_MAX_COOLDOWN_SECONDS)
 
 
 def _compute_failure_cooldown(consecutive_failures):
-    index = max(0, min(consecutive_failures - 1, len(UPDATE_BACKOFF_STEPS_SECONDS) - 1))
-    return UPDATE_BACKOFF_STEPS_SECONDS[index]
+    return compute_failure_cooldown(consecutive_failures, UPDATE_BACKOFF_STEPS_SECONDS)
 
 
 def _apply_success_state(state, latest_version, etag, check_interval_seconds):
-    now = int(time.time())
-    state["last_checked_at"] = now
-    state["next_check_at"] = now + check_interval_seconds
-    state["cooldown_until"] = 0
-    state["consecutive_failures"] = 0
-    state["last_error"] = None
-    state["latest_known_version"] = latest_version
-    if etag:
-        state["etag"] = etag
+    apply_success_state(state, latest_version, etag, check_interval_seconds)
 
 
 def _apply_failure_state(state, error_message, retry_after=None):
-    now = int(time.time())
-    failures = int(state.get("consecutive_failures") or 0) + 1
-    cooldown = retry_after or _compute_failure_cooldown(failures)
-
-    state["last_checked_at"] = now
-    state["next_check_at"] = now + cooldown
-    state["cooldown_until"] = now + cooldown
-    state["consecutive_failures"] = failures
-    state["last_error"] = error_message
+    apply_failure_state(
+        state,
+        error_message,
+        UPDATE_BACKOFF_STEPS_SECONDS,
+        retry_after=retry_after,
+    )
 
 
 def _versions_dir():
