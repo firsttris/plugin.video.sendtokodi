@@ -356,6 +356,56 @@ def test_build_dash_manifest_candidate_returns_only_events_on_failure():
     assert result["events"][1]["type"] == "audio_failed"
 
 
+def test_build_dash_manifest_candidate_refresh_uses_fresh_result_formats():
+    builders = []
+
+    class BuilderWithPayload(DummyDashBuilder):
+        def __init__(self, payload):
+            super().__init__()
+            self.payload = payload
+
+        def emit(self):
+            return self.payload
+
+    def manifest_factory(_duration):
+        payload = "manifest-payload-{}".format(len(builders) + 1)
+        builder = BuilderWithPayload(payload)
+        builders.append(builder)
+        return builder
+
+    captured_refresh = {"callback": None}
+
+    def start_httpd(manifest, refresh_manifest=None):
+        captured_refresh["callback"] = refresh_manifest
+        return "http://localhost/mpd?data=" + manifest
+
+    result = build_dash_manifest_candidate(
+        duration="12",
+        dash_video=[{"format": "v-initial"}],
+        dash_audio=[{"format": "a-initial"}],
+        have_video=True,
+        have_audio=True,
+        manifest_factory=manifest_factory,
+        start_httpd=start_httpd,
+        resolve_fresh_result=lambda: {
+            "duration": "20",
+            "formats": [
+                {"format": "v-fresh", "vcodec": "avc1", "acodec": "none", "container": "mp4_dash"},
+                {"format": "a-fresh", "vcodec": "none", "acodec": "aac", "container": "m4a_dash"},
+            ],
+        },
+    )
+
+    refreshed_manifest = captured_refresh["callback"]()
+
+    assert result["url"].startswith("http://localhost/mpd?data=")
+    assert builders[0].video_added == ["v-initial"]
+    assert builders[0].audio_added == ["a-initial"]
+    assert builders[1].video_added == ["v-fresh"]
+    assert builders[1].audio_added == ["a-fresh"]
+    assert refreshed_manifest == "manifest-payload-2"
+
+
 def test_resolve_manifest_candidate_returns_none_without_url():
     assert resolve_manifest_candidate(None, manifest_supported=True, headers={"A": "B"}) is None
 

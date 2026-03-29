@@ -122,8 +122,25 @@ except ImportError:
 def createListItemFromVideo(result):
     debug(result)
 
+    def resolve_fresh_result():
+        refresh_url = result.get('webpage_url') or result.get('original_url') or result.get('url')
+        if refresh_url is None:
+            return None
+        try:
+            # Re-resolve source metadata so DASH manifests can be rebuilt with fresh stream URLs.
+            refresh_ydl = YoutubeDL(ydl_opts)
+            refresh_ydl.add_default_info_extractors()
+            with refresh_ydl:
+                return refresh_ydl.extract_info(refresh_url, download=False)
+        except Exception as exc:
+            log("DASH refresh re-resolve failed: {}".format(exc), xbmc.LOGWARNING)
+            return None
+
+    selection_result = dict(result)
+    selection_result['resolve_fresh_result'] = resolve_fresh_result
+
     selected_source = select_playback_source(
-        result,
+        selection_result,
         usemanifest,
         usedashbuilder,
         maxwidth,
