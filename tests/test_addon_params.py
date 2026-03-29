@@ -1,13 +1,19 @@
 from core.addon_params import (
+    DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_DENO_VERSION,
+    MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_MEDIA_DOWNLOAD_PATH,
+    MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_YTDLP_VERSION,
     parse_cli_paramstring,
+    parse_query_params,
+    resolve_queue_request,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
     resolve_deno_settings,
     resolve_deno_opts,
+    resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
     resolve_ytdlp_settings,
 )
@@ -28,6 +34,46 @@ def test_parse_cli_paramstring_with_additional_options():
     assert parsed == {
         "url": "https://example.com/video",
         "ydlOpts": {"extract_flat": "in_playlist"},
+    }
+
+
+def test_parse_query_params_extracts_query_before_ydl_opts_json():
+    parsed = parse_query_params('?action=queue&url=https%3A%2F%2Fexample.com%2Fv%3Fa%3D1%26b%3D2 {"ydlOpts": {"format": "best"}}')
+
+    assert parsed == {
+        "action": ["queue"],
+        "url": ["https://example.com/v?a=1&b=2"],
+    }
+
+
+def test_resolve_queue_request_reads_title():
+    request = resolve_queue_request("?action=queue&url=https%3A%2F%2Fexample.com%2Fvideo&title=My%20Video")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": "My Video",
+    }
+
+
+def test_resolve_queue_request_supports_optional_title():
+    request = resolve_queue_request("?action=queue&url=https%3A%2F%2Fexample.com%2Fvideo")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": None,
+    }
+
+
+def test_resolve_queue_request_returns_none_for_non_queue_actions():
+    assert resolve_queue_request("?action=play&url=https%3A%2F%2Fexample.com%2Fvideo") is None
+
+
+def test_resolve_queue_request_supports_short_action_alias_and_title_alias():
+    request = resolve_queue_request("?action=q&url=https%3A%2F%2Fexample.com%2Fvideo&name=Alias%20Title")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": "Alias Title",
     }
 
 
@@ -221,3 +267,33 @@ def test_resolve_ytdlp_settings_reads_all_values():
         "auto_update": False,
         "version": "2026.03.26",
     }
+
+
+def test_resolve_dash_httpd_idle_timeout_uses_default_when_missing():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "")
+
+    assert value == DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_uses_default_when_invalid():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "abc")
+
+    assert value == DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_clamps_to_minimum():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "1")
+
+    assert value == MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_clamps_to_maximum():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "9999")
+
+    assert value == MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_accepts_valid_integer():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "180")
+
+    assert value == 180

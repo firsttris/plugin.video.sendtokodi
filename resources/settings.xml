@@ -103,6 +103,11 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <setting type="string" id="dash_httpd_idle_timeout" label="33040" parent="usedashbuilder">
+                    <level>0</level>
+                    <default>120</default>
+                    <control type="edit" format="string"/>
+                </setting>
                 <setting id="maxresolution" type="integer" label="33030">
                     <level>0</level>
                     <default>1920</default>

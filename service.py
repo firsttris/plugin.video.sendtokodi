@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import sys
-import urllib.parse
 import importlib
 
 import xbmc
@@ -12,6 +11,8 @@ from core import dash_builder
 
 from core.addon_params import (
     parse_cli_paramstring,
+    parse_query_params,
+    resolve_queue_request,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
@@ -19,6 +20,7 @@ from core.addon_params import (
     resolve_deno_opts,
     resolve_media_download_settings,
     resolve_ytdlp_settings,
+    resolve_dash_httpd_idle_timeout,
 )
 from core.service_runtime import install_stderr_workaround, patch_strptime
 from core.playback_selection import (
@@ -253,18 +255,30 @@ def handle_resolve_failure(set_resolved_false=False):
 
 
 def resolve_action_param(paramstring):
-    if not paramstring or not paramstring.startswith("?"):
-        return None
-
-    query_part = paramstring[1:]
-    if " " in query_part:
-        query_part = query_part.split(" ", 1)[0]
-
-    parsed = urllib.parse.parse_qs(query_part)
+    parsed = parse_query_params(paramstring)
     values = parsed.get("action")
     if not values:
         return None
     return values[0]
+
+
+def handle_queue_action(paramstring):
+    request = resolve_queue_request(paramstring)
+    if request is None:
+        return False
+
+    playlist = xbmc.PlayList(1)
+
+    queue_url = __url__ + "?" + request["url"]
+    queue_title = request["title"] or request["url"]
+    list_item = xbmcgui.ListItem(path=queue_url, label=queue_title)
+    list_item.getVideoInfoTag().setTitle(queue_title)
+    list_item.setProperty("IsPlayable", "true")
+    playlist.add(list_item.getPath(), list_item)
+
+    showInfoNotification("Added to queue: {}".format(queue_title))
+
+    return True
 
 
 def _choose_runtime_version_from_release_list(
@@ -598,6 +612,9 @@ def update_ytdlp_now(handle):
 
 
 def handle_preplay_action(handle, paramstring):
+    if handle_queue_action(paramstring):
+        return True
+
     action = resolve_action_param(paramstring)
     if action == "deno_select_version":
         open_deno_select_version_dialog(handle)
@@ -718,6 +735,9 @@ if media_download_enabled:
 
 usemanifest = xbmcplugin.getSetting(int(sys.argv[1]),"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(int(sys.argv[1]),"usedashbuilder") == 'true'
+dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(int(sys.argv[1]), xbmcplugin.getSetting)
+dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
+log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
 maxwidth = int(xbmcplugin.getSetting(int(sys.argv[1]), "maxresolution"))
 
 ydl = YoutubeDL(ydl_opts)

@@ -5,6 +5,9 @@ from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+
+DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
+
 def _webm_decode_int(byte):
     # Returns size and value
     if byte >= 128:
@@ -222,7 +225,9 @@ def start_httpd(manifest):
 
     server_address = ('127.0.0.1', 0)
     httpd = HTTPServer(server_address, handler)
-    httpd.timeout = 2  # Seconds
+    # Keep the ephemeral local MPD server alive long enough for delayed
+    # follow-up requests from inputstream.adaptive.
+    httpd.timeout = DASH_HTTPD_IDLE_TIMEOUT_SECONDS
     httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
 
     thread = Thread(target=_handle_request, args=(httpd,))
