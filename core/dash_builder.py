@@ -244,7 +244,7 @@ class HttpHandler(BaseHTTPRequestHandler):
             return entry['manifest']
 
     def do_HEAD(self):
-        payload = self._resolve_manifest_payload()
+        payload = HttpHandler._resolve_manifest_payload(self)
         if payload is None:
             self.send_response(404, 'Not Found')
             self.end_headers()
@@ -256,7 +256,7 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        payload = self._resolve_manifest_payload()
+        payload = HttpHandler._resolve_manifest_payload(self)
         if payload is None:
             self.send_response(404, 'Not Found')
             self.end_headers()
