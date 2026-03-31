@@ -19,6 +19,20 @@ from core.playback_selection import (
 )
 
 
+def _append_headers_to_url(url, headers):
+    if not url or not headers:
+        return url
+    if not str(url).startswith(("http://", "https://")):
+        return url
+
+    encoded_headers = encode_inputstream_headers(headers)
+    if not encoded_headers:
+        return url
+    if "|" in url:
+        return url
+    return "{}|{}".format(url, encoded_headers)
+
+
 def _resolve_downloaded_file_path(result):
     requested_downloads = result.get("requested_downloads", [])
     for downloaded_item in requested_downloads:
@@ -73,10 +87,12 @@ def create_list_item_from_video(
         url = selected_source["url"]
         isa = selected_source["isa"]
         headers = selected_source["headers"]
+        selected_format_label = selected_source.get("format_label", "")
     else:
         url = None
         isa = None
         headers = None
+        selected_format_label = ""
 
     if url is None:
         msg = "No supported streams found"
@@ -95,11 +111,52 @@ def create_list_item_from_video(
             xbmc.LOGWARNING,
         )
 
+    if not isa:
+        url = _append_headers_to_url(url, resolve_effective_headers(headers, result.get("http_headers")))
+
     log("creating list item for url {}".format(url))
-    list_item = xbmcgui.ListItem(result["title"], path=url)
-    video_info = list_item.getVideoInfoTag()
-    video_info.setTitle(result["title"])
-    video_info.setPlot(result.get("description", None))
+    title = result.get("title") or result.get("fulltitle") or "SendToKodi"
+    list_item = xbmcgui.ListItem(title, path=url)
+    is_audio_only = "audio only" in str(selected_format_label).lower()
+
+    if is_audio_only:
+        try:
+            music_info = list_item.getMusicInfoTag()
+            if hasattr(music_info, "setMediaType"):
+                music_info.setMediaType("song")
+            music_info.setTitle(title)
+        except Exception:
+            pass
+        try:
+            list_item.setInfo("music", {"title": title})
+        except Exception:
+            pass
+    else:
+        try:
+            video_info = list_item.getVideoInfoTag()
+            if hasattr(video_info, "setMediaType"):
+                video_info.setMediaType("video")
+            video_info.setTitle(title)
+        except Exception:
+            pass
+        try:
+            list_item.setInfo("video", {"title": title})
+        except Exception:
+            pass
+
+    description = result.get("description")
+    if description:
+        try:
+            if is_audio_only:
+                music_info = list_item.getMusicInfoTag()
+                if hasattr(music_info, "setComment"):
+                    music_info.setComment(description)
+            else:
+                video_info = list_item.getVideoInfoTag()
+                if hasattr(video_info, "setPlot"):
+                    video_info.setPlot(description)
+        except Exception:
+            pass
     if result.get("thumbnail", None) is not None:
         list_item.setArt({"thumb": result["thumbnail"]})
 

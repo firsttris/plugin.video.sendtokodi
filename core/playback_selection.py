@@ -54,6 +54,34 @@ def should_filter_by_max_width(width, maxwidth):
     return width is not None and width > maxwidth
 
 
+def audio_manifest_candidate_score(format_info):
+    """Higher score means better fallback candidate for audio-only manifest playback."""
+    score = 0
+    acodec = (format_info.get('acodec') or '').lower()
+    format_label = (format_info.get('format') or format_info.get('format_id') or '').lower()
+    stream_url = (format_info.get('url') or '').lower()
+
+    # Prefer broadly compatible mp3 streams over opus for SoundCloud HLS manifests.
+    if acodec == 'mp3' or 'hls_mp3' in format_label or '.mp3/' in stream_url:
+        score += 100
+    elif acodec == 'opus' or 'hls_opus' in format_label or '.opus/' in stream_url:
+        score += 10
+
+    abr = format_info.get('abr')
+    if isinstance(abr, (int, float)):
+        score += int(abr)
+
+    return score
+
+
+def pick_better_audio_manifest_candidate(current, candidate):
+    if current is None:
+        return candidate
+    if audio_manifest_candidate_score(candidate) > audio_manifest_candidate_score(current):
+        return candidate
+    return current
+
+
 def should_try_dash_builder(usedashbuilder, have_video, dash_video, have_audio, dash_audio, current_format, mpd_supported):
     return (
         usedashbuilder
@@ -318,6 +346,8 @@ def select_playback_source(
         return original_manifest_candidate
 
     filtered_format = None
+    deferred_audio_manifest_candidate = None
+    deferred_audio_manifest_format = None
     all_formats = result.get('formats', [])
     have_video, have_audio, dash_video, dash_audio = analyze_formats(all_formats)
 
@@ -385,9 +415,29 @@ def select_playback_source(
                 filtered_format = format_info
             continue
 
+        # For audio-only results, prefer direct media URLs over manifest URLs.
+        # Some HLS audio manifests (for example SoundCloud hls_opus) can fail demux/decoder init.
+        if not have_video and have_audio and manifest_type is not None:
+            raw_candidate['source'] = 'raw_format'
+            raw_candidate['format_label'] = format_info.get('format', "")
+            # Audio-only HLS manifests are more reliable through Kodi's native path
+            # than through inputstream.adaptive on some platforms.
+            raw_candidate['isa'] = False
+            better_format = pick_better_audio_manifest_candidate(
+                deferred_audio_manifest_format,
+                format_info,
+            )
+            if better_format is format_info:
+                deferred_audio_manifest_candidate = raw_candidate
+                deferred_audio_manifest_format = format_info
+            continue
+
         raw_candidate['source'] = 'raw_format'
         raw_candidate['format_label'] = format_info.get('format', "")
         return raw_candidate
+
+    if deferred_audio_manifest_candidate is not None:
+        return deferred_audio_manifest_candidate
 
     filtered_fallback = resolve_filtered_fallback_candidate(
         filtered_format,
