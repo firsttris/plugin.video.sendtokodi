@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml"><img src="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-publish.yml/badge.svg" alt="Build" /></a>
+  <a href="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml"><img src="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml/badge.svg" alt="Build" /></a>
   <a href="https://app.codecov.io/gh/firsttris/plugin.video.sendtokodi"><img src="https://codecov.io/gh/firsttris/plugin.video.sendtokodi/graph/badge.svg" alt="Coverage" /></a>
   <a href="https://kodi.tv"><img src="https://img.shields.io/badge/Kodi-19%2B-17B2E7" alt="Kodi 19+" /></a>
   <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/v/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Extension" alt="Chrome Extension" /></a>
@@ -80,8 +80,58 @@ You can change it with:
 
 - Supported sites: [yt-dlp supported websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 - Call from playlists: [playlist-example.m3u](./playlist-example.m3u)
-- Send URLs via JSON-RPC: [Development docs](./docs/DEVELOPMENT.md#Example-JSON-Request)
-- Call from another Kodi plugin: [Development docs](./docs/DEVELOPMENT.md#Call-SendToKodi-Plugin-from-Kodi)
+- Send URLs via JSON-RPC: [Example JSON-RPC request](#example-json-rpc-request)
+- Call from another Kodi plugin: [Plugin call example](#call-sendtokodi-from-another-kodi-plugin)
+
+<details>
+  <summary><strong>Developer Integration Examples (click to expand)</strong></summary>
+
+### Example JSON-RPC request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "Player.Open",
+  "params": {
+    "item": {
+      "file": "plugin://plugin.video.sendtokodi/?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
+    }
+  },
+  "id": 1
+}
+```
+
+### Example JSON-RPC request with yt-dlp authentication
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "Player.Open",
+  "params": {
+    "item": {
+      "file": "plugin://plugin.video.sendtokodi/?https://vk.com/video-124136901_456239025 {\"ydlOpts\":{\"username\":\"user@email.com\",\"password\":\"password with spaces\"}}"
+    }
+  },
+  "id": 1
+}
+```
+
+`ydlOpts` is passed directly to yt-dlp, so you can provide any supported [yt-dlp options](https://github.com/yt-dlp/yt-dlp#usage-and-options).
+
+### Call SendToKodi from another Kodi plugin
+
+```python
+xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
+```
+
+### Test with Postman
+
+- Create a new HTTP `POST` request.
+- Use your Kodi endpoint, e.g. `http://kodi:kodi@192.168.0.138:8080/jsonrpc`.
+- Set body type to raw `application/json`.
+- Paste one of the JSON-RPC examples and send.
+
+</details>
 
 ## 💻 Development
 
