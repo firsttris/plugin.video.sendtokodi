@@ -1,0 +1,12 @@
+name: build-master
+on:
+  push:
+    branches:
+      - 'master'
+jobs:
+  tests:
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      upload_coverage: true
+      coverage_artifact_name: coverage-report
+    secrets: inherit

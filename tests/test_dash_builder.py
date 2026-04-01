@@ -214,6 +214,8 @@ def test_handle_request_stops_after_timeout():
 def test_start_httpd_uses_server_and_thread(monkeypatch):
     started = {"called": False}
 
+    dash_builder._reset_httpd_state_for_tests()
+
     class FakeHTTPServer:
         def __init__(self, server_address, handler):
             self.server_address = server_address
@@ -239,4 +241,51 @@ def test_start_httpd_uses_server_and_thread(monkeypatch):
     url = dash_builder.start_httpd(b"manifest")
 
     assert started["called"] is True
-    assert url == "http://127.0.0.1:8123/manifest.mpd"
+    assert url.startswith("http://127.0.0.1:8123/manifest/")
+    assert url.endswith(".mpd")
+
+
+def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+
+    class FakeHTTPServer:
+        def __init__(self, _server_address, _handler):
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
+
+        def handle_request(self):
+            raise TimeoutError()
+
+    class FakeThread:
+        def __init__(self, target, args):
+            self.target = target
+            self.args = args
+            self.daemon = False
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 1)
+
+    state = {"version": 1}
+
+    def refresh_manifest():
+        state["version"] += 1
+        return "manifest-v{}".format(state["version"]).encode("utf-8")
+
+    url = dash_builder.start_httpd(b"manifest-v1", refresh_manifest=refresh_manifest)
+    manifest_id = url.rsplit("/", 1)[-1].replace(".mpd", "")
+
+    entry = dash_builder._MANIFESTS[manifest_id]
+    entry["refreshed_at"] = 0
+
+    class DummyHandler:
+        def __init__(self, path):
+            self.path = path
+
+    payload = dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(url.replace("http://127.0.0.1:8123", "")))
+
+    assert payload == b"manifest-v2"

@@ -2,8 +2,19 @@ import requests
 import struct
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
-from threading import Thread
+from threading import Thread, Lock
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from time import monotonic
+from uuid import uuid4
+
+
+DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
+
+_HTTPD_STATE_LOCK = Lock()
+_HTTPD = None
+_HTTPD_THREAD = None
+_MANIFESTS = {}
+_LATEST_MANIFEST_ID = None
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -194,19 +205,68 @@ class Manifest():
 
 
 class HttpHandler(BaseHTTPRequestHandler):
-    def __init__(self, request, client_address, server):
-        super().__init__(request, client_address, server)
-        self.mpd = None
+    def _resolve_manifest_payload(self):
+        # Preserve compatibility for direct handler tests where mpd is set on self.
+        local_manifest = getattr(self, 'mpd', None)
+        if local_manifest is not None:
+            return bytes(local_manifest)
+
+        path = self.path.split('?', 1)[0]
+        if path == '/manifest.mpd':
+            with _HTTPD_STATE_LOCK:
+                manifest_id = _LATEST_MANIFEST_ID
+        elif path.startswith('/manifest/') and path.endswith('.mpd'):
+            manifest_id = path[len('/manifest/'):-len('.mpd')]
+        else:
+            manifest_id = None
+
+        if not manifest_id:
+            return None
+
+        with _HTTPD_STATE_LOCK:
+            entry = _MANIFESTS.get(manifest_id)
+            if entry is None:
+                return None
+
+            refresh_manifest = entry.get('refresh_manifest')
+            now = monotonic()
+            if refresh_manifest is not None and now - entry['refreshed_at'] >= DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
+                try:
+                    refreshed = refresh_manifest()
+                except Exception:
+                    refreshed = None
+
+                if refreshed is not None:
+                    entry['manifest'] = bytes(refreshed)
+                    entry['refreshed_at'] = now
+
+            entry['last_access_at'] = now
+            return entry['manifest']
 
     def do_HEAD(self):
+        payload = HttpHandler._resolve_manifest_payload(self)
+        if payload is None:
+            self.send_response(404, 'Not Found')
+            self.end_headers()
+            return
+
         self.send_response(200, 'OK')
         self.send_header('Content-type', 'application/dash+xml')
-        self.send_header('Content-Length', str(len(bytes(self.mpd))))
+        self.send_header('Content-Length', str(len(payload)))
         self.end_headers()
 
     def do_GET(self):
-        self.do_HEAD()
-        self.wfile.write(bytes(self.mpd))
+        payload = HttpHandler._resolve_manifest_payload(self)
+        if payload is None:
+            self.send_response(404, 'Not Found')
+            self.end_headers()
+            return
+
+        self.send_response(200, 'OK')
+        self.send_header('Content-type', 'application/dash+xml')
+        self.send_header('Content-Length', str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
 
 def _handle_request(httpd):
@@ -216,15 +276,52 @@ def _handle_request(httpd):
     except TimeoutError:
         return
 
-def start_httpd(manifest):
-    handler = HttpHandler
-    handler.mpd = manifest
+def _ensure_httpd_started():
+    global _HTTPD, _HTTPD_THREAD
+    with _HTTPD_STATE_LOCK:
+        if _HTTPD is not None:
+            return _HTTPD
 
-    server_address = ('127.0.0.1', 0)
-    httpd = HTTPServer(server_address, handler)
-    httpd.timeout = 2  # Seconds
-    httpd.handle_timeout = lambda: (_ for _ in ()).throw(TimeoutError())
+        server_address = ('127.0.0.1', 0)
+        httpd = HTTPServer(server_address, HttpHandler)
+        # Keep server thread alive and periodically return from handle_request
+        # to avoid a permanently blocking accept call.
+        httpd.timeout = 1
+        httpd.handle_timeout = lambda: None
 
-    thread = Thread(target=_handle_request, args=(httpd,))
-    thread.start()
-    return "http://127.0.0.1:{}/manifest.mpd".format(httpd.server_port)
+        thread = Thread(target=_handle_request, args=(httpd,))
+        thread.daemon = True
+        thread.start()
+
+        _HTTPD = httpd
+        _HTTPD_THREAD = thread
+        return _HTTPD
+
+
+def _register_manifest(manifest, refresh_manifest=None):
+    global _LATEST_MANIFEST_ID
+    manifest_id = uuid4().hex
+    with _HTTPD_STATE_LOCK:
+        _MANIFESTS[manifest_id] = {
+            'manifest': bytes(manifest),
+            'refresh_manifest': refresh_manifest,
+            'refreshed_at': monotonic(),
+            'last_access_at': monotonic(),
+        }
+        _LATEST_MANIFEST_ID = manifest_id
+    return manifest_id
+
+
+def start_httpd(manifest, refresh_manifest=None):
+    httpd = _ensure_httpd_started()
+    manifest_id = _register_manifest(manifest, refresh_manifest=refresh_manifest)
+    return "http://127.0.0.1:{}/manifest/{}.mpd".format(httpd.server_port, manifest_id)
+
+
+def _reset_httpd_state_for_tests():
+    global _HTTPD, _HTTPD_THREAD, _MANIFESTS, _LATEST_MANIFEST_ID
+    with _HTTPD_STATE_LOCK:
+        _HTTPD = None
+        _HTTPD_THREAD = None
+        _MANIFESTS = {}
+        _LATEST_MANIFEST_ID = None

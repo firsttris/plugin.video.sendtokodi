@@ -177,7 +177,37 @@ def build_dash_manifest_candidate(
     have_audio,
     manifest_factory,
     start_httpd,
+    resolve_fresh_result=None,
 ):
+    def build_manifest_bytes():
+        refreshed_duration = duration
+        refreshed_dash_video = dash_video
+        refreshed_dash_audio = dash_audio
+        refreshed_have_video = have_video
+        refreshed_have_audio = have_audio
+
+        if resolve_fresh_result is not None:
+            fresh_result = resolve_fresh_result()
+            if fresh_result is None:
+                return None
+
+            refreshed_duration = fresh_result.get('duration', duration)
+            refreshed_have_video, refreshed_have_audio, refreshed_dash_video, refreshed_dash_audio = analyze_formats(
+                fresh_result.get('formats', [])
+            )
+
+        refreshed_builder = manifest_factory(refreshed_duration)
+        refreshed_result = add_dash_formats_to_builder(
+            refreshed_builder,
+            refreshed_dash_video,
+            refreshed_dash_audio,
+            refreshed_have_video,
+            refreshed_have_audio,
+        )
+        if refreshed_result['video_success'] and refreshed_result['audio_success']:
+            return refreshed_builder.emit()
+        return None
+
     builder = manifest_factory(duration)
     build_result = add_dash_formats_to_builder(
         builder,
@@ -187,8 +217,13 @@ def build_dash_manifest_candidate(
         have_audio,
     )
     if build_result['video_success'] and build_result['audio_success']:
+        manifest = builder.emit()
+        try:
+            manifest_url = start_httpd(manifest, refresh_manifest=build_manifest_bytes)
+        except TypeError:
+            manifest_url = start_httpd(manifest)
         return {
-            'url': start_httpd(builder.emit()),
+            'url': manifest_url,
             'events': build_result['events'],
         }
     return {'events': build_result['events']}
@@ -322,6 +357,7 @@ def select_playback_source(
                     have_audio,
                     dash_manifest_factory,
                     dash_start_httpd,
+                    result.get('resolve_fresh_result'),
                 )
             dash_url = dash_result.get('url') if dash_result is not None else None
             if dash_url is not None:

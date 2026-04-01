@@ -1,11 +1,21 @@
 from core.addon_params import (
+    DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
+    DEFAULT_DENO_VERSION,
+    MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_MEDIA_DOWNLOAD_PATH,
+    MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
+    DEFAULT_YTDLP_VERSION,
     parse_cli_paramstring,
+    parse_query_params,
+    resolve_queue_request,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
+    resolve_deno_settings,
     resolve_deno_opts,
+    resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
+    resolve_ytdlp_settings,
 )
 
 
@@ -24,6 +34,46 @@ def test_parse_cli_paramstring_with_additional_options():
     assert parsed == {
         "url": "https://example.com/video",
         "ydlOpts": {"extract_flat": "in_playlist"},
+    }
+
+
+def test_parse_query_params_extracts_query_before_ydl_opts_json():
+    parsed = parse_query_params('?action=queue&url=https%3A%2F%2Fexample.com%2Fv%3Fa%3D1%26b%3D2 {"ydlOpts": {"format": "best"}}')
+
+    assert parsed == {
+        "action": ["queue"],
+        "url": ["https://example.com/v?a=1&b=2"],
+    }
+
+
+def test_resolve_queue_request_reads_title():
+    request = resolve_queue_request("?action=queue&url=https%3A%2F%2Fexample.com%2Fvideo&title=My%20Video")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": "My Video",
+    }
+
+
+def test_resolve_queue_request_supports_optional_title():
+    request = resolve_queue_request("?action=queue&url=https%3A%2F%2Fexample.com%2Fvideo")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": None,
+    }
+
+
+def test_resolve_queue_request_returns_none_for_non_queue_actions():
+    assert resolve_queue_request("?action=play&url=https%3A%2F%2Fexample.com%2Fvideo") is None
+
+
+def test_resolve_queue_request_supports_short_action_alias_and_title_alias():
+    request = resolve_queue_request("?action=q&url=https%3A%2F%2Fexample.com%2Fvideo&name=Alias%20Title")
+
+    assert request == {
+        "url": "https://example.com/video",
+        "title": "Alias Title",
     }
 
 
@@ -99,10 +149,60 @@ def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
     opts = resolve_deno_opts(
         1,
         get_setting,
-        lambda auto_download: {"auto_download": auto_download},
+        lambda auto_download, requested_version: {
+            "auto_update": auto_download,
+            "requested_version": requested_version,
+        },
     )
 
-    assert opts == {"auto_download": False}
+    assert opts == {
+        "auto_update": False,
+        "requested_version": DEFAULT_DENO_VERSION,
+    }
+
+
+def test_resolve_deno_settings_reads_all_values():
+    def get_setting(_handle, name):
+        if name == "deno_enabled":
+            return "true"
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return "v2.7.4"
+        return ""
+
+    settings = resolve_deno_settings(1, get_setting)
+
+    assert settings == {
+        "enabled": True,
+        "auto_update": False,
+        "version": "v2.7.4",
+    }
+
+
+def test_resolve_deno_opts_forces_latest_when_auto_update_enabled():
+    def get_setting(_handle, name):
+        if name == "deno_enabled":
+            return "true"
+        if name == "deno_autodownload":
+            return "true"
+        if name == "deno_version":
+            return "v2.7.5"
+        return ""
+
+    opts = resolve_deno_opts(
+        1,
+        get_setting,
+        lambda auto_download, requested_version: {
+            "auto_update": auto_download,
+            "requested_version": requested_version,
+        },
+    )
+
+    assert opts == {
+        "auto_update": True,
+        "requested_version": DEFAULT_DENO_VERSION,
+    }
 
 
 def test_resolve_media_download_settings_defaults_to_disabled_and_default_path():
@@ -135,3 +235,65 @@ def test_resolve_media_download_settings_uses_custom_path_when_set():
         "enabled": True,
         "path": "/tmp/sendtokodi-downloads",
     }
+
+
+def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
+    def get_setting(_handle, name):
+        if name == "ytdlp_autodownload":
+            return "true"
+        if name == "ytdlp_version":
+            return ""
+        return ""
+
+    settings = resolve_ytdlp_settings(1, get_setting)
+
+    assert settings == {
+        "auto_update": True,
+        "version": DEFAULT_YTDLP_VERSION,
+    }
+
+
+def test_resolve_ytdlp_settings_reads_all_values():
+    def get_setting(_handle, name):
+        if name == "ytdlp_autodownload":
+            return "false"
+        if name == "ytdlp_version":
+            return "2026.03.26"
+        return ""
+
+    settings = resolve_ytdlp_settings(1, get_setting)
+
+    assert settings == {
+        "auto_update": False,
+        "version": "2026.03.26",
+    }
+
+
+def test_resolve_dash_httpd_idle_timeout_uses_default_when_missing():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "")
+
+    assert value == DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_uses_default_when_invalid():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "abc")
+
+    assert value == DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_clamps_to_minimum():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "1")
+
+    assert value == MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_clamps_to_maximum():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "9999")
+
+    assert value == MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+
+
+def test_resolve_dash_httpd_idle_timeout_accepts_valid_integer():
+    value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "180")
+
+    assert value == 180
