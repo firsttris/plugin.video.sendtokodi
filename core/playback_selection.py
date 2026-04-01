@@ -54,6 +54,49 @@ def should_filter_by_max_width(width, maxwidth):
     return width is not None and width > maxwidth
 
 
+def should_allow_native_hls_without_isa(format_info, manifest_type):
+    if manifest_type != 'hls':
+        return False
+
+    protocol = (format_info.get('protocol') or '').lower()
+    if not protocol.startswith('m3u'):
+        return False
+
+    unknown_values = (None, '', 'none', 'unknown')
+    vcodec = (format_info.get('vcodec') or '').lower()
+    acodec = (format_info.get('acodec') or '').lower()
+    return vcodec not in unknown_values and acodec not in unknown_values
+
+
+def should_skip_original_manifest(result):
+    extractor_key = (result.get('extractor_key') or '').lower()
+    return extractor_key == 'peertube'
+
+
+def should_skip_format_manifest(result, format_info):
+    if not should_skip_original_manifest(result):
+        return False
+    manifest_url = format_info.get('manifest_url')
+    manifest_type = guess_manifest_type(format_info, manifest_url) if manifest_url else None
+    return manifest_type == 'hls'
+
+
+def should_defer_fragmented_raw_candidate(format_info, manifest_type):
+    # Some extractors (notably PeerTube) expose "...-fragmented.mp4" direct URLs
+    # that can lose audio on certain Kodi/player combinations.
+    if manifest_type is not None:
+        return False
+
+    stream_url = (format_info.get('url') or '').lower()
+    if 'fragmented' not in stream_url:
+        return False
+
+    vcodec = format_info.get('vcodec')
+    acodec = format_info.get('acodec')
+    unknown_values = (None, '', 'none', 'unknown')
+    return vcodec in unknown_values or acodec in unknown_values
+
+
 def audio_manifest_candidate_score(format_info):
     """Higher score means better fallback candidate for audio-only manifest playback."""
     score = 0
@@ -141,7 +184,8 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     ):
         return {'decision': 'skip'}
 
-    if manifest_type is not None and not manifest_supported:
+    native_hls_without_isa = should_allow_native_hls_without_isa(format_info, manifest_type)
+    if manifest_type is not None and not manifest_supported and not native_hls_without_isa:
         return {'decision': 'skip'}
 
     width = format_info.get('width', 0)
@@ -151,7 +195,9 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     return {
         'decision': 'select',
         'url': format_info['url'],
-        'isa': manifest_supported,
+        # Prefer Kodi-native playback for muxed m3u8 variants with known codecs.
+        # This avoids audio loss observed on some platforms with ISA/HLS on PeerTube.
+        'isa': False if native_hls_without_isa else manifest_supported,
         'headers': format_info.get('http_headers'),
     }
 
@@ -336,18 +382,20 @@ def select_playback_source(
         dash_start_httpd = dashbuilder.start_httpd
 
     manifest_url = result.get('manifest_url') if usemanifest else None
-    original_manifest_candidate = resolve_manifest_candidate(
-        manifest_url,
-        isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
-        result.get('http_headers'),
-    )
-    if original_manifest_candidate is not None:
-        original_manifest_candidate['source'] = 'original_manifest'
-        return original_manifest_candidate
+    if not should_skip_original_manifest(result):
+        original_manifest_candidate = resolve_manifest_candidate(
+            manifest_url,
+            isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
+            result.get('http_headers'),
+        )
+        if original_manifest_candidate is not None:
+            original_manifest_candidate['source'] = 'original_manifest'
+            return original_manifest_candidate
 
     filtered_format = None
     deferred_audio_manifest_candidate = None
     deferred_audio_manifest_format = None
+    deferred_fragmented_raw_candidate = None
     all_formats = result.get('formats', [])
     have_video, have_audio, dash_video, dash_audio = analyze_formats(all_formats)
 
@@ -358,15 +406,16 @@ def select_playback_source(
             continue
 
         manifest_url = format_info.get('manifest_url') if usemanifest else None
-        format_manifest_candidate = resolve_manifest_candidate(
-            manifest_url,
-            isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
-            format_info.get('http_headers'),
-        )
-        if format_manifest_candidate is not None:
-            format_manifest_candidate['source'] = 'format_manifest'
-            format_manifest_candidate['format_label'] = format_info.get('format', "")
-            return format_manifest_candidate
+        if not should_skip_format_manifest(result, format_info):
+            format_manifest_candidate = resolve_manifest_candidate(
+                manifest_url,
+                isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
+                format_info.get('http_headers'),
+            )
+            if format_manifest_candidate is not None:
+                format_manifest_candidate['source'] = 'format_manifest'
+                format_manifest_candidate['format_label'] = format_info.get('format', "")
+                return format_manifest_candidate
 
         if should_try_dash_builder(
             usedashbuilder,
@@ -432,12 +481,22 @@ def select_playback_source(
                 deferred_audio_manifest_format = format_info
             continue
 
+        if should_defer_fragmented_raw_candidate(format_info, manifest_type):
+            raw_candidate['source'] = 'raw_format'
+            raw_candidate['format_label'] = format_info.get('format', "")
+            if deferred_fragmented_raw_candidate is None:
+                deferred_fragmented_raw_candidate = raw_candidate
+            continue
+
         raw_candidate['source'] = 'raw_format'
         raw_candidate['format_label'] = format_info.get('format', "")
         return raw_candidate
 
     if deferred_audio_manifest_candidate is not None:
         return deferred_audio_manifest_candidate
+
+    if deferred_fragmented_raw_candidate is not None:
+        return deferred_fragmented_raw_candidate
 
     filtered_fallback = resolve_filtered_fallback_candidate(
         filtered_format,

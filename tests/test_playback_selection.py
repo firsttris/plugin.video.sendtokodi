@@ -515,6 +515,158 @@ def test_select_playback_source_uses_raw_format_when_playable():
     assert selected["url"] == "https://example.com/video.mp4"
 
 
+def test_select_playback_source_prefers_non_fragmented_direct_url_over_fragmented_fallback():
+    result = {
+        "formats": [
+            {
+                "format": "360p-0 - 360p",
+                "url": "https://tube.example/static/webseed/video-360.mp4",
+                "vcodec": None,
+                "acodec": None,
+                "width": 640,
+            },
+            {
+                "format": "360p-1 - 360p",
+                "url": "https://tube.example/static/streaming/video-360-fragmented.mp4",
+                "vcodec": None,
+                "acodec": None,
+                "width": 640,
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "360p-0 - 360p"
+    assert selected["url"] == "https://tube.example/static/webseed/video-360.mp4"
+
+
+def test_select_playback_source_keeps_fragmented_direct_url_as_last_resort():
+    result = {
+        "formats": [
+            {
+                "format": "only-fragmented",
+                "url": "https://tube.example/static/streaming/video-fragmented.mp4",
+                "vcodec": None,
+                "acodec": None,
+                "width": 640,
+            }
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "only-fragmented"
+    assert selected["url"] == "https://tube.example/static/streaming/video-fragmented.mp4"
+
+
+def test_select_playback_source_uses_native_hls_when_isa_is_unavailable():
+    result = {
+        "formats": [
+            {
+                "format": "360p-0 - 360p",
+                "url": "https://tube.example/static/webseed/video-360.mp4",
+                "protocol": "https",
+                "vcodec": None,
+                "acodec": None,
+                "width": 640,
+            },
+            {
+                "format": "8 - 638x360",
+                "url": "https://tube.example/static/streaming/video-360.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.64001f",
+                "acodec": "mp4a.40.2",
+                "width": 638,
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "8 - 638x360"
+    assert selected["url"] == "https://tube.example/static/streaming/video-360.m3u8"
+    assert selected["isa"] is False
+
+
+def test_select_playback_source_uses_native_hls_when_isa_is_available_too():
+    result = {
+        "formats": [
+            {
+                "format": "8 - 638x360",
+                "url": "https://tube.example/static/streaming/video-360.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.64001f",
+                "acodec": "mp4a.40.2",
+                "width": 638,
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://tube.example/static/streaming/video-360.m3u8"
+    assert selected["isa"] is False
+
+
+def test_select_playback_source_skips_original_manifest_for_peertube():
+    result = {
+        "extractor_key": "PeerTube",
+        "manifest_url": "https://tube.example/master.m3u8",
+        "formats": [
+            {
+                "format": "8 - 638x360",
+                "url": "https://tube.example/stream-360.m3u8",
+                "manifest_url": "https://tube.example/format-master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.64001f",
+                "acodec": "mp4a.40.2",
+                "width": 638,
+            }
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://tube.example/stream-360.m3u8"
+    assert selected["isa"] is False
+
+
 def test_select_playback_source_uses_filtered_fallback_when_only_over_limit_formats_exist():
     result = {
         "formats": [
