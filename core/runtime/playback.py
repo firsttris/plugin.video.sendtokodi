@@ -42,6 +42,27 @@ def _format_stream_option(format_info):
     return "{} | {} | {} / {} | {}".format(format_label, protocol, vcodec, acodec, resolution)
 
 
+def _normalize_codec(codec):
+    value = (codec or "").strip().lower()
+    if value in ("", "none", "unknown", "null"):
+        return "none"
+    return value
+
+
+def _infer_selected_stream_kind(result, selected_url):
+    for format_info in reversed(result.get("formats", [])):
+        if format_info.get("url") != selected_url:
+            continue
+
+        vcodec = _normalize_codec(format_info.get("vcodec"))
+        acodec = _normalize_codec(format_info.get("acodec"))
+        if vcodec == "none" and acodec != "none":
+            return "audio"
+        return "video"
+
+    return "video"
+
+
 def _prompt_preferred_stream_url(result):
     formats = result.get("formats", [])
     entries = []
@@ -143,9 +164,14 @@ def create_list_item_from_video(
 
     log("creating list item for url {}".format(url))
     list_item = xbmcgui.ListItem(result["title"], path=url)
-    video_info = list_item.getVideoInfoTag()
-    video_info.setTitle(result["title"])
-    video_info.setPlot(result.get("description", None))
+    stream_kind = _infer_selected_stream_kind(result, url)
+    if stream_kind == "audio":
+        music_info = list_item.getMusicInfoTag()
+        music_info.setTitle(result["title"])
+    else:
+        video_info = list_item.getVideoInfoTag()
+        video_info.setTitle(result["title"])
+        video_info.setPlot(result.get("description", None))
     if result.get("thumbnail", None) is not None:
         list_item.setArt({"thumb": result["thumbnail"]})
 

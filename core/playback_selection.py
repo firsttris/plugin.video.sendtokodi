@@ -65,7 +65,9 @@ def should_allow_native_hls_without_isa(format_info, manifest_type):
     vcodec = (format_info.get('vcodec') or '').lower()
     acodec = (format_info.get('acodec') or '').lower()
     unknown_values = ('', 'none', 'unknown')
-    return vcodec not in unknown_values and acodec not in unknown_values
+    is_audio_only = vcodec in unknown_values and acodec not in unknown_values
+    is_muxed_av = vcodec not in unknown_values and acodec not in unknown_values
+    return is_audio_only or is_muxed_av
 
 
 def should_try_dash_builder(usedashbuilder, have_video, dash_video, have_audio, dash_audio, current_format, mpd_supported):

@@ -140,6 +140,19 @@ def test_should_allow_native_hls_without_isa_for_muxed_hls_variant():
     assert allowed is True
 
 
+def test_should_allow_native_hls_without_isa_for_audio_only_hls_variant():
+    allowed = should_allow_native_hls_without_isa(
+        {
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+        },
+        manifest_type="hls",
+    )
+
+    assert allowed is True
+
+
 def test_should_try_dash_builder_true_for_last_video_format_when_supported():
     current = {"id": "v2"}
     dash_video = [{"id": "v1"}, current]
@@ -256,6 +269,30 @@ def test_evaluate_raw_format_candidate_uses_native_for_muxed_hls_when_isa_unavai
     assert result == {
         "decision": "select",
         "url": "https://example.com/stream.m3u8",
+        "isa": False,
+        "headers": {"User-Agent": "UA"},
+    }
+
+
+def test_evaluate_raw_format_candidate_uses_native_for_audio_only_hls_when_isa_available():
+    result = evaluate_raw_format_candidate(
+        format_info={
+            "url": "https://example.com/audio.m3u8",
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+            "http_headers": {"User-Agent": "UA"},
+        },
+        have_video=False,
+        have_audio=True,
+        maxwidth=1920,
+        manifest_type="hls",
+        manifest_supported=True,
+    )
+
+    assert result == {
+        "decision": "select",
+        "url": "https://example.com/audio.m3u8",
         "isa": False,
         "headers": {"User-Agent": "UA"},
     }
