@@ -54,6 +54,20 @@ def should_filter_by_max_width(width, maxwidth):
     return width is not None and width > maxwidth
 
 
+def should_allow_native_hls_without_isa(format_info, manifest_type):
+    if manifest_type != 'hls':
+        return False
+
+    protocol = (format_info.get('protocol') or '').lower()
+    if not protocol.startswith('m3u'):
+        return False
+
+    vcodec = (format_info.get('vcodec') or '').lower()
+    acodec = (format_info.get('acodec') or '').lower()
+    unknown_values = ('', 'none', 'unknown')
+    return vcodec not in unknown_values and acodec not in unknown_values
+
+
 def should_try_dash_builder(usedashbuilder, have_video, dash_video, have_audio, dash_audio, current_format, mpd_supported):
     return (
         usedashbuilder
@@ -113,7 +127,8 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     ):
         return {'decision': 'skip'}
 
-    if manifest_type is not None and not manifest_supported:
+    native_hls_without_isa = should_allow_native_hls_without_isa(format_info, manifest_type)
+    if manifest_type is not None and not manifest_supported and not native_hls_without_isa:
         return {'decision': 'skip'}
 
     width = format_info.get('width', 0)
@@ -123,7 +138,8 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     return {
         'decision': 'select',
         'url': format_info['url'],
-        'isa': manifest_supported,
+        # For muxed HLS variants this can be more reliable than ISA on some Kodi setups.
+        'isa': False if native_hls_without_isa else manifest_supported,
         'headers': format_info.get('http_headers'),
     }
 
@@ -331,16 +347,17 @@ def select_playback_source(
         if preferred_format_url is not None and format_info.get('url') != preferred_format_url:
             continue
 
-        manifest_url = format_info.get('manifest_url') if usemanifest else None
-        format_manifest_candidate = resolve_manifest_candidate(
-            manifest_url,
-            isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
-            format_info.get('http_headers'),
-        )
-        if format_manifest_candidate is not None:
-            format_manifest_candidate['source'] = 'format_manifest'
-            format_manifest_candidate['format_label'] = format_info.get('format', "")
-            return format_manifest_candidate
+        if preferred_format_url is None:
+            manifest_url = format_info.get('manifest_url') if usemanifest else None
+            format_manifest_candidate = resolve_manifest_candidate(
+                manifest_url,
+                isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
+                format_info.get('http_headers'),
+            )
+            if format_manifest_candidate is not None:
+                format_manifest_candidate['source'] = 'format_manifest'
+                format_manifest_candidate['format_label'] = format_info.get('format', "")
+                return format_manifest_candidate
 
         if should_try_dash_builder(
             usedashbuilder,
