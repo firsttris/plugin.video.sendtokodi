@@ -31,12 +31,45 @@ def _resolve_downloaded_file_path(result):
     return None
 
 
+def _format_stream_option(format_info):
+    format_label = format_info.get("format") or format_info.get("format_id") or "unknown"
+    protocol = format_info.get("protocol") or "?"
+    vcodec = format_info.get("vcodec") or "?"
+    acodec = format_info.get("acodec") or "?"
+    width = format_info.get("width")
+    height = format_info.get("height")
+    resolution = "{}x{}".format(width, height) if width and height else "?"
+    return "{} | {} | {} / {} | {}".format(format_label, protocol, vcodec, acodec, resolution)
+
+
+def _prompt_preferred_stream_url(result):
+    formats = result.get("formats", [])
+    entries = []
+    seen_urls = set()
+    for format_info in reversed(formats):
+        stream_url = format_info.get("url")
+        if not stream_url or stream_url in seen_urls:
+            continue
+        seen_urls.add(stream_url)
+        entries.append((stream_url, _format_stream_option(format_info)))
+
+    if not entries:
+        return None
+
+    labels = ["Automatic selection"] + [label for _, label in entries]
+    selected_index = xbmcgui.Dialog().select("Select stream", labels)
+    if selected_index <= 0:
+        return None
+    return entries[selected_index - 1][0]
+
+
 def create_list_item_from_video(
     result,
     ydl_opts,
     usemanifest,
     usedashbuilder,
     maxwidth,
+    askstream,
     isa_supports,
     youtube_dl_cls,
     log,
@@ -58,6 +91,7 @@ def create_list_item_from_video(
 
     selection_result = dict(result)
     selection_result["resolve_fresh_result"] = resolve_fresh_result
+    preferred_stream_url = _prompt_preferred_stream_url(selection_result) if askstream else None
     selected_source = select_playback_source(
         selection_result,
         usemanifest,
@@ -65,7 +99,19 @@ def create_list_item_from_video(
         maxwidth,
         isa_supports,
         dash_builder,
+        preferred_stream_url,
     )
+
+    if selected_source is None and preferred_stream_url is not None:
+        log("Selected stream is not playable, falling back to automatic selection", xbmc.LOGWARNING)
+        selected_source = select_playback_source(
+            selection_result,
+            usemanifest,
+            usedashbuilder,
+            maxwidth,
+            isa_supports,
+            dash_builder,
+        )
 
     if selected_source is not None:
         for message in selection_log_messages(selected_source):
@@ -161,6 +207,7 @@ def play_playlist_result(
     usemanifest,
     usedashbuilder,
     maxwidth,
+    askstream,
     isa_supports,
     youtube_dl_cls,
     log,
@@ -185,6 +232,7 @@ def play_playlist_result(
         usemanifest,
         usedashbuilder,
         maxwidth,
+        askstream,
         isa_supports,
         youtube_dl_cls,
         log,

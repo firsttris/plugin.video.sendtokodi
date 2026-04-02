@@ -300,6 +300,7 @@ def select_playback_source(
     maxwidth,
     isa_supports,
     dashbuilder=None,
+    preferred_format_url=None,
 ):
     dash_manifest_factory = None
     dash_start_httpd = None
@@ -313,7 +314,7 @@ def select_playback_source(
         isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
         result.get('http_headers'),
     )
-    if original_manifest_candidate is not None:
+    if original_manifest_candidate is not None and preferred_format_url is None:
         original_manifest_candidate['source'] = 'original_manifest'
         return original_manifest_candidate
 
@@ -325,6 +326,9 @@ def select_playback_source(
         vcodec = format_info.get('vcodec')
         acodec = format_info.get('acodec')
         if should_skip_manifest_candidate(have_video, vcodec, acodec):
+            continue
+
+        if preferred_format_url is not None and format_info.get('url') != preferred_format_url:
             continue
 
         manifest_url = format_info.get('manifest_url') if usemanifest else None

@@ -515,6 +515,66 @@ def test_select_playback_source_uses_raw_format_when_playable():
     assert selected["url"] == "https://example.com/video.mp4"
 
 
+def test_select_playback_source_prefers_user_selected_stream_url():
+    result = {
+        "manifest_url": "https://example.com/master.m3u8",
+        "formats": [
+            {
+                "format": "f360",
+                "url": "https://example.com/360.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 640,
+            },
+            {
+                "format": "f720",
+                "url": "https://example.com/720.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1280,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        preferred_format_url="https://example.com/360.mp4",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/360.mp4"
+
+
+def test_select_playback_source_returns_none_for_unplayable_user_selected_stream_url():
+    result = {
+        "manifest_url": "https://example.com/master.m3u8",
+        "formats": [
+            {
+                "format": "f720",
+                "url": "https://example.com/720.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1280,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        preferred_format_url="https://example.com/missing.mp4",
+    )
+
+    assert selected is None
+
+
 def test_select_playback_source_uses_filtered_fallback_when_only_over_limit_formats_exist():
     result = {
         "formats": [
