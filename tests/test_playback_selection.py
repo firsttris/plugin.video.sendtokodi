@@ -6,6 +6,7 @@ from core.playback_selection import (
     evaluate_raw_format_candidate,
     guess_manifest_type,
     normalize_dash_audio_streams,
+    should_allow_native_hls_without_isa,
     add_dash_formats_to_builder,
     build_dash_manifest_candidate,
     resolve_filtered_fallback_candidate,
@@ -126,6 +127,32 @@ def test_should_filter_by_max_width_only_when_exceeding_limit():
     assert should_filter_by_max_width(None, 1280) is False
 
 
+def test_should_allow_native_hls_without_isa_for_muxed_hls_variant():
+    allowed = should_allow_native_hls_without_isa(
+        {
+            "protocol": "m3u8_native",
+            "vcodec": "avc1.64001f",
+            "acodec": "mp4a.40.2",
+        },
+        manifest_type="hls",
+    )
+
+    assert allowed is True
+
+
+def test_should_allow_native_hls_without_isa_for_audio_only_hls_variant():
+    allowed = should_allow_native_hls_without_isa(
+        {
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+        },
+        manifest_type="hls",
+    )
+
+    assert allowed is True
+
+
 def test_should_try_dash_builder_true_for_last_video_format_when_supported():
     current = {"id": "v2"}
     dash_video = [{"id": "v1"}, current]
@@ -221,6 +248,74 @@ def test_evaluate_raw_format_candidate_selects_playable_stream():
         "isa": True,
         "headers": {"User-Agent": "UA"},
     }
+
+
+def test_evaluate_raw_format_candidate_uses_native_for_muxed_hls_when_isa_unavailable():
+    result = evaluate_raw_format_candidate(
+        format_info={
+            "url": "https://example.com/stream.m3u8",
+            "protocol": "m3u8_native",
+            "vcodec": "avc1.64001f",
+            "acodec": "mp4a.40.2",
+            "http_headers": {"User-Agent": "UA"},
+        },
+        have_video=True,
+        have_audio=True,
+        maxwidth=1920,
+        manifest_type="hls",
+        manifest_supported=False,
+    )
+
+    assert result == {
+        "decision": "select",
+        "url": "https://example.com/stream.m3u8",
+        "isa": False,
+        "headers": {"User-Agent": "UA"},
+    }
+
+
+def test_evaluate_raw_format_candidate_uses_native_for_audio_only_hls_when_isa_available():
+    result = evaluate_raw_format_candidate(
+        format_info={
+            "url": "https://example.com/audio.m3u8",
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+            "http_headers": {"User-Agent": "UA"},
+        },
+        have_video=False,
+        have_audio=True,
+        maxwidth=1920,
+        manifest_type="hls",
+        manifest_supported=True,
+    )
+
+    assert result == {
+        "decision": "select",
+        "url": "https://example.com/audio.m3u8",
+        "isa": False,
+        "headers": {"User-Agent": "UA"},
+    }
+
+
+def test_evaluate_raw_format_candidate_skips_audio_only_native_hls_opus_when_disabled_by_setting():
+    result = evaluate_raw_format_candidate(
+        format_info={
+            "url": "https://example.com/audio.m3u8",
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+            "http_headers": {"User-Agent": "UA"},
+        },
+        have_video=False,
+        have_audio=True,
+        maxwidth=1920,
+        manifest_type="hls",
+        manifest_supported=True,
+        disable_opus_for_audio_only_hls_native=True,
+    )
+
+    assert result == {"decision": "skip"}
 
 
 def test_resolve_filtered_fallback_candidate_returns_none_without_filtered_format():
@@ -515,6 +610,95 @@ def test_select_playback_source_uses_raw_format_when_playable():
     assert selected["url"] == "https://example.com/video.mp4"
 
 
+def test_select_playback_source_prefers_user_selected_stream_url():
+    result = {
+        "manifest_url": "https://example.com/master.m3u8",
+        "formats": [
+            {
+                "format": "f360",
+                "url": "https://example.com/360.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 640,
+            },
+            {
+                "format": "f720",
+                "url": "https://example.com/720.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1280,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        preferred_format_url="https://example.com/360.mp4",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/360.mp4"
+
+
+def test_select_playback_source_returns_none_for_unplayable_user_selected_stream_url():
+    result = {
+        "manifest_url": "https://example.com/master.m3u8",
+        "formats": [
+            {
+                "format": "f720",
+                "url": "https://example.com/720.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1280,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        preferred_format_url="https://example.com/missing.mp4",
+    )
+
+    assert selected is None
+
+
+def test_select_playback_source_user_selected_stream_skips_format_manifest_path():
+    result = {
+        "formats": [
+            {
+                "format": "hls-choice",
+                "url": "https://example.com/stream-360.m3u8",
+                "manifest_url": "https://example.com/master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.64001f",
+                "acodec": "mp4a.40.2",
+                "width": 640,
+            }
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+        preferred_format_url="https://example.com/stream-360.m3u8",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/stream-360.m3u8"
+    assert selected["isa"] is False
+
+
 def test_select_playback_source_uses_filtered_fallback_when_only_over_limit_formats_exist():
     result = {
         "formats": [
@@ -538,6 +722,39 @@ def test_select_playback_source_uses_filtered_fallback_when_only_over_limit_form
 
     assert selected["source"] == "filtered_fallback"
     assert selected["url"] == "https://example.com/video4k.mp4"
+
+
+def test_select_playback_source_skips_audio_only_native_hls_opus_when_setting_enabled():
+    result = {
+        "formats": [
+            {
+                "format": "aac-audio",
+                "url": "https://example.com/audio-aac.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "none",
+                "acodec": "aac",
+            },
+            {
+                "format": "opus-audio",
+                "url": "https://example.com/audio-opus.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "none",
+                "acodec": "opus",
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        disable_opus_for_audio_only_hls_native=True,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/audio-aac.m3u8"
 
 
 def test_select_playback_source_uses_result_fallback_when_no_formats_selected():

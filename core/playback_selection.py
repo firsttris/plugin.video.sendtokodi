@@ -54,6 +54,39 @@ def should_filter_by_max_width(width, maxwidth):
     return width is not None and width > maxwidth
 
 
+def should_allow_native_hls_without_isa(format_info, manifest_type):
+    if manifest_type != 'hls':
+        return False
+
+    protocol = (format_info.get('protocol') or '').lower()
+    if not protocol.startswith('m3u'):
+        return False
+
+    vcodec = (format_info.get('vcodec') or '').lower()
+    acodec = (format_info.get('acodec') or '').lower()
+    unknown_values = ('', 'none', 'unknown')
+    is_audio_only = vcodec in unknown_values and acodec not in unknown_values
+    is_muxed_av = vcodec not in unknown_values and acodec not in unknown_values
+    return is_audio_only or is_muxed_av
+
+
+def should_skip_audio_only_hls_native_opus(format_info, manifest_type, disable_opus_for_audio_only_hls_native):
+    if not disable_opus_for_audio_only_hls_native:
+        return False
+    if manifest_type != 'hls':
+        return False
+
+    protocol = (format_info.get('protocol') or '').lower()
+    if not protocol.startswith('m3u'):
+        return False
+
+    vcodec = (format_info.get('vcodec') or '').lower()
+    acodec = (format_info.get('acodec') or '').lower()
+    unknown_values = ('', 'none', 'unknown')
+    is_audio_only = vcodec in unknown_values and acodec not in unknown_values
+    return is_audio_only and acodec == 'opus'
+
+
 def should_try_dash_builder(usedashbuilder, have_video, dash_video, have_audio, dash_audio, current_format, mpd_supported):
     return (
         usedashbuilder
@@ -101,7 +134,15 @@ def resolve_result_fallback_candidate(result_url, manifest_supported, headers):
     }
 
 
-def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth, manifest_type, manifest_supported):
+def evaluate_raw_format_candidate(
+    format_info,
+    have_video,
+    have_audio,
+    maxwidth,
+    manifest_type,
+    manifest_supported,
+    disable_opus_for_audio_only_hls_native=False,
+):
     if 'url' not in format_info:
         return {'decision': 'skip'}
 
@@ -113,7 +154,15 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     ):
         return {'decision': 'skip'}
 
-    if manifest_type is not None and not manifest_supported:
+    if should_skip_audio_only_hls_native_opus(
+        format_info,
+        manifest_type,
+        disable_opus_for_audio_only_hls_native,
+    ):
+        return {'decision': 'skip'}
+
+    native_hls_without_isa = should_allow_native_hls_without_isa(format_info, manifest_type)
+    if manifest_type is not None and not manifest_supported and not native_hls_without_isa:
         return {'decision': 'skip'}
 
     width = format_info.get('width', 0)
@@ -123,7 +172,8 @@ def evaluate_raw_format_candidate(format_info, have_video, have_audio, maxwidth,
     return {
         'decision': 'select',
         'url': format_info['url'],
-        'isa': manifest_supported,
+        # For muxed HLS variants this can be more reliable than ISA on some Kodi setups.
+        'isa': False if native_hls_without_isa else manifest_supported,
         'headers': format_info.get('http_headers'),
     }
 
@@ -300,6 +350,8 @@ def select_playback_source(
     maxwidth,
     isa_supports,
     dashbuilder=None,
+    preferred_format_url=None,
+    disable_opus_for_audio_only_hls_native=False,
 ):
     dash_manifest_factory = None
     dash_start_httpd = None
@@ -313,7 +365,7 @@ def select_playback_source(
         isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
         result.get('http_headers'),
     )
-    if original_manifest_candidate is not None:
+    if original_manifest_candidate is not None and preferred_format_url is None:
         original_manifest_candidate['source'] = 'original_manifest'
         return original_manifest_candidate
 
@@ -327,16 +379,20 @@ def select_playback_source(
         if should_skip_manifest_candidate(have_video, vcodec, acodec):
             continue
 
-        manifest_url = format_info.get('manifest_url') if usemanifest else None
-        format_manifest_candidate = resolve_manifest_candidate(
-            manifest_url,
-            isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
-            format_info.get('http_headers'),
-        )
-        if format_manifest_candidate is not None:
-            format_manifest_candidate['source'] = 'format_manifest'
-            format_manifest_candidate['format_label'] = format_info.get('format', "")
-            return format_manifest_candidate
+        if preferred_format_url is not None and format_info.get('url') != preferred_format_url:
+            continue
+
+        if preferred_format_url is None:
+            manifest_url = format_info.get('manifest_url') if usemanifest else None
+            format_manifest_candidate = resolve_manifest_candidate(
+                manifest_url,
+                isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
+                format_info.get('http_headers'),
+            )
+            if format_manifest_candidate is not None:
+                format_manifest_candidate['source'] = 'format_manifest'
+                format_manifest_candidate['format_label'] = format_info.get('format', "")
+                return format_manifest_candidate
 
         if should_try_dash_builder(
             usedashbuilder,
@@ -377,6 +433,7 @@ def select_playback_source(
             maxwidth,
             manifest_type,
             isa_supports(manifest_type),
+            disable_opus_for_audio_only_hls_native,
         )
         if raw_candidate['decision'] == 'skip':
             continue

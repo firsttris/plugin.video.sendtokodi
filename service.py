@@ -194,6 +194,10 @@ if media_download_enabled:
 
 usemanifest = xbmcplugin.getSetting(__handle__,"usemanifest") == 'true'
 usedashbuilder = xbmcplugin.getSetting(__handle__,"usedashbuilder") == 'true'
+askstream = xbmcplugin.getSetting(__handle__,"askstream") == 'true'
+disable_opus_for_audio_only_hls_native = (
+    xbmcplugin.getSetting(__handle__, "audio_only_hls_disable_opus_native") == 'true'
+)
 dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(__handle__, xbmcplugin.getSetting)
 dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
 log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
@@ -223,6 +227,8 @@ if 'entries' in result:
             usemanifest,
             usedashbuilder,
             maxwidth,
+            askstream,
+            disable_opus_for_audio_only_hls_native,
             isa_supports,
             YoutubeDL,
             log,
@@ -238,6 +244,8 @@ else:
             usemanifest,
             usedashbuilder,
             maxwidth,
+            askstream,
+            disable_opus_for_audio_only_hls_native,
             isa_supports,
             YoutubeDL,
             log,
