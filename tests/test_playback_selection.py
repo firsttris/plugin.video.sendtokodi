@@ -298,6 +298,26 @@ def test_evaluate_raw_format_candidate_uses_native_for_audio_only_hls_when_isa_a
     }
 
 
+def test_evaluate_raw_format_candidate_skips_audio_only_native_hls_opus_when_disabled_by_setting():
+    result = evaluate_raw_format_candidate(
+        format_info={
+            "url": "https://example.com/audio.m3u8",
+            "protocol": "m3u8_native",
+            "vcodec": "none",
+            "acodec": "opus",
+            "http_headers": {"User-Agent": "UA"},
+        },
+        have_video=False,
+        have_audio=True,
+        maxwidth=1920,
+        manifest_type="hls",
+        manifest_supported=True,
+        disable_opus_for_audio_only_hls_native=True,
+    )
+
+    assert result == {"decision": "skip"}
+
+
 def test_resolve_filtered_fallback_candidate_returns_none_without_filtered_format():
     assert resolve_filtered_fallback_candidate(None, manifest_supported=False) is None
 
@@ -702,6 +722,39 @@ def test_select_playback_source_uses_filtered_fallback_when_only_over_limit_form
 
     assert selected["source"] == "filtered_fallback"
     assert selected["url"] == "https://example.com/video4k.mp4"
+
+
+def test_select_playback_source_skips_audio_only_native_hls_opus_when_setting_enabled():
+    result = {
+        "formats": [
+            {
+                "format": "aac-audio",
+                "url": "https://example.com/audio-aac.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "none",
+                "acodec": "aac",
+            },
+            {
+                "format": "opus-audio",
+                "url": "https://example.com/audio-opus.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "none",
+                "acodec": "opus",
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+        disable_opus_for_audio_only_hls_native=True,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/audio-aac.m3u8"
 
 
 def test_select_playback_source_uses_result_fallback_when_no_formats_selected():

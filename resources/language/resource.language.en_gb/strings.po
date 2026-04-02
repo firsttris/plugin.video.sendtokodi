@@ -108,6 +108,10 @@ msgctxt "#33045"
 msgid "Ask which stream to play"
 msgstr ""
 
+msgctxt "#33046"
+msgid "Audio-only HLS: disable Opus for native m3u streams"
+msgstr ""
+
 msgctxt "#33030"
 msgid "Maximum resolution"
 msgstr ""

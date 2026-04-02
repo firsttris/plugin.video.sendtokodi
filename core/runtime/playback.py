@@ -91,6 +91,7 @@ def create_list_item_from_video(
     usedashbuilder,
     maxwidth,
     askstream,
+    disable_opus_for_audio_only_hls_native,
     isa_supports,
     youtube_dl_cls,
     log,
@@ -121,6 +122,7 @@ def create_list_item_from_video(
         isa_supports,
         dash_builder,
         preferred_stream_url,
+        disable_opus_for_audio_only_hls_native,
     )
 
     if selected_source is None and preferred_stream_url is not None:
@@ -132,6 +134,7 @@ def create_list_item_from_video(
             maxwidth,
             isa_supports,
             dash_builder,
+            disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
         )
 
     if selected_source is not None:
@@ -234,6 +237,7 @@ def play_playlist_result(
     usedashbuilder,
     maxwidth,
     askstream,
+    disable_opus_for_audio_only_hls_native,
     isa_supports,
     youtube_dl_cls,
     log,
@@ -259,6 +263,7 @@ def play_playlist_result(
         usedashbuilder,
         maxwidth,
         askstream,
+        disable_opus_for_audio_only_hls_native,
         isa_supports,
         youtube_dl_cls,
         log,

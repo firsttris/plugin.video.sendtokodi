@@ -108,6 +108,11 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting type="boolean" id="audio_only_hls_disable_opus_native" label="33046">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting type="string" id="dash_httpd_idle_timeout" label="33040" parent="usedashbuilder">
                     <level>0</level>
                     <default>120</default>
