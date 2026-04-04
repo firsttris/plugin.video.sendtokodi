@@ -31,8 +31,8 @@
                     <control type="spinner" format="string"/>
                 </setting>
                 <setting type="string" id="quickjs_path" label="32063">
-                    <level>0</level>
-                    <default></default>
+                    <level>1</level>
+                    <default>special://profile/addon_data/plugin.video.sendtokodi/downloads</default>
                     <control type="edit" format="string"/>
                 </setting>
                 <setting type="boolean" id="deno_autodownload" label="32023">
