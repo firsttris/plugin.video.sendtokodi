@@ -144,6 +144,10 @@ msgctxt "#33030"
 msgid "Maximum resolution"
 msgstr ""
 
+msgctxt "#33047"
+msgid "Adaptive (auto quality)"
+msgstr ""
+
 msgctxt "#33031"
 msgid "7680x4320 (8k)"
 msgstr ""

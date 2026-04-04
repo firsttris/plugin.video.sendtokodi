@@ -610,6 +610,38 @@ def test_select_playback_source_uses_raw_format_when_playable():
     assert selected["url"] == "https://example.com/video.mp4"
 
 
+def test_select_playback_source_prefers_highest_raw_width_within_limit():
+    result = {
+        "formats": [
+            {
+                "format": "f4k",
+                "url": "https://example.com/video4k.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 3840,
+            },
+            {
+                "format": "f1080",
+                "url": "https://example.com/video1080.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1920,
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=3840,
+        isa_supports=lambda _stream: False,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/video4k.mp4"
+
+
 def test_select_playback_source_prefers_user_selected_stream_url():
     result = {
         "manifest_url": "https://example.com/master.m3u8",
@@ -642,6 +674,68 @@ def test_select_playback_source_prefers_user_selected_stream_url():
 
     assert selected["source"] == "raw_format"
     assert selected["url"] == "https://example.com/360.mp4"
+
+
+def test_select_playback_source_prefers_raw_4k_over_original_manifest_when_allowed():
+    result = {
+        "manifest_url": "https://example.com/master.mpd",
+        "http_headers": {"User-Agent": "UA"},
+        "formats": [
+            {
+                "format": "f1080",
+                "url": "https://example.com/1080.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1920,
+            },
+            {
+                "format": "f4k",
+                "url": "https://example.com/4k.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 3840,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=3840,
+        isa_supports=lambda stream: stream == "mpd",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/4k.mp4"
+
+
+def test_select_playback_source_adaptive_first_prefers_original_manifest():
+    result = {
+        "manifest_url": "https://example.com/master.m3u8",
+        "http_headers": {"User-Agent": "UA"},
+        "formats": [
+            {
+                "format": "f4k",
+                "url": "https://example.com/4k.mp4",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 3840,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=3840,
+        isa_supports=lambda stream: stream == "hls",
+        strict_max_resolution=False,
+    )
+
+    assert selected["source"] == "original_manifest"
+    assert selected["url"] == "https://example.com/master.m3u8"
 
 
 def test_select_playback_source_returns_none_for_unplayable_user_selected_stream_url():

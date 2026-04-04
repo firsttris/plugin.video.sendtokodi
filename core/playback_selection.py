@@ -54,6 +54,38 @@ def should_filter_by_max_width(width, maxwidth):
     return width is not None and width > maxwidth
 
 
+def should_replace_raw_candidate(current_format, candidate_format):
+    if current_format is None:
+        return True
+
+    current_width = current_format.get('width')
+    candidate_width = candidate_format.get('width')
+
+    if candidate_width is None:
+        return False
+    if current_width is None:
+        return True
+
+    return candidate_width > current_width
+
+
+def pick_best_dash_video_format(dash_video, maxwidth):
+    if not dash_video:
+        return None
+
+    best_within_limit = None
+    for format_info in dash_video:
+        width = format_info.get('width')
+        if width is None or width > maxwidth:
+            continue
+        if best_within_limit is None or width > best_within_limit.get('width', 0):
+            best_within_limit = format_info
+
+    if best_within_limit is not None:
+        return best_within_limit
+    return dash_video[-1]
+
+
 def should_allow_native_hls_without_isa(format_info, manifest_type):
     if manifest_type != 'hls':
         return False
@@ -360,6 +392,7 @@ def select_playback_source(
     dashbuilder=None,
     preferred_format_url=None,
     disable_opus_for_audio_only_hls_native=False,
+    strict_max_resolution=True,
 ):
     dash_manifest_factory = None
     dash_start_httpd = None
@@ -369,17 +402,22 @@ def select_playback_source(
 
     has_manual_stream_preference = preferred_format_url is not None
 
-    manifest_url = result.get('manifest_url') if usemanifest else None
-    original_manifest_candidate = resolve_manifest_candidate(
-        manifest_url,
-        isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
-        result.get('http_headers'),
-    )
-    if original_manifest_candidate is not None and preferred_format_url is None:
-        original_manifest_candidate['source'] = 'original_manifest'
-        return original_manifest_candidate
+    if not strict_max_resolution and preferred_format_url is None:
+        manifest_url = result.get('manifest_url') if usemanifest else None
+        original_manifest_candidate = resolve_manifest_candidate(
+            manifest_url,
+            isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
+            result.get('http_headers'),
+        )
+        if original_manifest_candidate is not None:
+            original_manifest_candidate['source'] = 'original_manifest'
+            return original_manifest_candidate
 
+    format_manifest_fallback = None
     filtered_format = None
+    best_raw_format = None
+    best_raw_candidate = None
+
     all_formats = result.get('formats', [])
     have_video, have_audio, dash_video, dash_audio = analyze_formats(all_formats)
 
@@ -427,10 +465,14 @@ def select_playback_source(
                 isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
                 format_info.get('http_headers'),
             )
-            if format_manifest_candidate is not None:
+            if format_manifest_candidate is not None and not strict_max_resolution:
                 format_manifest_candidate['source'] = 'format_manifest'
                 format_manifest_candidate['format_label'] = format_info.get('format', "")
                 return format_manifest_candidate
+            if format_manifest_candidate is not None and format_manifest_fallback is None:
+                format_manifest_candidate['source'] = 'format_manifest'
+                format_manifest_candidate['format_label'] = format_info.get('format', "")
+                format_manifest_fallback = format_manifest_candidate
 
         if should_try_dash_builder(
             usedashbuilder,
@@ -443,9 +485,10 @@ def select_playback_source(
         ):
             dash_result = None
             if dash_manifest_factory is not None and dash_start_httpd is not None:
+                selected_dash_video = pick_best_dash_video_format(dash_video, maxwidth) if strict_max_resolution else None
                 dash_result = build_dash_manifest_candidate(
                     result.get('duration', "0"),
-                    dash_video,
+                    [selected_dash_video] if selected_dash_video is not None else dash_video,
                     dash_audio,
                     have_video,
                     have_audio,
@@ -480,9 +523,32 @@ def select_playback_source(
                 filtered_format = format_info
             continue
 
-        raw_candidate['source'] = 'raw_format'
-        raw_candidate['format_label'] = format_info.get('format', "")
-        return raw_candidate
+        if not strict_max_resolution:
+            raw_candidate['source'] = 'raw_format'
+            raw_candidate['format_label'] = format_info.get('format', "")
+            return raw_candidate
+
+        if should_replace_raw_candidate(best_raw_format, format_info):
+            raw_candidate['source'] = 'raw_format'
+            raw_candidate['format_label'] = format_info.get('format', "")
+            best_raw_candidate = raw_candidate
+            best_raw_format = format_info
+
+    if best_raw_candidate is not None:
+        return best_raw_candidate
+
+    if format_manifest_fallback is not None:
+        return format_manifest_fallback
+
+    manifest_url = result.get('manifest_url') if usemanifest else None
+    original_manifest_candidate = resolve_manifest_candidate(
+        manifest_url,
+        isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
+        result.get('http_headers'),
+    )
+    if original_manifest_candidate is not None and preferred_format_url is None:
+        original_manifest_candidate['source'] = 'original_manifest'
+        return original_manifest_candidate
 
     filtered_fallback = resolve_filtered_fallback_candidate(
         filtered_format,

@@ -201,7 +201,9 @@ disable_opus_for_audio_only_hls_native = (
 dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(__handle__, xbmcplugin.getSetting)
 dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
 log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
-maxwidth = int(xbmcplugin.getSetting(__handle__, "maxresolution"))
+maxresolution_setting = int(xbmcplugin.getSetting(__handle__, "maxresolution"))
+strict_max_resolution = maxresolution_setting >= 0
+maxwidth = maxresolution_setting if strict_max_resolution else 7680
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
@@ -227,6 +229,7 @@ if 'entries' in result:
             usemanifest,
             usedashbuilder,
             maxwidth,
+            strict_max_resolution,
             askstream,
             disable_opus_for_audio_only_hls_native,
             isa_supports,
@@ -244,6 +247,7 @@ else:
             usemanifest,
             usedashbuilder,
             maxwidth,
+            strict_max_resolution,
             askstream,
             disable_opus_for_audio_only_hls_native,
             isa_supports,

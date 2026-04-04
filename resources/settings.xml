@@ -136,6 +136,7 @@
                     <default>1920</default>
                     <constraints>
                         <options>
+                            <option label="33047">-1</option>
                             <option label="33031">7680</option>
                             <option label="33032">3840</option>
                             <option label="33033">2560</option>
