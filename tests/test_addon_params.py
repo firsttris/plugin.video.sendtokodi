@@ -302,6 +302,32 @@ def test_resolve_js_runtime_opts_mode_quickjs_prefers_quickjs():
     }
 
 
+def test_resolve_js_runtime_opts_mode_quickjs_does_not_call_deno():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "quickjs"
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("deno resolver should not run in quickjs mode")
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        fail_if_called,
+        get_machine=lambda: "x86_64",
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts == {
+        "js_runtimes": {"quickjs": {"path": "/storage/downloads/qjs"}},
+        "remote_components": {"ejs:github"},
+    }
+
+
 def test_resolve_js_runtime_opts_auto_prefers_quickjs_on_armv7():
     def get_setting(_handle, name):
         if name == "js_runtime_mode":

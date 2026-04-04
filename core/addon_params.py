@@ -133,7 +133,12 @@ def resolve_js_runtime_opts(
 ):
     runtime_mode = _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
 
-    deno_opts = resolve_deno_opts(handle, get_setting, get_deno_ydl_opts)
+    if runtime_mode == 'disabled':
+        return {}
+
+    if runtime_mode == 'deno':
+        return resolve_deno_opts(handle, get_setting, get_deno_ydl_opts)
+
     quickjs_opts = resolve_quickjs_opts(
         handle,
         get_setting,
@@ -142,15 +147,13 @@ def resolve_js_runtime_opts(
         access_flag=access_flag,
     )
 
-    if runtime_mode == 'deno':
-        return deno_opts
     if runtime_mode == 'quickjs':
         return quickjs_opts
-    if runtime_mode == 'disabled':
-        return {}
 
     if _is_armv7_machine(get_machine) and quickjs_opts:
         return quickjs_opts
+
+    deno_opts = resolve_deno_opts(handle, get_setting, get_deno_ydl_opts)
     if deno_opts:
         return deno_opts
     return quickjs_opts
