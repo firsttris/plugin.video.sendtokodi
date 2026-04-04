@@ -3,6 +3,11 @@
     <section id="plugin.video.sendtokodi">
         <category id="general" label="32000">
             <group id="1">
+                <setting type="boolean" id="enable_legacy_python_workarounds" label="33050">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting type="boolean" id="media_autodownload" label="32040">
                     <level>0</level>
                     <default>false</default>

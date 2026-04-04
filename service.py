@@ -31,8 +31,6 @@ from core.runtime.actions import (
 )
 from core.service_runtime import install_stderr_workaround, patch_strptime
 
-install_stderr_workaround()
-
 def debug(content):
     log(content, xbmc.LOGDEBUG)
 
@@ -82,6 +80,18 @@ def run_with_progress(title, message, operation):
 __url__ = sys.argv[0]
 # Get the plugin handle as an integer number.
 __handle__ = int(sys.argv[1])
+
+
+def _legacy_python_workarounds_enabled(handle):
+    try:
+        return xbmcplugin.getSetting(handle, "enable_legacy_python_workarounds") == 'true'
+    except Exception:
+        return False
+
+
+legacy_python_workarounds_enabled = _legacy_python_workarounds_enabled(__handle__)
+if legacy_python_workarounds_enabled:
+    install_stderr_workaround()
 
 
 try:
@@ -163,7 +173,8 @@ except Exception as exc:
     exit()
 
 # patch broken strptime (see above)
-patch_strptime()
+if legacy_python_workarounds_enabled:
+    patch_strptime()
 
 params = parse_cli_paramstring(sys.argv[2])
 url = str(params['url'])
