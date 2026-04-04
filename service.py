@@ -14,7 +14,7 @@ from core.addon_params import (
     parse_query_params,
     resolve_queue_request,
     build_ydl_opts,
-    resolve_deno_opts,
+    resolve_js_runtime_opts,
     resolve_media_download_settings,
     resolve_dash_httpd_idle_timeout,
 )
@@ -168,14 +168,14 @@ patch_strptime()
 params = parse_cli_paramstring(sys.argv[2])
 url = str(params['url'])
 
-deno_opts = {}
+js_runtime_opts = {}
 try:
     from core.deno_manager import get_ydl_opts
-    deno_opts = resolve_deno_opts(__handle__, xbmcplugin.getSetting, get_ydl_opts)
+    js_runtime_opts = resolve_js_runtime_opts(__handle__, xbmcplugin.getSetting, get_ydl_opts)
 except Exception as e:
-    log("Failed to configure Deno: {}".format(str(e)), xbmc.LOGWARNING)
+    log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
 
-ydl_opts = build_ydl_opts(params, deno_opts)
+ydl_opts = build_ydl_opts(params, js_runtime_opts)
 
 media_download_settings = resolve_media_download_settings(__handle__, xbmcplugin.getSetting)
 media_download_enabled = media_download_settings['enabled']

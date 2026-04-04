@@ -25,7 +25,7 @@ msgid "URL Resolver"
 msgstr ""
 
 msgctxt "#32060"
-msgid "Deno"
+msgid "JavaScript Runtime"
 msgstr ""
 
 msgctxt "#32061"
@@ -54,6 +54,34 @@ msgstr ""
 
 msgctxt "#32028"
 msgid "Update Deno now"
+msgstr ""
+
+msgctxt "#32062"
+msgid "Enable QuickJS JavaScript runtime"
+msgstr ""
+
+msgctxt "#32063"
+msgid "QuickJS binary path"
+msgstr ""
+
+msgctxt "#32064"
+msgid "JavaScript runtime mode (auto|deno|quickjs)"
+msgstr ""
+
+msgctxt "#32065"
+msgid "Auto"
+msgstr ""
+
+msgctxt "#32066"
+msgid "Deno"
+msgstr ""
+
+msgctxt "#32067"
+msgid "QuickJS"
+msgstr ""
+
+msgctxt "#32068"
+msgid "Disabled"
 msgstr ""
 
 msgctxt "#32051"

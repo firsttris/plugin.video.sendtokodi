@@ -1,10 +1,13 @@
 import json
+import os
+import platform
 import urllib.parse
 
 
 DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
 DEFAULT_YTDLP_VERSION = 'latest'
 DEFAULT_DENO_VERSION = 'latest'
+DEFAULT_JS_RUNTIME_MODE = 'auto'
 DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 10
 MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 600
@@ -71,10 +74,6 @@ def build_ydl_opts(parsed_params, deno_opts=None):
 
 
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
-    deno_enabled = get_setting(handle, "deno_enabled") == 'true'
-    if not deno_enabled:
-        return {}
-
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     version = (get_setting(handle, "deno_version") or '').strip()
     # Auto-update mode should track latest, not a previously pinned version.
@@ -83,6 +82,78 @@ def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
     else:
         requested_version = version or DEFAULT_DENO_VERSION
     return get_deno_ydl_opts(auto_download=auto_update, requested_version=requested_version)
+
+
+def _normalize_js_runtime_mode(mode):
+    value = (mode or '').strip().lower()
+    if value in ('auto', 'deno', 'quickjs', 'disabled'):
+        return value
+    return DEFAULT_JS_RUNTIME_MODE
+
+
+def _is_armv7_machine(get_machine):
+    try:
+        machine = (get_machine() or '').strip().lower()
+    except Exception:
+        machine = ''
+
+    # Common names include armv7l and armv7hl.
+    return machine.startswith('armv7')
+
+
+def resolve_quickjs_opts(
+    handle,
+    get_setting,
+    path_exists=os.path.exists,
+    is_executable=os.access,
+    access_flag=os.X_OK,
+):
+    quickjs_path = (get_setting(handle, 'quickjs_path') or '').strip()
+    if not quickjs_path:
+        return {}
+    if not path_exists(quickjs_path):
+        return {}
+    if not is_executable(quickjs_path, access_flag):
+        return {}
+
+    return {
+        'js_runtimes': {'quickjs': {'path': quickjs_path}},
+        'remote_components': {'ejs:github'},
+    }
+
+
+def resolve_js_runtime_opts(
+    handle,
+    get_setting,
+    get_deno_ydl_opts,
+    get_machine=platform.machine,
+    path_exists=os.path.exists,
+    is_executable=os.access,
+    access_flag=os.X_OK,
+):
+    runtime_mode = _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
+
+    deno_opts = resolve_deno_opts(handle, get_setting, get_deno_ydl_opts)
+    quickjs_opts = resolve_quickjs_opts(
+        handle,
+        get_setting,
+        path_exists=path_exists,
+        is_executable=is_executable,
+        access_flag=access_flag,
+    )
+
+    if runtime_mode == 'deno':
+        return deno_opts
+    if runtime_mode == 'quickjs':
+        return quickjs_opts
+    if runtime_mode == 'disabled':
+        return {}
+
+    if _is_armv7_machine(get_machine) and quickjs_opts:
+        return quickjs_opts
+    if deno_opts:
+        return deno_opts
+    return quickjs_opts
 
 
 def resolve_deno_settings(handle, get_setting):

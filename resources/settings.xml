@@ -17,10 +17,23 @@
         </category>
         <category id="deno" label="32060">
             <group id="3">
-                <setting type="boolean" id="deno_enabled" label="32024">
+                <setting type="string" id="js_runtime_mode" label="32064">
                     <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
+                    <default>auto</default>
+                    <constraints>
+                        <options>
+                            <option label="32065">auto</option>
+                            <option label="32066">deno</option>
+                            <option label="32067">quickjs</option>
+                            <option label="32068">disabled</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+                <setting type="string" id="quickjs_path" label="32063">
+                    <level>0</level>
+                    <default></default>
+                    <control type="edit" format="string"/>
                 </setting>
                 <setting type="boolean" id="deno_autodownload" label="32023">
                     <level>0</level>

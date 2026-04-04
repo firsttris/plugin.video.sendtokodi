@@ -1,6 +1,7 @@
 from core.addon_params import (
     DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_DENO_VERSION,
+    DEFAULT_JS_RUNTIME_MODE,
     MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_MEDIA_DOWNLOAD_PATH,
     MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
@@ -13,6 +14,8 @@ from core.addon_params import (
     build_ydl_opts,
     resolve_deno_settings,
     resolve_deno_opts,
+    resolve_js_runtime_opts,
+    resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
     resolve_ytdlp_settings,
@@ -130,18 +133,31 @@ def test_build_ydl_opts_merges_deno_opts_when_present():
     }
 
 
-def test_resolve_deno_opts_returns_empty_when_disabled():
-    get_setting = lambda _handle, name: "false" if name == "deno_enabled" else "true"
+def test_resolve_deno_opts_reads_settings_without_enable_toggle():
+    def get_setting(_handle, name):
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return "v2.7.5"
+        return ""
 
-    opts = resolve_deno_opts(1, get_setting, lambda **_kwargs: {"should": "not-run"})
+    opts = resolve_deno_opts(
+        1,
+        get_setting,
+        lambda auto_download, requested_version: {
+            "auto_update": auto_download,
+            "requested_version": requested_version,
+        },
+    )
 
-    assert opts == {}
+    assert opts == {
+        "auto_update": False,
+        "requested_version": "v2.7.5",
+    }
 
 
 def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
     def get_setting(_handle, name):
-        if name == "deno_enabled":
-            return "true"
         if name == "deno_autodownload":
             return "false"
         return ""
@@ -163,8 +179,6 @@ def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
 
 def test_resolve_deno_settings_reads_all_values():
     def get_setting(_handle, name):
-        if name == "deno_enabled":
-            return "true"
         if name == "deno_autodownload":
             return "false"
         if name == "deno_version":
@@ -174,7 +188,7 @@ def test_resolve_deno_settings_reads_all_values():
     settings = resolve_deno_settings(1, get_setting)
 
     assert settings == {
-        "enabled": True,
+        "enabled": False,
         "auto_update": False,
         "version": "v2.7.4",
     }
@@ -182,8 +196,6 @@ def test_resolve_deno_settings_reads_all_values():
 
 def test_resolve_deno_opts_forces_latest_when_auto_update_enabled():
     def get_setting(_handle, name):
-        if name == "deno_enabled":
-            return "true"
         if name == "deno_autodownload":
             return "true"
         if name == "deno_version":
@@ -203,6 +215,191 @@ def test_resolve_deno_opts_forces_latest_when_auto_update_enabled():
         "auto_update": True,
         "requested_version": DEFAULT_DENO_VERSION,
     }
+
+
+def test_resolve_quickjs_opts_returns_empty_when_path_missing():
+    def get_setting(_handle, name):
+        if name == "quickjs_path":
+            return ""
+        return ""
+
+    opts = resolve_quickjs_opts(1, get_setting)
+
+    assert opts == {}
+
+
+def test_resolve_quickjs_opts_returns_expected_opts_when_enabled_and_valid_path():
+    def get_setting(_handle, name):
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    opts = resolve_quickjs_opts(
+        1,
+        get_setting,
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts == {
+        "js_runtimes": {"quickjs": {"path": "/storage/downloads/qjs"}},
+        "remote_components": {"ejs:github"},
+    }
+
+
+def test_resolve_js_runtime_opts_mode_deno_prefers_deno():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "deno"
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return ""
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda auto_download, requested_version: {
+            "js_runtimes": {"deno": {"path": "/usr/bin/deno"}},
+            "requested_version": requested_version,
+            "auto_download": auto_download,
+        },
+        get_machine=lambda: "armv7l",
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts["js_runtimes"] == {"deno": {"path": "/usr/bin/deno"}}
+
+
+def test_resolve_js_runtime_opts_mode_quickjs_prefers_quickjs():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "quickjs"
+        if name == "deno_autodownload":
+            return "true"
+        if name == "deno_version":
+            return ""
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda **_kwargs: {"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
+        get_machine=lambda: "x86_64",
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts == {
+        "js_runtimes": {"quickjs": {"path": "/storage/downloads/qjs"}},
+        "remote_components": {"ejs:github"},
+    }
+
+
+def test_resolve_js_runtime_opts_auto_prefers_quickjs_on_armv7():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "auto"
+        if name == "deno_autodownload":
+            return "true"
+        if name == "deno_version":
+            return ""
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda **_kwargs: {"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
+        get_machine=lambda: "armv7l",
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts == {
+        "js_runtimes": {"quickjs": {"path": "/storage/downloads/qjs"}},
+        "remote_components": {"ejs:github"},
+    }
+
+
+def test_resolve_js_runtime_opts_auto_falls_back_to_deno_when_quickjs_missing():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "auto"
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return "v2.7.5"
+        if name == "quickjs_path":
+            return ""
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda auto_download, requested_version: {
+            "js_runtimes": {"deno": {"path": "/usr/bin/deno"}},
+            "requested_version": requested_version,
+            "auto_download": auto_download,
+        },
+        get_machine=lambda: "armv7l",
+    )
+
+    assert opts["js_runtimes"] == {"deno": {"path": "/usr/bin/deno"}}
+
+
+def test_resolve_js_runtime_opts_invalid_mode_defaults_to_auto():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "invalid"
+        if name == "deno_autodownload":
+            return "false"
+        if name == "deno_version":
+            return ""
+        if name == "quickjs_path":
+            return ""
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda **_kwargs: {},
+        get_machine=lambda: "x86_64",
+    )
+
+    assert DEFAULT_JS_RUNTIME_MODE == "auto"
+    assert opts == {}
+
+
+def test_resolve_js_runtime_opts_disabled_returns_empty_even_when_runtimes_exist():
+    def get_setting(_handle, name):
+        if name == "js_runtime_mode":
+            return "disabled"
+        if name == "deno_autodownload":
+            return "true"
+        if name == "deno_version":
+            return ""
+        if name == "quickjs_path":
+            return "/storage/downloads/qjs"
+        return ""
+
+    opts = resolve_js_runtime_opts(
+        1,
+        get_setting,
+        lambda **_kwargs: {"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
+        get_machine=lambda: "armv7l",
+        path_exists=lambda _path: True,
+        is_executable=lambda _path, _flag: True,
+    )
+
+    assert opts == {}
 
 
 def test_resolve_media_download_settings_defaults_to_disabled_and_default_path():
