@@ -121,8 +121,8 @@ def create_list_item_from_video(
         maxwidth,
         isa_supports,
         dash_builder,
-        preferred_stream_url,
-        disable_opus_for_audio_only_hls_native,
+        preferred_format_url=preferred_stream_url,
+        disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
     )
 
     if selected_source is None and preferred_stream_url is not None:

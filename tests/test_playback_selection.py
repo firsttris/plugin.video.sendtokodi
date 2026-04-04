@@ -840,6 +840,74 @@ def test_select_playback_source_uses_passed_dashbuilder_dependency():
     assert selected["url"] == "http://dummy.local/manifest-from-dummy"
 
 
+def test_select_playback_source_manual_dash_selection_uses_selected_video_stream_only():
+    class SelectedDashModule:
+        class Manifest:
+            def __init__(self, _duration):
+                self.video_formats = []
+                self.audio_formats = []
+
+            def add_video_format(self, format_info):
+                self.video_formats.append(format_info.get("format"))
+
+            def add_audio_format(self, format_info):
+                self.audio_formats.append(format_info.get("format"))
+
+            def emit(self):
+                return "manifest-video-{}-audio-{}".format(
+                    ",".join(self.video_formats),
+                    ",".join(self.audio_formats),
+                )
+
+        @staticmethod
+        def start_httpd(manifest):
+            return "http://dummy.local/" + manifest
+
+    result = {
+        "duration": "10",
+        "formats": [
+            {
+                "format": "v1080",
+                "format_id": "137",
+                "url": "https://example.com/v1080",
+                "vcodec": "avc1",
+                "acodec": "none",
+                "container": "mp4_dash",
+                "width": 1920,
+            },
+            {
+                "format": "v4k",
+                "format_id": "401",
+                "url": "https://example.com/v4k",
+                "vcodec": "avc1",
+                "acodec": "none",
+                "container": "mp4_dash",
+                "width": 3840,
+            },
+            {
+                "format": "a1",
+                "url": "https://example.com/a1",
+                "vcodec": "none",
+                "acodec": "aac",
+                "container": "m4a_dash",
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=True,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "mpd",
+        dashbuilder=SelectedDashModule,
+        preferred_format_url="https://example.com/v4k",
+    )
+
+    assert selected["source"] == "dash_manifest"
+    assert selected["url"] == "http://dummy.local/manifest-video-v4k-audio-a1"
+
+
 def test_selection_log_messages_for_original_manifest():
     messages = selection_log_messages({"source": "original_manifest"})
 

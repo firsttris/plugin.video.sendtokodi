@@ -100,6 +100,14 @@ def should_try_dash_builder(usedashbuilder, have_video, dash_video, have_audio, 
     )
 
 
+def is_dash_video_format(format_info):
+    return (
+        format_info.get('vcodec', 'none') != 'none'
+        and format_info.get('acodec', 'none') == 'none'
+        and format_info.get('container', '') in ['mp4_dash', 'webm_dash']
+    )
+
+
 def resolve_effective_headers(selected_headers, result_headers):
     if selected_headers is not None:
         return selected_headers
@@ -359,6 +367,8 @@ def select_playback_source(
         dash_manifest_factory = dashbuilder.Manifest
         dash_start_httpd = dashbuilder.start_httpd
 
+    has_manual_stream_preference = preferred_format_url is not None
+
     manifest_url = result.get('manifest_url') if usemanifest else None
     original_manifest_candidate = resolve_manifest_candidate(
         manifest_url,
@@ -381,6 +391,34 @@ def select_playback_source(
 
         if preferred_format_url is not None and format_info.get('url') != preferred_format_url:
             continue
+
+        if (
+            has_manual_stream_preference
+            and usedashbuilder
+            and isa_supports("mpd")
+            and is_dash_video_format(format_info)
+        ):
+            dash_result = None
+            if dash_manifest_factory is not None and dash_start_httpd is not None:
+                dash_result = build_dash_manifest_candidate(
+                    result.get('duration', "0"),
+                    [format_info],
+                    dash_audio,
+                    True,
+                    have_audio,
+                    dash_manifest_factory,
+                    dash_start_httpd,
+                    result.get('resolve_fresh_result'),
+                )
+            dash_url = dash_result.get('url') if dash_result is not None else None
+            if dash_url is not None:
+                return {
+                    'url': dash_url,
+                    'isa': True,
+                    'headers': format_info.get('http_headers'),
+                    'source': 'dash_manifest',
+                    'events': dash_result.get('events', []),
+                }
 
         if preferred_format_url is None:
             manifest_url = format_info.get('manifest_url') if usemanifest else None
