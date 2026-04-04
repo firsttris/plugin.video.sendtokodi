@@ -48,9 +48,9 @@ def test_iso8601_duration_formatting():
     assert dash_builder._iso8601_duration(3661) == "P0DT1H1M1S"
 
 
-def test_transform_url_replaces_query_separators():
+def test_transform_url_keeps_original_url():
     url = "https://example.com/v?id=123&quality=high"
-    assert dash_builder.transform_url(url) == "https://example.com/v/id/123/quality/high"
+    assert dash_builder.transform_url(url) == url
 
 
 def test_webm_decode_int_covers_longer_prefix_lengths():
@@ -78,8 +78,11 @@ def test_find_init_and_index_ranges_dispatches_by_container(monkeypatch):
     class DummyRequestsResponse:
         content = b"dummy"
 
-    def fake_get(url, headers):
-        called.append((url, headers))
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, headers, timeout):
+        called.append((url, headers, timeout))
         return DummyRequestsResponse()
 
     monkeypatch.setattr(dash_builder.requests, "get", fake_get)
@@ -89,6 +92,7 @@ def test_find_init_and_index_ranges_dispatches_by_container(monkeypatch):
     assert dash_builder.find_init_and_index_ranges("https://x", "webm_dash") == ((1, 2), (3, 4))
     assert dash_builder.find_init_and_index_ranges("https://x", "mp4_dash") == ((5, 6), (7, 8))
     assert called[0][1]["Range"] == "bytes=0-1023"
+    assert called[0][2] == dash_builder._RANGE_REQUEST_TIMEOUT_SECONDS
 
 
 def test_manifest_add_formats_and_emit(monkeypatch):

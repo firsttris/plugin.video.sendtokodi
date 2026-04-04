@@ -250,8 +250,14 @@ def play_playlist_result(
     playlist = xbmc.PlayList(1)
     playlist.clear()
 
-    index_to_start_at = resolve_start_index(find_playlist_start_index(target_url, result["entries"]))
-    starting_entry, unresolved_entries = split_playlist_entries(result["entries"], index_to_start_at)
+    entries = list(result.get("entries") or [])
+    if not entries:
+        show_error_notification("Playlist contains no playable entries")
+        log("Playlist contains no playable entries", xbmc.LOGWARNING)
+        return
+
+    index_to_start_at = resolve_start_index(find_playlist_start_index(target_url, entries))
+    starting_entry, unresolved_entries = split_playlist_entries(entries, index_to_start_at)
 
     for video in queueable_playlist_entries(unresolved_entries):
         list_item = _create_list_item_from_flat_playlist_item(video, plugin_url, paramstring)

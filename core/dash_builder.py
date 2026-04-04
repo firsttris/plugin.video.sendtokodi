@@ -1,7 +1,7 @@
 import requests
 import struct
 from io import BytesIO
-from xml.etree.ElementTree import ElementTree, Element, SubElement, Comment
+from xml.etree.ElementTree import ElementTree, Element, SubElement
 from threading import Thread, Lock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import monotonic
@@ -15,6 +15,7 @@ _HTTPD = None
 _HTTPD_THREAD = None
 _MANIFESTS = {}
 _LATEST_MANIFEST_ID = None
+_RANGE_REQUEST_TIMEOUT_SECONDS = 20
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -93,7 +94,12 @@ def _mp4_find_init_and_index_ranges(r):
 def find_init_and_index_ranges(url, container):
     # Download the first 1KiB of the stream
     size = 1024
-    r = requests.get(url, headers={'Range':'bytes=0-' + str(size - 1)})
+    r = requests.get(
+        url,
+        headers={'Range': 'bytes=0-' + str(size - 1)},
+        timeout=_RANGE_REQUEST_TIMEOUT_SECONDS,
+    )
+    r.raise_for_status()
     if container == 'webm_dash':
         return _webm_find_init_and_index_ranges(r)
     return _mp4_find_init_and_index_ranges(r)
@@ -105,7 +111,7 @@ def _iso8601_duration(secs):
     return "P{}DT{}H{}M{}S".format(int(d), int(h), int(m), s)
 
 def transform_url(url):
-    return url.replace('&', '/').replace('?', '/').replace('=', '/')
+    return url
 
 
 class Manifest():
@@ -156,7 +162,7 @@ class Manifest():
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
         channels.set('value', str(format['audio_channels']))
 
-        url = transform_url(format['url'])
+        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
         base_url.text = url
 
@@ -181,7 +187,7 @@ class Manifest():
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
 
-        url = transform_url(format['url'])
+        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
         base_url.text = url
 
@@ -227,18 +233,31 @@ class HttpHandler(BaseHTTPRequestHandler):
             entry = _MANIFESTS.get(manifest_id)
             if entry is None:
                 return None
-
             refresh_manifest = entry.get('refresh_manifest')
-            now = monotonic()
-            if refresh_manifest is not None and now - entry['refreshed_at'] >= DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
-                try:
-                    refreshed = refresh_manifest()
-                except Exception:
-                    refreshed = None
+            refreshed_at = entry.get('refreshed_at', 0)
 
-                if refreshed is not None:
-                    entry['manifest'] = bytes(refreshed)
-                    entry['refreshed_at'] = now
+        now = monotonic()
+        refreshed_payload = None
+        should_refresh = (
+            refresh_manifest is not None
+            and now - refreshed_at >= DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+        )
+        if should_refresh:
+            try:
+                refreshed = refresh_manifest()
+            except Exception:
+                refreshed = None
+            if refreshed is not None:
+                refreshed_payload = bytes(refreshed)
+
+        with _HTTPD_STATE_LOCK:
+            entry = _MANIFESTS.get(manifest_id)
+            if entry is None:
+                return None
+
+            if refreshed_payload is not None:
+                entry['manifest'] = refreshed_payload
+                entry['refreshed_at'] = now
 
             entry['last_access_at'] = now
             return entry['manifest']

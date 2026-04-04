@@ -369,6 +369,12 @@ def find_playlist_start_index(url, entries):
 
 def split_playlist_entries(entries, start_index):
     unresolved_entries = list(entries)
+    if not unresolved_entries:
+        return None, []
+
+    if start_index is None or start_index < 0 or start_index >= len(unresolved_entries):
+        start_index = 0
+
     starting_entry = unresolved_entries.pop(start_index)
     return starting_entry, unresolved_entries
 

@@ -1052,6 +1052,23 @@ def test_split_playlist_entries_returns_starting_and_remaining_entries():
     assert remaining == [{"id": "a"}, {"id": "c"}]
 
 
+def test_split_playlist_entries_returns_none_for_empty_entries():
+    starting, remaining = split_playlist_entries([], 0)
+
+    assert starting is None
+    assert remaining == []
+
+
+def test_split_playlist_entries_defaults_to_first_entry_for_invalid_index():
+    starting, remaining = split_playlist_entries([
+        {"id": "a"},
+        {"id": "b"},
+    ], 99)
+
+    assert starting == {"id": "a"}
+    assert remaining == [{"id": "b"}]
+
+
 def test_queueable_playlist_entries_filters_entries_without_url():
     entries = [
         {"id": "a", "url": "https://example.com/a"},
