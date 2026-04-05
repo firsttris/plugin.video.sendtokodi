@@ -117,6 +117,12 @@ Open in Kodi via:
 - **Additional yt-dlp options (JSON)**  
   Global yt-dlp options as a JSON object, applied to every request. Example:
   `{"cookiefile":"/storage/.kodi/userdata/cookies.txt","format":"best"}`
+- **Enable yt-dlp plugins from custom directories**  
+  Allows yt-dlp plugin discovery from explicitly configured folders.
+- **yt-dlp plugin directories (comma-separated)**  
+  One or more plugin roots (for `yt_dlp_plugins`) separated by commas.
+  `special://` paths are supported and translated automatically.
+  Default path: `special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-plugins`
 - **Load additional yt-dlp options from JSON file**  
   Enables loading global yt-dlp options from a JSON file.
 - **Additional yt-dlp options file path**  
@@ -130,6 +136,9 @@ Option precedence for yt-dlp params is:
 3. additional options JSON (settings field)
 4. per-request options (`yt-dlp-options` or legacy `ydlOpts`)
 5. runtime-specific overrides (e.g. JS runtime options)
+
+If `plugin_dirs` is already provided via JSON options or per-request options,
+that value takes precedence over the dedicated plugin-directory setting.
 
 ### Adaptive
 

@@ -2,6 +2,7 @@ from core.addon_params import (
     DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_DENO_VERSION,
     DEFAULT_JS_RUNTIME_MODE,
+    DEFAULT_YTDLP_PLUGIN_DIRS,
     MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_MEDIA_DOWNLOAD_PATH,
     MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
@@ -20,6 +21,7 @@ from core.addon_params import (
     resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
     resolve_ytdlp_additional_opts,
+    resolve_ytdlp_plugin_dirs,
     resolve_ytdlp_settings,
 )
 
@@ -312,6 +314,58 @@ def test_resolve_ytdlp_additional_opts_raises_for_non_object_json():
         assert False, "expected ValueError"
     except ValueError as exc:
         assert "JSON object" in str(exc)
+
+
+def test_resolve_ytdlp_plugin_dirs_disabled_returns_empty():
+    def get_setting(_handle, name):
+        if name == "ytdlp_enable_plugin_dirs":
+            return "false"
+        if name == "ytdlp_plugin_dirs":
+            return "special://ignored/path"
+        return ""
+
+    plugin_dirs = resolve_ytdlp_plugin_dirs(1, get_setting, lambda path: "/translated/" + path)
+
+    assert plugin_dirs == []
+
+
+def test_resolve_ytdlp_plugin_dirs_translates_special_path_and_keeps_absolute_paths():
+    def get_setting(_handle, name):
+        if name == "ytdlp_enable_plugin_dirs":
+            return "true"
+        if name == "ytdlp_plugin_dirs":
+            return "special://profile/plugins,/storage/yt-plugins"
+        return ""
+
+    plugin_dirs = resolve_ytdlp_plugin_dirs(
+        1,
+        get_setting,
+        lambda path: "/kodi/translated/" + path,
+    )
+
+    assert plugin_dirs == [
+        "/kodi/translated/special://profile/plugins",
+        "/storage/yt-plugins",
+    ]
+
+
+def test_resolve_ytdlp_plugin_dirs_uses_default_setting_when_empty():
+    def get_setting(_handle, name):
+        if name == "ytdlp_enable_plugin_dirs":
+            return "true"
+        if name == "ytdlp_plugin_dirs":
+            return ""
+        return ""
+
+    plugin_dirs = resolve_ytdlp_plugin_dirs(
+        1,
+        get_setting,
+        lambda path: "/kodi/translated/" + path,
+    )
+
+    assert plugin_dirs == [
+        "/kodi/translated/" + DEFAULT_YTDLP_PLUGIN_DIRS,
+    ]
 
 
 def test_resolve_deno_opts_reads_settings_without_enable_toggle():

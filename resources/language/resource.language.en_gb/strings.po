@@ -104,6 +104,14 @@ msgctxt "#32057"
 msgid "Additional yt-dlp options (JSON)"
 msgstr ""
 
+msgctxt "#32069"
+msgid "Enable yt-dlp plugins from custom directories"
+msgstr ""
+
+msgctxt "#32070"
+msgid "yt-dlp plugin directories (comma-separated)"
+msgstr ""
+
 msgctxt "#32058"
 msgid "Load additional yt-dlp options from JSON file"
 msgstr ""
