@@ -211,6 +211,12 @@ class Manifest():
 
 
 class HttpHandler(BaseHTTPRequestHandler):
+    def log_message(self, _format, *_args):
+        # BaseHTTPRequestHandler writes to stderr by default, which Kodi surfaces
+        # as error <general>. Suppress noisy per-request logs for local manifest
+        # serving to avoid false error reports during normal playback.
+        return
+
     def _resolve_manifest_payload(self):
         # Preserve compatibility for direct handler tests where mpd is set on self.
         local_manifest = getattr(self, 'mpd', None)
