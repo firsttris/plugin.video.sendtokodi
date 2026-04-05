@@ -62,6 +62,9 @@ Extension source & issues: [firsttris/chrome.sendtokodi](https://github.com/firs
 
 ## ⚙️ Settings
 
+<details>
+  <summary><strong>Settings Details (click to expand)</strong></summary>
+
 Open in Kodi via:
 
 **Add-ons → My add-ons → Video add-ons → SendToKodi → Configure**
@@ -123,6 +126,8 @@ Open in Kodi via:
 - **Maximum resolution**  
   Caps playback stream width (or set Adaptive for automatic quality).
 
+</details>
+
 ## 🔌 Integration
 
 - Supported sites: [yt-dlp supported websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
@@ -169,6 +174,10 @@ For backward compatibility, the legacy `ydlOpts` option key is still supported.
 ### Call SendToKodi from another Kodi plugin
 
 ```python
+# Preferred (explicit query param, URL-encoded):
+xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?url=<urlencoded_stream_or_playlist_url>',return)")
+
+# Legacy format (still supported):
 xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
 ```
 
@@ -182,6 +191,9 @@ xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<st
 </details>
 
 ## 💻 Development
+
+<details>
+  <summary><strong>Development Setup (click to expand)</strong></summary>
 
 Run unit tests locally (recommended: inside a virtual environment):
 
@@ -248,6 +260,8 @@ zip -r plugin.video.sendtokodi-local.zip . -x "*.git*" "__pycache__/*" ".pytest_
 ```
 
 Then install via **Add-ons → Install from zip file**.
+
+</details>
 
 ## 🤝 Contributing
 
