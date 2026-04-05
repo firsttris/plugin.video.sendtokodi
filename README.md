@@ -43,6 +43,14 @@ For automatic updates, first add the SendToKodi repo:
 
 Reference: [Kodi Add-on Manager](https://kodi.wiki/view/Add-on_manager)
 
+## ✅ Requirements
+
+- Kodi 19+
+- `script.module.inputstreamhelper` (required for adaptive playback checks)
+- `script.module.requests`
+
+Dependencies are installed automatically by Kodi when installing the add-on.
+
 ## 📱 Companion Apps
 
 ### Browser extensions
@@ -134,6 +142,7 @@ Open in Kodi via:
 - Call from playlists: [playlist-example.m3u](./playlist-example.m3u)
 - Send URLs via JSON-RPC: [Example JSON-RPC request](#example-json-rpc-request)
 - Call from another Kodi plugin: [Plugin call example](#call-sendtokodi-from-another-kodi-plugin)
+- Add item to Kodi queue: [Queue integration example](#add-item-to-kodi-queue)
 
 <details>
   <summary><strong>Developer Integration Examples (click to expand)</strong></summary>
@@ -146,7 +155,7 @@ Open in Kodi via:
   "method": "Player.Open",
   "params": {
     "item": {
-      "file": "plugin://plugin.video.sendtokodi/?https://soundcloud.com/spinnin-deep/sam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
+      "file": "plugin://plugin.video.sendtokodi/?url=https%3A%2F%2Fsoundcloud.com%2Fspinnin-deep%2Fsam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
     }
   },
   "id": 1
@@ -179,6 +188,13 @@ xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?url
 
 # Legacy format (still supported):
 xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
+```
+
+### Add item to Kodi queue
+
+```python
+# Adds a playable item to Kodi's video playlist without starting playback immediately.
+xbmc.executebuiltin("RunPlugin(plugin://plugin.video.sendtokodi/?action=queue&url=<urlencoded_stream_url>&title=<urlencoded_title>)")
 ```
 
 ### Test with Postman
@@ -262,6 +278,17 @@ zip -r plugin.video.sendtokodi-local.zip . -x "*.git*" "__pycache__/*" ".pytest_
 Then install via **Add-ons → Install from zip file**.
 
 </details>
+
+## 🧰 Troubleshooting
+
+- Stream does not play:
+  verify the URL works with yt-dlp and confirm the site is supported.
+- Adaptive playback issues:
+  run **Check if my kodi supports adaptive streaming** in Settings → Adaptive.
+- Runtime/extractor issues:
+  update Deno and yt-dlp from Settings (**Update ... now** actions).
+- QuickJS mode does not work:
+  check that **QuickJS binary path** points to an existing executable.
 
 ## 🤝 Contributing
 
