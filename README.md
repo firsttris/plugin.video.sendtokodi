@@ -204,6 +204,8 @@ xbmc.executebuiltin("RunPlugin(plugin://plugin.video.sendtokodi/?action=queue&ur
 - Set body type to raw `application/json`.
 - Paste one of the JSON-RPC examples and send.
 
+Note: in plugin URLs, query values must be URL-encoded (for example `url=...` and optional `title=...`).
+
 </details>
 
 ## 💻 Development
@@ -284,19 +286,25 @@ Then install via **Add-ons → Install from zip file**.
 - Stream does not play:
   verify the URL works with yt-dlp and confirm the site is supported.
 - Adaptive playback issues:
-  run **Check if my kodi supports adaptive streaming** in Settings → Adaptive.
+  run **Check if my Kodi supports adaptive streaming** in Settings → Adaptive.
 - Runtime/extractor issues:
   update Deno and yt-dlp from Settings (**Update ... now** actions).
 - QuickJS mode does not work:
   check that **QuickJS binary path** points to an existing executable.
 
+Useful checks outside Kodi:
+
+```bash
+# Verify a URL can be resolved/playlisted by yt-dlp
+yt-dlp --simulate "<url>"
+
+# Show final direct media URL selected by yt-dlp
+yt-dlp -g "<url>"
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome. Please open an issue or submit a pull request.
-
-## Code of Conduct
-
-See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
 
