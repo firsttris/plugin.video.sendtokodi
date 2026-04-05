@@ -60,21 +60,68 @@ Extension source & issues: [firsttris/chrome.sendtokodi](https://github.com/firs
 - The official iOS SendToKodi app is currently retired.
 - [Apple Shortcut (iOS + macOS)](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut)
 
-## ⚙️ Usage Notes
+## ⚙️ Settings
 
-### Optional: auto-download before playback
+Open in Kodi via:
 
-In add-on settings (**General**), enable:
+**Add-ons → My add-ons → Video add-ons → SendToKodi → Configure**
 
-`Auto-download resolved media before playback`
+### General
 
-Default path:
+- **Enable legacy Python embed workarounds (advanced)**  
+  Compatibility toggle for older/edge Python embedding behavior. Keep disabled unless you are troubleshooting runtime issues.
+- **Auto-download resolved media before playback**  
+  Downloads media to disk first instead of immediate streaming playback.
+- **Media download path**  
+  Folder used for auto-downloaded files. Default:
+  `special://profile/addon_data/plugin.video.sendtokodi/downloads`
 
-`special://profile/addon_data/plugin.video.sendtokodi/downloads`
+### JavaScript Runtime
 
-You can change it with:
+- **JavaScript runtime mode (auto|deno|quickjs)**  
+  Select how JavaScript extraction/runtime tasks are handled:
+  - `auto`: prefer best available runtime automatically
+  - `deno`: force Deno
+  - `quickjs`: force QuickJS
+  - `disabled`: disable JavaScript runtime usage
+- **QuickJS binary path**  
+  Path to your QuickJS executable if you use QuickJS mode.
+- **Auto-update Deno JavaScript runtime**  
+  Automatically keeps the managed Deno runtime current.
+- **Installed Deno version**  
+  Read-only display of currently installed Deno.
+- **Manage Deno version / Update Deno now**  
+  Manual version selection and immediate update actions.
+- **Deno version override (advanced)**  
+  Pin/override Deno version manually (for advanced troubleshooting).
 
-`Media download path`
+### yt-dlp
+
+- **Auto-update yt-dlp**  
+  Keeps yt-dlp updated automatically (recommended).
+- **Installed yt-dlp version**  
+  Read-only display of installed yt-dlp.
+- **Manage yt-dlp version / Update yt-dlp now**  
+  Manually select a version or trigger an immediate update.
+- **yt-dlp version override (advanced)**  
+  Pin/override yt-dlp version manually.
+
+### Adaptive
+
+- **Check if my kodi supports adaptive streaming**  
+  Runs InputStream Adaptive capability check.
+- **Use original manifest (experimental)**  
+  Uses the source manifest path instead of generated alternatives.
+- **Use DASH manifest builder (kodi 19+ only) (experimental)**  
+  Enables internal DASH MPD builder for compatible playback flows.
+- **DASH MPD server idle timeout (seconds)**  
+  Refresh interval for the generated DASH manifest: after this many idle seconds, the next manifest request triggers a regeneration.
+- **Ask which stream to play**  
+  Prompts for stream selection when multiple variants are available.
+- **Audio-only HLS: disable Opus for native m3u streams**  
+  Improves compatibility for some native audio-only HLS playback cases.
+- **Maximum resolution**  
+  Caps playback stream width (or set Adaptive for automatic quality).
 
 ## 🔌 Integration
 
