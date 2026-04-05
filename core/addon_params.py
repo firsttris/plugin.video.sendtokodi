@@ -11,9 +11,36 @@ DEFAULT_JS_RUNTIME_MODE = 'auto'
 DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 10
 MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 600
+YT_DLP_OPTIONS_QUERY_PARAM = 'yt-dlp-options'
+LEGACY_YDL_OPTS_QUERY_PARAM = 'ydlOpts'
+
+
+def _parse_ydl_opts_json(raw_value):
+    if not raw_value:
+        return {}
+
+    parsed = json.loads(raw_value)
+    if not isinstance(parsed, dict):
+        raise ValueError('yt-dlp options must be a JSON object')
+    return parsed
+
+
+def _resolve_ydl_opts_from_query_params(parsed_query):
+    ydl_options_raw = parsed_query.get(YT_DLP_OPTIONS_QUERY_PARAM, [None])[0]
+    if ydl_options_raw is None:
+        ydl_options_raw = parsed_query.get(LEGACY_YDL_OPTS_QUERY_PARAM, [None])[0]
+    return _parse_ydl_opts_json(ydl_options_raw)
 
 
 def parse_cli_paramstring(paramstring):
+    parsed_query = parse_query_params(paramstring)
+    query_url = parsed_query.get('url', [None])[0]
+    if query_url:
+        return {
+            'url': query_url,
+            'ydlOpts': _resolve_ydl_opts_from_query_params(parsed_query),
+        }
+
     additional_params_index = paramstring.find(' ')
     if additional_params_index == -1:
         return {'url': paramstring[1:], 'ydlOpts': {}}
@@ -52,6 +79,20 @@ def resolve_queue_request(paramstring):
 
 
 def build_flat_playlist_item_url(plugin_url, video_url, paramstring):
+    parsed_query = parse_query_params(paramstring)
+    if parsed_query.get('url', [None])[0]:
+        query_items = [('url', video_url)]
+
+        ydl_options_raw = parsed_query.get(YT_DLP_OPTIONS_QUERY_PARAM, [None])[0]
+        ydl_options_param = YT_DLP_OPTIONS_QUERY_PARAM
+        if ydl_options_raw is None:
+            ydl_options_raw = parsed_query.get(LEGACY_YDL_OPTS_QUERY_PARAM, [None])[0]
+            ydl_options_param = LEGACY_YDL_OPTS_QUERY_PARAM
+        if ydl_options_raw is not None:
+            query_items.append((ydl_options_param, ydl_options_raw))
+
+        return plugin_url + '?' + urllib.parse.urlencode(query_items)
+
     list_item_url = plugin_url + "?" + video_url
     additional_params_index = paramstring.find(' ')
     if additional_params_index != -1:

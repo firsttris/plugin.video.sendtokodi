@@ -109,14 +109,15 @@ You can change it with:
   "method": "Player.Open",
   "params": {
     "item": {
-      "file": "plugin://plugin.video.sendtokodi/?https://vk.com/video-124136901_456239025 {\"ydlOpts\":{\"username\":\"user@email.com\",\"password\":\"password with spaces\"}}"
+      "file": "plugin://plugin.video.sendtokodi/?url=https%3A%2F%2Fvk.com%2Fvideo-124136901_456239025&yt-dlp-options=%7B%22username%22%3A%22user%40email.com%22%2C%22password%22%3A%22password%20with%20spaces%22%7D"
     }
   },
   "id": 1
 }
 ```
 
-`ydlOpts` is passed directly to yt-dlp, so you can provide any supported [yt-dlp options](https://github.com/yt-dlp/yt-dlp#usage-and-options).
+`yt-dlp-options` is passed directly to yt-dlp as a JSON object, so you can provide any supported [yt-dlp options](https://github.com/yt-dlp/yt-dlp#usage-and-options).
+For backward compatibility, the legacy `ydlOpts` option key is still supported.
 
 ### Call SendToKodi from another Kodi plugin
 

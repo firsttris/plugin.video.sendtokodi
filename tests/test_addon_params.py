@@ -40,6 +40,28 @@ def test_parse_cli_paramstring_with_additional_options():
     }
 
 
+def test_parse_cli_paramstring_with_query_params_and_yt_dlp_options():
+    parsed = parse_cli_paramstring(
+        "?url=https%3A%2F%2Fexample.com%2Fvideo&yt-dlp-options=%7B%22format%22%3A%22best%22%7D"
+    )
+
+    assert parsed == {
+        "url": "https://example.com/video",
+        "ydlOpts": {"format": "best"},
+    }
+
+
+def test_parse_cli_paramstring_with_query_params_and_legacy_ydlopts():
+    parsed = parse_cli_paramstring(
+        "?url=https%3A%2F%2Fexample.com%2Fvideo&ydlOpts=%7B%22format%22%3A%22best%22%7D"
+    )
+
+    assert parsed == {
+        "url": "https://example.com/video",
+        "ydlOpts": {"format": "best"},
+    }
+
+
 def test_parse_query_params_extracts_query_before_ydl_opts_json():
     parsed = parse_query_params('?action=queue&url=https%3A%2F%2Fexample.com%2Fv%3Fa%3D1%26b%3D2 {"ydlOpts": {"format": "best"}}')
 
@@ -100,6 +122,32 @@ def test_build_flat_playlist_item_url_with_additional_params():
     assert item_url == (
         'plugin://plugin.video.sendtokodi?https://example.com/video  '
         '{"ydlOpts": {"extract_flat": "in_playlist"}}'
+    )
+
+
+def test_build_flat_playlist_item_url_with_query_yt_dlp_options():
+    item_url = build_flat_playlist_item_url(
+        "plugin://plugin.video.sendtokodi",
+        "https://example.com/video",
+        "?url=https%3A%2F%2Fexample.com%2Finput&yt-dlp-options=%7B%22format%22%3A%22best%22%7D",
+    )
+
+    assert item_url == (
+        "plugin://plugin.video.sendtokodi"
+        "?url=https%3A%2F%2Fexample.com%2Fvideo&yt-dlp-options=%7B%22format%22%3A%22best%22%7D"
+    )
+
+
+def test_build_flat_playlist_item_url_with_query_legacy_ydlopts():
+    item_url = build_flat_playlist_item_url(
+        "plugin://plugin.video.sendtokodi",
+        "https://example.com/video",
+        "?url=https%3A%2F%2Fexample.com%2Finput&ydlOpts=%7B%22format%22%3A%22best%22%7D",
+    )
+
+    assert item_url == (
+        "plugin://plugin.video.sendtokodi"
+        "?url=https%3A%2F%2Fexample.com%2Fvideo&ydlOpts=%7B%22format%22%3A%22best%22%7D"
     )
 
 
