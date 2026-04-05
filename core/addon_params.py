@@ -16,6 +16,57 @@ YT_DLP_OPTIONS_QUERY_PARAM = 'yt-dlp-options'
 LEGACY_YDL_OPTS_QUERY_PARAM = 'ydlOpts'
 
 
+def resolve_custom_binary_path(
+    handle,
+    get_setting,
+    enabled_setting,
+    path_setting,
+    path_exists=os.path.exists,
+    is_executable=os.access,
+    access_flag=os.X_OK,
+):
+    if get_setting(handle, enabled_setting) != 'true':
+        return None
+
+    binary_path = (get_setting(handle, path_setting) or '').strip()
+    if not binary_path:
+        return None
+    if not path_exists(binary_path):
+        return None
+    if not is_executable(binary_path, access_flag):
+        return None
+    return binary_path
+
+
+def resolve_custom_ytdlp_runtime_path(
+    handle,
+    get_setting,
+    path_exists=os.path.exists,
+    is_dir=os.path.isdir,
+    join_path=os.path.join,
+    dirname=os.path.dirname,
+):
+    if get_setting(handle, 'ytdlp_use_system_path') != 'true':
+        return None
+
+    configured_path = (get_setting(handle, 'ytdlp_system_path') or '').strip()
+    if not configured_path:
+        return None
+    if not path_exists(configured_path):
+        return None
+
+    if is_dir(configured_path):
+        package_candidate = join_path(configured_path, 'yt_dlp')
+        if is_dir(package_candidate):
+            return configured_path
+
+        # Also support pointing directly at the yt_dlp package directory.
+        if configured_path.rstrip('/').endswith('yt_dlp'):
+            return dirname(configured_path)
+
+    return None
+
+
 def _parse_ydl_opts_json(raw_value):
     if not raw_value:
         return {}
@@ -164,6 +215,18 @@ def build_ydl_opts_with_additional(parsed_params, additional_opts=None, deno_opt
 
 
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
+    custom_deno_path = resolve_custom_binary_path(
+        handle,
+        get_setting,
+        'deno_use_system_binary',
+        'deno_system_binary_path',
+    )
+    if custom_deno_path is not None:
+        return {
+            'js_runtimes': {'deno': {'path': custom_deno_path}},
+            'remote_components': {'ejs:github'},
+        }
+
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     version = (get_setting(handle, "deno_version") or '').strip()
     # Auto-update mode should track latest, not a previously pinned version.
@@ -251,10 +314,14 @@ def resolve_js_runtime_opts(
 
 def resolve_deno_settings(handle, get_setting):
     enabled = get_setting(handle, "deno_enabled") == 'true'
+    use_system_binary = get_setting(handle, 'deno_use_system_binary') == 'true'
+    system_binary_path = (get_setting(handle, 'deno_system_binary_path') or '').strip()
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     version = (get_setting(handle, "deno_version") or '').strip()
     return {
         'enabled': enabled,
+        'use_system_binary': use_system_binary,
+        'system_binary_path': system_binary_path,
         'auto_update': auto_update,
         'version': version or DEFAULT_DENO_VERSION,
     }
@@ -270,9 +337,13 @@ def resolve_media_download_settings(handle, get_setting):
 
 
 def resolve_ytdlp_settings(handle, get_setting):
+    use_system_path = get_setting(handle, 'ytdlp_use_system_path') == 'true'
+    system_path = (get_setting(handle, 'ytdlp_system_path') or '').strip()
     auto_update = get_setting(handle, "ytdlp_autodownload") == 'true'
     version = (get_setting(handle, "ytdlp_version") or '').strip()
     return {
+        'use_system_path': use_system_path,
+        'system_path': system_path,
         'auto_update': auto_update,
         'version': version or DEFAULT_YTDLP_VERSION,
     }
