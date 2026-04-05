@@ -25,6 +25,21 @@ def _parse_ydl_opts_json(raw_value):
     return parsed
 
 
+def _parse_optional_ydl_opts_json(raw_value, source_name):
+    if not raw_value:
+        return {}
+
+    try:
+        parsed = json.loads(raw_value)
+    except ValueError as exc:
+        raise ValueError('Invalid JSON in {}: {}'.format(source_name, exc))
+
+    if not isinstance(parsed, dict):
+        raise ValueError('{} must contain a JSON object'.format(source_name))
+
+    return parsed
+
+
 def _resolve_ydl_opts_from_query_params(parsed_query):
     ydl_options_raw = parsed_query.get(YT_DLP_OPTIONS_QUERY_PARAM, [None])[0]
     if ydl_options_raw is None:
@@ -108,6 +123,39 @@ def resolve_playlist_item_title(video):
 
 def build_ydl_opts(parsed_params, deno_opts=None):
     ydl_opts = {'extract_flat': 'in_playlist'}
+    ydl_opts.update(parsed_params.get('ydlOpts', {}))
+    if deno_opts:
+        ydl_opts.update(deno_opts)
+    return ydl_opts
+
+
+def resolve_ytdlp_additional_opts(handle, get_setting, read_file_contents=None):
+    file_opts = {}
+    inline_opts = _parse_optional_ydl_opts_json(
+        (get_setting(handle, 'ytdlp_extra_options_json') or '').strip(),
+        'ytdlp_extra_options_json',
+    )
+
+    if get_setting(handle, 'ytdlp_load_options_file') == 'true':
+        file_path = (get_setting(handle, 'ytdlp_options_file_path') or '').strip()
+        if not file_path:
+            raise ValueError('ytdlp_options_file_path is empty while file loading is enabled')
+        if read_file_contents is None:
+            raise ValueError('No file reader configured for ytdlp_options_file_path')
+
+        file_raw = read_file_contents(file_path)
+        file_opts = _parse_optional_ydl_opts_json(file_raw, 'ytdlp_options_file_path')
+
+    merged_opts = {}
+    merged_opts.update(file_opts)
+    merged_opts.update(inline_opts)
+    return merged_opts
+
+
+def build_ydl_opts_with_additional(parsed_params, additional_opts=None, deno_opts=None):
+    ydl_opts = {'extract_flat': 'in_playlist'}
+    if additional_opts:
+        ydl_opts.update(additional_opts)
     ydl_opts.update(parsed_params.get('ydlOpts', {}))
     if deno_opts:
         ydl_opts.update(deno_opts)

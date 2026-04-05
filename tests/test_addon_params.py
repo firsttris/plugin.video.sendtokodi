@@ -10,6 +10,7 @@ from core.addon_params import (
     parse_query_params,
     resolve_queue_request,
     build_flat_playlist_item_url,
+    build_ydl_opts_with_additional,
     resolve_playlist_item_title,
     build_ydl_opts,
     resolve_deno_settings,
@@ -18,6 +19,7 @@ from core.addon_params import (
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
+    resolve_ytdlp_additional_opts,
     resolve_ytdlp_settings,
 )
 
@@ -179,6 +181,137 @@ def test_build_ydl_opts_merges_deno_opts_when_present():
         "format": "best",
         "js_runtimes": {"deno": {"path": "/usr/bin/deno"}},
     }
+
+
+def test_build_ydl_opts_with_additional_merges_all_sources():
+    opts = build_ydl_opts_with_additional(
+        {"ydlOpts": {"format": "best", "noplaylist": True}},
+        {"cookiefile": "/tmp/cookies.txt", "format": "worst"},
+        {"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
+    )
+
+    assert opts == {
+        "extract_flat": "in_playlist",
+        "cookiefile": "/tmp/cookies.txt",
+        "format": "best",
+        "noplaylist": True,
+        "js_runtimes": {"deno": {"path": "/usr/bin/deno"}},
+    }
+
+
+def test_resolve_ytdlp_additional_opts_from_inline_json():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return '{"cookiefile": "/tmp/cookies.txt"}'
+        if name == "ytdlp_load_options_file":
+            return "false"
+        if name == "ytdlp_options_file_path":
+            return ""
+        return ""
+
+    opts = resolve_ytdlp_additional_opts(1, get_setting)
+
+    assert opts == {
+        "cookiefile": "/tmp/cookies.txt",
+    }
+
+
+def test_resolve_ytdlp_additional_opts_from_file_json():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return ""
+        if name == "ytdlp_load_options_file":
+            return "true"
+        if name == "ytdlp_options_file_path":
+            return "special://profile/addon_data/plugin.video.sendtokodi/ytdlp-options.json"
+        return ""
+
+    opts = resolve_ytdlp_additional_opts(
+        1,
+        get_setting,
+        read_file_contents=lambda _path: '{"extractor_args": {"youtube": {"player_client": ["tv"]}}}',
+    )
+
+    assert opts == {
+        "extractor_args": {"youtube": {"player_client": ["tv"]}},
+    }
+
+
+def test_resolve_ytdlp_additional_opts_inline_overrides_file_keys():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return '{"format": "best"}'
+        if name == "ytdlp_load_options_file":
+            return "true"
+        if name == "ytdlp_options_file_path":
+            return "any.json"
+        return ""
+
+    opts = resolve_ytdlp_additional_opts(
+        1,
+        get_setting,
+        read_file_contents=lambda _path: '{"format": "worst", "cookiefile": "/tmp/cookies.txt"}',
+    )
+
+    assert opts == {
+        "format": "best",
+        "cookiefile": "/tmp/cookies.txt",
+    }
+
+
+def test_resolve_ytdlp_additional_opts_raises_for_invalid_inline_json():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return "{oops"
+        if name == "ytdlp_load_options_file":
+            return "false"
+        if name == "ytdlp_options_file_path":
+            return ""
+        return ""
+
+    try:
+        resolve_ytdlp_additional_opts(1, get_setting)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "ytdlp_extra_options_json" in str(exc)
+
+
+def test_resolve_ytdlp_additional_opts_raises_when_file_enabled_without_path():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return ""
+        if name == "ytdlp_load_options_file":
+            return "true"
+        if name == "ytdlp_options_file_path":
+            return ""
+        return ""
+
+    try:
+        resolve_ytdlp_additional_opts(1, get_setting, read_file_contents=lambda _path: "{}")
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "ytdlp_options_file_path" in str(exc)
+
+
+def test_resolve_ytdlp_additional_opts_raises_for_non_object_json():
+    def get_setting(_handle, name):
+        if name == "ytdlp_extra_options_json":
+            return ""
+        if name == "ytdlp_load_options_file":
+            return "true"
+        if name == "ytdlp_options_file_path":
+            return "opts.json"
+        return ""
+
+    try:
+        resolve_ytdlp_additional_opts(
+            1,
+            get_setting,
+            read_file_contents=lambda _path: '["not", "an", "object"]',
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "JSON object" in str(exc)
 
 
 def test_resolve_deno_opts_reads_settings_without_enable_toggle():

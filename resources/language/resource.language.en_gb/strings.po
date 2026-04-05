@@ -100,6 +100,18 @@ msgctxt "#32056"
 msgid "Update yt-dlp now"
 msgstr ""
 
+msgctxt "#32057"
+msgid "Additional yt-dlp options (JSON)"
+msgstr ""
+
+msgctxt "#32058"
+msgid "Load additional yt-dlp options from JSON file"
+msgstr ""
+
+msgctxt "#32059"
+msgid "Additional yt-dlp options file path"
+msgstr ""
+
 msgctxt "#32054"
 msgid "yt-dlp version override (advanced)"
 msgstr ""
