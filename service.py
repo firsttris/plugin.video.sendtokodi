@@ -13,10 +13,9 @@ from core.addon_params import (
     parse_cli_paramstring,
     parse_query_params,
     resolve_queue_request,
-    build_ydl_opts_with_additional,
+    build_ydl_opts,
     resolve_js_runtime_opts,
     resolve_media_download_settings,
-    resolve_ytdlp_additional_opts,
     resolve_dash_httpd_idle_timeout,
 )
 from core.runtime.playback import (
@@ -75,18 +74,6 @@ def run_with_progress(title, message, operation):
     finally:
         if progress is not None:
             progress.close()
-
-
-def _read_text_file_with_xbmcvfs(path):
-    translated_path = xbmcvfs.translatePath(path)
-    if not xbmcvfs.exists(translated_path):
-        raise ValueError('yt-dlp options file not found: {}'.format(path))
-
-    file_handle = xbmcvfs.File(translated_path)
-    try:
-        return file_handle.read()
-    finally:
-        file_handle.close()
 
 
 # Get the plugin url in plugin:// notation.
@@ -199,18 +186,7 @@ try:
 except Exception as e:
     log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
 
-additional_ytdlp_opts = {}
-try:
-    additional_ytdlp_opts = resolve_ytdlp_additional_opts(
-        __handle__,
-        xbmcplugin.getSetting,
-        _read_text_file_with_xbmcvfs,
-    )
-except Exception as e:
-    log("Ignoring invalid additional yt-dlp options: {}".format(str(e)), xbmc.LOGWARNING)
-    showErrorNotification("Invalid additional yt-dlp options (see log)")
-
-ydl_opts = build_ydl_opts_with_additional(params, additional_ytdlp_opts, js_runtime_opts)
+ydl_opts = build_ydl_opts(params, js_runtime_opts)
 
 media_download_settings = resolve_media_download_settings(__handle__, xbmcplugin.getSetting)
 media_download_enabled = media_download_settings['enabled']

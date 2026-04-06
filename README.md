@@ -114,22 +114,8 @@ Open in Kodi via:
   Read-only display of installed yt-dlp.
 - **Manage yt-dlp version / Update yt-dlp now**  
   Manually select a version or trigger an immediate update.
-- **Additional yt-dlp options (JSON)**  
-  Global yt-dlp options as a JSON object, applied to every request. Example:
-  `{"cookiefile":"/storage/.kodi/userdata/cookies.txt","format":"best"}`
-- **Load additional yt-dlp options from JSON file**  
-  Enables loading global yt-dlp options from a JSON file.
-- **Additional yt-dlp options file path**  
-  Path to a JSON file containing a single JSON object with yt-dlp options.
 - **yt-dlp version override (advanced)**  
   Pin/override yt-dlp version manually.
-
-Option precedence for yt-dlp params is:
-1. built-in defaults
-2. additional options file
-3. additional options JSON (settings field)
-4. per-request options (`yt-dlp-options` or legacy `ydlOpts`)
-5. runtime-specific overrides (e.g. JS runtime options)
 
 ### Adaptive
 

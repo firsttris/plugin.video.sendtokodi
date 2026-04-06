@@ -97,21 +97,6 @@
                     <enable>false</enable>
                     <control type="edit" format="string"/>
                 </setting>
-                <setting type="string" id="ytdlp_extra_options_json" label="32057">
-                    <level>2</level>
-                    <default></default>
-                    <control type="edit" format="string"/>
-                </setting>
-                <setting type="boolean" id="ytdlp_load_options_file" label="32058">
-                    <level>2</level>
-                    <default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting type="string" id="ytdlp_options_file_path" label="32059" parent="ytdlp_load_options_file">
-                    <level>2</level>
-                    <default></default>
-                    <control type="edit" format="string"/>
-                </setting>
                 <setting type="string" id="ytdlp_version" label="32054">
                     <level>3</level>
                     <default>latest</default>
