@@ -61,11 +61,6 @@
                     <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=deno_update_now)</data>
                     <control type="button" format="action"/>
                 </setting>
-                <setting type="string" id="deno_version" label="32027">
-                    <level>3</level>
-                    <default>latest</default>
-                    <control type="edit" format="string"/>
-                </setting>
             </group>
         </category>
         <category id="ytdlp" label="32061">
@@ -95,11 +90,6 @@
                     <level>0</level>
                     <default>not installed</default>
                     <enable>false</enable>
-                    <control type="edit" format="string"/>
-                </setting>
-                <setting type="string" id="ytdlp_version" label="32054">
-                    <level>3</level>
-                    <default>latest</default>
                     <control type="edit" format="string"/>
                 </setting>
             </group>

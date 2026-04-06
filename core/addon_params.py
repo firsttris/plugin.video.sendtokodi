@@ -116,12 +116,7 @@ def build_ydl_opts(parsed_params, deno_opts=None):
 
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
-    version = (get_setting(handle, "deno_version") or '').strip()
-    # Auto-update mode should track latest, not a previously pinned version.
-    if auto_update:
-        requested_version = DEFAULT_DENO_VERSION
-    else:
-        requested_version = version or DEFAULT_DENO_VERSION
+    requested_version = DEFAULT_DENO_VERSION
     return get_deno_ydl_opts(auto_download=auto_update, requested_version=requested_version)
 
 
@@ -203,11 +198,10 @@ def resolve_js_runtime_opts(
 def resolve_deno_settings(handle, get_setting):
     enabled = get_setting(handle, "deno_enabled") == 'true'
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
-    version = (get_setting(handle, "deno_version") or '').strip()
     return {
         'enabled': enabled,
         'auto_update': auto_update,
-        'version': version or DEFAULT_DENO_VERSION,
+        'version': DEFAULT_DENO_VERSION,
     }
 
 
@@ -222,10 +216,9 @@ def resolve_media_download_settings(handle, get_setting):
 
 def resolve_ytdlp_settings(handle, get_setting):
     auto_update = get_setting(handle, "ytdlp_autodownload") == 'true'
-    version = (get_setting(handle, "ytdlp_version") or '').strip()
     return {
         'auto_update': auto_update,
-        'version': version or DEFAULT_YTDLP_VERSION,
+        'version': DEFAULT_YTDLP_VERSION,
     }
 
 

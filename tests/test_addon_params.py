@@ -181,7 +181,7 @@ def test_build_ydl_opts_merges_deno_opts_when_present():
     }
 
 
-def test_resolve_deno_opts_reads_settings_without_enable_toggle():
+def test_resolve_deno_opts_always_uses_default_version():
     def get_setting(_handle, name):
         if name == "deno_autodownload":
             return "false"
@@ -200,7 +200,7 @@ def test_resolve_deno_opts_reads_settings_without_enable_toggle():
 
     assert opts == {
         "auto_update": False,
-        "requested_version": "v2.7.5",
+        "requested_version": DEFAULT_DENO_VERSION,
     }
 
 
@@ -238,7 +238,7 @@ def test_resolve_deno_settings_reads_all_values():
     assert settings == {
         "enabled": False,
         "auto_update": False,
-        "version": "v2.7.4",
+        "version": DEFAULT_DENO_VERSION,
     }
 
 
@@ -536,7 +536,7 @@ def test_resolve_ytdlp_settings_reads_all_values():
 
     assert settings == {
         "auto_update": False,
-        "version": "2026.03.26",
+        "version": DEFAULT_YTDLP_VERSION,
     }
 
 

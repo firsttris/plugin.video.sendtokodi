@@ -31,11 +31,6 @@ def _runtime_module(runtime_name):
     raise ValueError("Unknown runtime {}".format(runtime_name))
 
 
-def _set_version_setting(runtime_name, version):
-    setting_key = "deno_version" if runtime_name == "deno" else "ytdlp_version"
-    xbmcaddon.Addon().setSetting(setting_key, version)
-
-
 def _set_installed_version_display(runtime_name, version):
     setting_key = (
         "deno_installed_version_display"
@@ -124,7 +119,6 @@ def _activate_runtime_version(runtime_name, selected_version, manager_module, sh
 
     status = _get_runtime_status(runtime_name, manager_module, selected_version)
     installed_version = status.get("installed_version") or selected_version
-    _set_version_setting(runtime_name, installed_version)
     _set_installed_version_display(runtime_name, installed_version)
     show_info_notification("{} {} is active".format(runtime_label, installed_version))
     return True
@@ -147,7 +141,6 @@ def _delete_runtime_version(runtime_name, selected_version, manager_module, show
     status = _get_runtime_status(runtime_name, manager_module, None)
     remaining_version = status.get("installed_version")
     if remaining_version:
-        _set_version_setting(runtime_name, remaining_version)
         _set_installed_version_display(runtime_name, remaining_version)
         show_info_notification(
             "{} {} deleted; {} is now active".format(
@@ -157,7 +150,6 @@ def _delete_runtime_version(runtime_name, selected_version, manager_module, show
             )
         )
     else:
-        _set_version_setting(runtime_name, "latest")
         _set_installed_version_display(runtime_name, None)
         show_info_notification("{} {} deleted".format(runtime_label, selected_version))
     return True
@@ -241,7 +233,6 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
 
     selected_version, action = selection
     if action == "install":
-        _set_version_setting(runtime_name, selected_version)
         _install_runtime_version(
             runtime_name,
             selected_version,
