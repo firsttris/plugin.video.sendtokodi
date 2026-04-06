@@ -6,11 +6,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
-from core.addon_params import (
-    resolve_custom_ytdlp_runtime_path,
-    resolve_deno_settings,
-    resolve_ytdlp_settings,
-)
+from core.addon_params import resolve_deno_settings, resolve_ytdlp_settings
 from core.runtime_management import (
     build_action_options,
     build_version_entries,
@@ -338,20 +334,6 @@ def handle_runtime_action(action, handle, run_with_progress, show_info_notificat
 def configure_managed_ytdlp(handle, log):
     settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
     manager_module = _runtime_module("ytdlp")
-
-    if settings.get("use_system_path"):
-        runtime_path = resolve_custom_ytdlp_runtime_path(handle, xbmcplugin.getSetting)
-        if runtime_path is not None:
-            manager_module.activate_runtime(runtime_path)
-            _set_installed_version_display("ytdlp", "system path")
-            log("Using yt-dlp from configured system path {}".format(runtime_path))
-            return
-
-        _set_installed_version_display("ytdlp", "not installed")
-        log(
-            "Configured system yt-dlp path is invalid; falling back to managed/bundled yt-dlp",
-            xbmc.LOGWARNING,
-        )
 
     status = manager_module.ensure_ytdlp_ready(
         allow_install=settings["auto_update"],

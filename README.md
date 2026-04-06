@@ -89,8 +89,6 @@ Open in Kodi via:
 
 ### JavaScript Runtime
 
-- **Enable QuickJS JavaScript runtime**
-  Read-only capability toggle (always enabled).
 - **JavaScript runtime mode (auto|deno|quickjs)**  
   Select how JavaScript extraction/runtime tasks are handled:
   - `auto`: prefer best available runtime automatically
@@ -99,10 +97,6 @@ Open in Kodi via:
   - `disabled`: disable JavaScript runtime usage
 - **QuickJS binary path**  
   Path to your QuickJS executable if you use QuickJS mode.
-- **Use system Deno binary from custom path**
-  When enabled, SendToKodi uses only the configured Deno binary path and skips managed Deno discovery/download.
-- **System Deno binary path**
-  Full path to your Deno executable (for example `/usr/bin/deno`).
 - **Auto-update Deno JavaScript runtime**  
   Automatically keeps the managed Deno runtime current.
 - **Installed Deno version**  
@@ -114,10 +108,6 @@ Open in Kodi via:
 
 ### yt-dlp
 
-- **Use system yt-dlp from custom path**
-  When enabled, SendToKodi prepends this path to Python imports and uses that yt-dlp package first instead of the managed downloader.
-- **System yt-dlp path (folder containing yt_dlp)**
-  Path to a directory containing the `yt_dlp` package (or the `yt_dlp` package directory itself).
 - **Auto-update yt-dlp**  
   Keeps yt-dlp updated automatically (recommended).
 - **Installed yt-dlp version**  

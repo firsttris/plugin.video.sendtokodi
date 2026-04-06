@@ -19,8 +19,6 @@ from core.addon_params import (
     resolve_js_runtime_opts,
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
-    resolve_custom_binary_path,
-    resolve_custom_ytdlp_runtime_path,
     resolve_media_download_settings,
     resolve_ytdlp_additional_opts,
     resolve_ytdlp_plugin_dirs,
@@ -393,26 +391,6 @@ def test_resolve_deno_opts_reads_settings_without_enable_toggle():
     }
 
 
-def test_resolve_deno_opts_prefers_configured_system_binary_path():
-    def get_setting(_handle, name):
-        if name == "deno_use_system_binary":
-            return "true"
-        if name == "deno_system_binary_path":
-            return "/bin/sh"
-        return ""
-
-    opts = resolve_deno_opts(
-        1,
-        get_setting,
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("managed deno resolver should not run")),
-    )
-
-    assert opts == {
-        "js_runtimes": {"deno": {"path": "/bin/sh"}},
-        "remote_components": {"ejs:github"},
-    }
-
-
 def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
     def get_setting(_handle, name):
         if name == "deno_autodownload":
@@ -436,10 +414,6 @@ def test_resolve_deno_opts_uses_autodownload_setting_when_enabled():
 
 def test_resolve_deno_settings_reads_all_values():
     def get_setting(_handle, name):
-        if name == "deno_use_system_binary":
-            return "true"
-        if name == "deno_system_binary_path":
-            return "/usr/bin/deno"
         if name == "deno_autodownload":
             return "false"
         if name == "deno_version":
@@ -450,61 +424,9 @@ def test_resolve_deno_settings_reads_all_values():
 
     assert settings == {
         "enabled": False,
-        "use_system_binary": True,
-        "system_binary_path": "/usr/bin/deno",
         "auto_update": False,
         "version": "v2.7.4",
     }
-
-
-def test_resolve_custom_binary_path_returns_none_when_disabled():
-    path = resolve_custom_binary_path(
-        1,
-        lambda _handle, name: "false" if name == "deno_use_system_binary" else "/usr/bin/deno",
-        "deno_use_system_binary",
-        "deno_system_binary_path",
-    )
-
-    assert path is None
-
-
-def test_resolve_custom_binary_path_returns_none_when_invalid_binary():
-    def get_setting(_handle, name):
-        if name == "deno_use_system_binary":
-            return "true"
-        if name == "deno_system_binary_path":
-            return "/bad/path/deno"
-        return ""
-
-    path = resolve_custom_binary_path(
-        1,
-        get_setting,
-        "deno_use_system_binary",
-        "deno_system_binary_path",
-        path_exists=lambda _path: False,
-    )
-
-    assert path is None
-
-
-def test_resolve_custom_binary_path_returns_valid_binary():
-    def get_setting(_handle, name):
-        if name == "deno_use_system_binary":
-            return "true"
-        if name == "deno_system_binary_path":
-            return "/usr/bin/deno"
-        return ""
-
-    path = resolve_custom_binary_path(
-        1,
-        get_setting,
-        "deno_use_system_binary",
-        "deno_system_binary_path",
-        path_exists=lambda _path: True,
-        is_executable=lambda _path, _flag: True,
-    )
-
-    assert path == "/usr/bin/deno"
 
 
 def test_resolve_deno_opts_forces_latest_when_auto_update_enabled():
@@ -775,10 +697,6 @@ def test_resolve_media_download_settings_uses_custom_path_when_set():
 
 def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
     def get_setting(_handle, name):
-        if name == "ytdlp_use_system_path":
-            return "false"
-        if name == "ytdlp_system_path":
-            return ""
         if name == "ytdlp_autodownload":
             return "true"
         if name == "ytdlp_version":
@@ -788,8 +706,6 @@ def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
     settings = resolve_ytdlp_settings(1, get_setting)
 
     assert settings == {
-        "use_system_path": False,
-        "system_path": "",
         "auto_update": True,
         "version": DEFAULT_YTDLP_VERSION,
     }
@@ -797,10 +713,6 @@ def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
 
 def test_resolve_ytdlp_settings_reads_all_values():
     def get_setting(_handle, name):
-        if name == "ytdlp_use_system_path":
-            return "true"
-        if name == "ytdlp_system_path":
-            return "/opt/system-ytdlp"
         if name == "ytdlp_autodownload":
             return "false"
         if name == "ytdlp_version":
@@ -810,65 +722,9 @@ def test_resolve_ytdlp_settings_reads_all_values():
     settings = resolve_ytdlp_settings(1, get_setting)
 
     assert settings == {
-        "use_system_path": True,
-        "system_path": "/opt/system-ytdlp",
         "auto_update": False,
         "version": "2026.03.26",
     }
-
-
-def test_resolve_custom_ytdlp_runtime_path_supports_folder_with_yt_dlp():
-    def get_setting(_handle, name):
-        if name == "ytdlp_use_system_path":
-            return "true"
-        if name == "ytdlp_system_path":
-            return "/opt/ytdlp-runtime"
-        return ""
-
-    runtime_path = resolve_custom_ytdlp_runtime_path(
-        1,
-        get_setting,
-        path_exists=lambda _path: True,
-        is_dir=lambda path: path in ("/opt/ytdlp-runtime", "/opt/ytdlp-runtime/yt_dlp"),
-    )
-
-    assert runtime_path == "/opt/ytdlp-runtime"
-
-
-def test_resolve_custom_ytdlp_runtime_path_supports_direct_package_path():
-    def get_setting(_handle, name):
-        if name == "ytdlp_use_system_path":
-            return "true"
-        if name == "ytdlp_system_path":
-            return "/opt/runtime/yt_dlp"
-        return ""
-
-    runtime_path = resolve_custom_ytdlp_runtime_path(
-        1,
-        get_setting,
-        path_exists=lambda _path: True,
-        is_dir=lambda path: path == "/opt/runtime/yt_dlp",
-    )
-
-    assert runtime_path == "/opt/runtime"
-
-
-def test_resolve_custom_ytdlp_runtime_path_returns_none_when_invalid():
-    def get_setting(_handle, name):
-        if name == "ytdlp_use_system_path":
-            return "true"
-        if name == "ytdlp_system_path":
-            return "/opt/runtime"
-        return ""
-
-    runtime_path = resolve_custom_ytdlp_runtime_path(
-        1,
-        get_setting,
-        path_exists=lambda _path: True,
-        is_dir=lambda path: path == "/opt/runtime",
-    )
-
-    assert runtime_path is None
 
 
 def test_resolve_dash_httpd_idle_timeout_uses_default_when_missing():

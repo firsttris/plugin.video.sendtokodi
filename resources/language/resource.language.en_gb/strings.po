@@ -112,22 +112,6 @@ msgctxt "#32070"
 msgid "yt-dlp plugin directories (comma-separated)"
 msgstr ""
 
-msgctxt "#32071"
-msgid "Use system Deno binary from custom path"
-msgstr ""
-
-msgctxt "#32072"
-msgid "System Deno binary path"
-msgstr ""
-
-msgctxt "#32073"
-msgid "Use system yt-dlp from custom path"
-msgstr ""
-
-msgctxt "#32074"
-msgid "System yt-dlp path (folder containing yt_dlp)"
-msgstr ""
-
 msgctxt "#32058"
 msgid "Load additional yt-dlp options from JSON file"
 msgstr ""
