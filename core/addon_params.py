@@ -5,7 +5,6 @@ import urllib.parse
 
 
 DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
-DEFAULT_YTDLP_PLUGIN_DIRS = 'special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-plugins'
 DEFAULT_YTDLP_VERSION = 'latest'
 DEFAULT_DENO_VERSION = 'latest'
 DEFAULT_JS_RUNTIME_MODE = 'auto'
@@ -276,37 +275,6 @@ def resolve_ytdlp_settings(handle, get_setting):
         'auto_update': auto_update,
         'version': version or DEFAULT_YTDLP_VERSION,
     }
-
-
-def _parse_plugin_dirs(raw_value):
-    if not raw_value:
-        return []
-
-    normalized = raw_value.replace(';', ',').replace('\n', ',')
-    values = []
-    for value in normalized.split(','):
-        trimmed = value.strip()
-        if not trimmed:
-            continue
-        values.append(trimmed)
-    return values
-
-
-def resolve_ytdlp_plugin_dirs(handle, get_setting, translate_path):
-    if get_setting(handle, 'ytdlp_enable_plugin_dirs') != 'true':
-        return []
-
-    raw_paths = (get_setting(handle, 'ytdlp_plugin_dirs') or '').strip()
-    plugin_dirs = _parse_plugin_dirs(raw_paths or DEFAULT_YTDLP_PLUGIN_DIRS)
-
-    resolved_paths = []
-    for path in plugin_dirs:
-        if path.startswith('special://'):
-            resolved_paths.append(translate_path(path))
-        else:
-            resolved_paths.append(path)
-
-    return resolved_paths
 
 
 def resolve_dash_httpd_idle_timeout(handle, get_setting):

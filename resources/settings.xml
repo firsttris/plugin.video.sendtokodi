@@ -102,16 +102,6 @@
                     <default></default>
                     <control type="edit" format="string"/>
                 </setting>
-                <setting type="boolean" id="ytdlp_enable_plugin_dirs" label="32069">
-                    <level>2</level>
-                    <default>false</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting type="string" id="ytdlp_plugin_dirs" label="32070" parent="ytdlp_enable_plugin_dirs">
-                    <level>2</level>
-                    <default>special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-plugins</default>
-                    <control type="edit" format="string"/>
-                </setting>
                 <setting type="boolean" id="ytdlp_load_options_file" label="32058">
                     <level>2</level>
                     <default>false</default>

@@ -16,7 +16,6 @@ from core.addon_params import (
     build_ydl_opts_with_additional,
     resolve_js_runtime_opts,
     resolve_media_download_settings,
-    resolve_ytdlp_plugin_dirs,
     resolve_ytdlp_additional_opts,
     resolve_dash_httpd_idle_timeout,
 )
@@ -212,16 +211,6 @@ except Exception as e:
     showErrorNotification("Invalid additional yt-dlp options (see log)")
 
 ydl_opts = build_ydl_opts_with_additional(params, additional_ytdlp_opts, js_runtime_opts)
-
-try:
-    plugin_dirs = resolve_ytdlp_plugin_dirs(__handle__, xbmcplugin.getSetting, xbmcvfs.translatePath)
-    if plugin_dirs and 'plugin_dirs' not in ydl_opts:
-        # Keep default yt-dlp plugin discovery while adding SendToKodi-managed paths.
-        ydl_opts['plugin_dirs'] = plugin_dirs + ['default']
-        log('Enabled yt-dlp plugin directories: {}'.format(', '.join(plugin_dirs)))
-except Exception as e:
-    log('Ignoring invalid yt-dlp plugin directory settings: {}'.format(str(e)), xbmc.LOGWARNING)
-    showErrorNotification('Invalid yt-dlp plugin directories (see log)')
 
 media_download_settings = resolve_media_download_settings(__handle__, xbmcplugin.getSetting)
 media_download_enabled = media_download_settings['enabled']
