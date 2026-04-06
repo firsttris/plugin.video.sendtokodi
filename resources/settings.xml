@@ -38,6 +38,10 @@
                 <setting type="string" id="quickjs_path" label="32063">
                     <level>1</level>
                     <default>special://profile/addon_data/plugin.video.sendtokodi/downloads</default>
+                    <dependencies>
+                        <dependency type="visible" setting="js_runtime_mode">quickjs</dependency>
+                        <dependency type="enable" setting="js_runtime_mode">quickjs</dependency>
+                    </dependencies>
                     <control type="edit" format="string"/>
                 </setting>
                 <setting type="boolean" id="deno_autodownload" label="32023">
