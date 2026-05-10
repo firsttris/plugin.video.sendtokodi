@@ -1,5 +1,4 @@
-from urllib.parse import parse_qs, urlparse
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlparse, quote, urlencode
 
 
 def normalize_dash_audio_streams(dash_audio):
@@ -34,6 +33,18 @@ def collect_subtitle_urls(subtitles):
         for lang in subtitles
         for subtitle_list_entry in subtitles[lang]
     ]
+
+
+def append_headers_to_url(url, headers):
+    if not headers:
+        return url
+    parts = []
+    for key, value in headers.items():
+        if key and value:
+            parts.append("{}={}".format(quote(str(key)), quote(str(value))))
+    if parts:
+        return url + '|' + '&'.join(parts)
+    return url
 
 
 def encode_inputstream_headers(headers):

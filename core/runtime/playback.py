@@ -6,6 +6,7 @@ import xbmcvfs
 from core import dash_builder
 from core.addon_params import build_flat_playlist_item_url, resolve_playlist_item_title
 from core.playback_selection import (
+    append_headers_to_url,
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
@@ -185,17 +186,19 @@ def create_list_item_from_video(
     if subtitles:
         list_item.setSubtitles(collect_subtitle_urls(subtitles))
 
+    # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
+    # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
+    effective_headers = resolve_effective_headers(headers, result.get("http_headers"))
+
     if isa:
         list_item.setProperty("inputstream", "inputstream.adaptive")
-
-        # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
-        # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
-        encoded_headers = encode_inputstream_headers(
-            resolve_effective_headers(headers, result.get("http_headers"))
-        )
+        encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
             list_item.setProperty("inputstream.adaptive.stream_headers", encoded_headers)
+    elif effective_headers and url and url.startswith(("http://", "https://")):
+        url = append_headers_to_url(url, effective_headers)
+        list_item.setPath(url)
 
     return list_item
 

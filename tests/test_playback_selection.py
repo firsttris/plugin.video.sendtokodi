@@ -1,5 +1,8 @@
+from urllib.parse import quote
+
 from core.playback_selection import (
     analyze_formats,
+    append_headers_to_url,
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
@@ -1099,3 +1102,42 @@ def test_resolve_starting_entry_returns_entry_when_url_missing():
     entry = {"id": "local", "title": "already resolved"}
 
     assert resolve_starting_entry(entry, lambda *_args, **_kwargs: {"should": "not-run"}) == entry
+
+
+def test_append_headers_to_url_returns_url_when_headers_none():
+    result = append_headers_to_url(
+        url="https://example.com/stream.mp4",
+        headers=None
+    )
+
+    assert result == "https://example.com/stream.mp4"
+
+
+def test_append_headers_to_url_returns_url_when_headers_empty():
+    result = append_headers_to_url(
+        url="https://example.com/stream.mp4",
+        headers={}
+    )
+
+    assert result == "https://example.com/stream.mp4"
+
+
+def test_append_headers_to_url_appends_headers_correctly():
+    ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+    referer = "https://example.com"
+
+    result = append_headers_to_url(
+        url="https://example.com/stream.mp4",
+        headers={"User-Agent": ua, "Referer": referer},
+    )
+
+    assert result == "https://example.com/stream.mp4|User-Agent={}&Referer={}".format(quote(ua), quote(referer))
+
+
+def test_append_headers_to_url_preserves_url_with_query_params():
+    result = append_headers_to_url(
+        url="https://example.com/stream.mp4?token=abc",
+        headers={"User-Agent": "TestAgent"},
+    )
+
+    assert result == "https://example.com/stream.mp4?token=abc|User-Agent=TestAgent"
