@@ -1,3 +1,5 @@
+import pytest
+
 from core import dash_builder
 
 
@@ -78,18 +80,28 @@ def test_webm_find_ranges_finds_cues_element():
     assert index_range == (10, 14)
 
 
+class FakeStreamResponse:
+    def __init__(self, payload):
+        self.payload = payload
+        self.closed = False
+
+    def raise_for_status(self):
+        return None
+
+    def iter_content(self, chunk_size):
+        for offset in range(0, len(self.payload), chunk_size):
+            yield self.payload[offset:offset + chunk_size]
+
+    def close(self):
+        self.closed = True
+
+
 def test_find_init_and_index_ranges_dispatches_by_container(monkeypatch):
     called = []
 
-    class DummyRequestsResponse:
-        content = b"dummy"
-
-        def raise_for_status(self):
-            return None
-
-    def fake_get(url, headers, timeout):
-        called.append((url, headers, timeout))
-        return DummyRequestsResponse()
+    def fake_get(url, headers, timeout, stream):
+        called.append((url, headers, timeout, stream))
+        return FakeStreamResponse(b"dummy")
 
     monkeypatch.setattr(dash_builder.requests, "get", fake_get)
     monkeypatch.setattr(dash_builder, "_webm_find_init_and_index_ranges", lambda _r: ((1, 2), (3, 4)))
@@ -97,8 +109,72 @@ def test_find_init_and_index_ranges_dispatches_by_container(monkeypatch):
 
     assert dash_builder.find_init_and_index_ranges("https://x", "webm_dash") == ((1, 2), (3, 4))
     assert dash_builder.find_init_and_index_ranges("https://x", "mp4_dash") == ((5, 6), (7, 8))
-    assert called[0][1]["Range"] == "bytes=0-1023"
-    assert called[0][2] == dash_builder._RANGE_REQUEST_TIMEOUT_SECONDS
+    assert called[0][1]["Range"] == "bytes=0-4095"
+    assert called[0][3] is True
+
+
+def test_find_init_and_index_ranges_grows_probe_until_sidx_found(monkeypatch):
+    moov_box = (8000).to_bytes(4, "big") + b"moov" + (b"\x00" * 7992)
+    sidx_box = b"\x00\x00\x00\x18" + b"sidx" + (b"\x00" * 16)
+    media = moov_box + sidx_box + (b"\x00" * 100000)
+    ranges = []
+
+    def fake_get(_url, headers, timeout, stream):
+        end = int(headers["Range"].split("-")[1])
+        ranges.append(end + 1)
+        return FakeStreamResponse(media[:end + 1])
+
+    monkeypatch.setattr(dash_builder.requests, "get", fake_get)
+
+    init_range, index_range = dash_builder.find_init_and_index_ranges("https://x", "mp4_dash")
+
+    assert ranges == [4096, 16384]
+    assert init_range == (0, 7999)
+    assert index_range == (8000, 8023)
+
+
+def test_find_init_and_index_ranges_raises_when_no_index(monkeypatch):
+    payload = b"\x00\x00\x00\x10" + b"ftyp" + b"isom0000"
+    monkeypatch.setattr(dash_builder.requests, "get", lambda *_a, **_k: FakeStreamResponse(payload))
+
+    with pytest.raises(RuntimeError):
+        dash_builder.find_init_and_index_ranges("https://x", "mp4_dash")
+
+
+def test_fetch_prefix_stops_reading_when_range_is_ignored(monkeypatch):
+    response = FakeStreamResponse(b"x" * 1000000)
+    monkeypatch.setattr(dash_builder.requests, "get", lambda *_a, **_k: response)
+
+    data = dash_builder._fetch_prefix("https://x", 4096)
+
+    assert data == b"x" * 4096
+    assert response.closed is True
+
+
+def test_mp4_find_ranges_handles_64bit_box_size():
+    ftyp_box = b"\x00\x00\x00\x10" + b"ftyp" + b"isom0000"
+    large_box = b"\x00\x00\x00\x01" + b"mdat" + (24).to_bytes(8, "big") + (b"\x00" * 8)
+    sidx_box = b"\x00\x00\x00\x18" + b"sidx" + (b"\x00" * 16)
+
+    init_range, index_range = dash_builder._mp4_find_init_and_index_ranges(
+        DummyResponse(ftyp_box + large_box + sidx_box)
+    )
+
+    assert init_range == (0, 39)
+    assert index_range == (40, 63)
+
+
+def test_manifest_add_video_format_leaves_no_partial_representation_on_failure(monkeypatch):
+    def failing_ranges(_url, _container):
+        raise RuntimeError("no index")
+
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", failing_ranges)
+    manifest = dash_builder.Manifest(10)
+
+    with pytest.raises(RuntimeError):
+        manifest.add_video_format({"url": "https://x", "container": "mp4_dash", "resolution": "1x1"})
+
+    assert manifest.video_set.findall("Representation") == []
 
 
 def test_manifest_add_formats_and_emit(monkeypatch):

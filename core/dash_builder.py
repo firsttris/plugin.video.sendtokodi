@@ -16,6 +16,9 @@ _HTTPD_THREAD = None
 _MANIFESTS = {}
 _LATEST_MANIFEST_ID = None
 _RANGE_REQUEST_TIMEOUT_SECONDS = 20
+# The init/index boxes usually sit in the first few KiB; grow the probe until found.
+_RANGE_PROBE_INITIAL_BYTES = 4096
+_RANGE_PROBE_MAX_BYTES = 256 * 1024
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -82,8 +85,20 @@ def _mp4_find_init_and_index_ranges(r):
     index_range = (0,0)
     offset = 0
     while offset < len(r.content) - 8:
-        box_size = max(struct.unpack('>I', r.content[offset:offset + 4])[0], 8)
+        box_size = struct.unpack('>I', r.content[offset:offset + 4])[0]
         box_type = struct.unpack('4s', r.content[offset + 4:offset + 8])[0]
+        if box_size == 1:
+            # 64-bit "largesize" follows the box type.
+            if offset + 16 > len(r.content):
+                break
+            box_size = struct.unpack('>Q', r.content[offset + 8:offset + 16])[0]
+        elif box_size == 0:
+            # Box extends to the end of the file, so no sidx can follow it.
+            if box_type != b"sidx":
+                break
+            box_size = len(r.content) - offset
+        if box_size < 8:
+            break
         if box_type == b"sidx":
             init_range = (0, offset - 1)
             index_range = (offset, offset + box_size - 1)
@@ -91,18 +106,49 @@ def _mp4_find_init_and_index_ranges(r):
         offset = offset + box_size
     return init_range, index_range
 
-def find_init_and_index_ranges(url, container):
-    # Download the first 1KiB of the stream
-    size = 1024
+class _Prefix():
+    def __init__(self, content):
+        self.content = content
+
+
+def _fetch_prefix(url, size):
+    # stream=True so a server that ignores the Range header does not make us
+    # download the whole media file.
     r = requests.get(
         url,
         headers={'Range': 'bytes=0-' + str(size - 1)},
         timeout=_RANGE_REQUEST_TIMEOUT_SECONDS,
+        stream=True,
     )
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+        data = bytearray()
+        for chunk in r.iter_content(chunk_size=16384):
+            data += chunk
+            if len(data) >= size:
+                break
+        return bytes(data[:size])
+    finally:
+        r.close()
+
+
+def find_init_and_index_ranges(url, container):
     if container == 'webm_dash':
-        return _webm_find_init_and_index_ranges(r)
-    return _mp4_find_init_and_index_ranges(r)
+        find_ranges = _webm_find_init_and_index_ranges
+    else:
+        find_ranges = _mp4_find_init_and_index_ranges
+
+    size = _RANGE_PROBE_INITIAL_BYTES
+    while True:
+        data = _fetch_prefix(url, size)
+        init_range, index_range = find_ranges(_Prefix(data))
+        if index_range != (0, 0):
+            return init_range, index_range
+        if len(data) < size or size >= _RANGE_PROBE_MAX_BYTES:
+            raise RuntimeError(
+                "No segment index found in the first {} bytes of the {} stream".format(len(data), container)
+            )
+        size = min(size * 4, _RANGE_PROBE_MAX_BYTES)
 
 def _iso8601_duration(secs):
     # yt-dlp may report no duration (None) and callers default to the string "0".
@@ -154,6 +200,10 @@ class Manifest():
         self.tree = ElementTree(self.mpd)
 
     def add_audio_format(self, format):
+        url = format['url']
+        # Resolve ranges first so a failing format leaves no partial Representation behind.
+        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+
         rep = SubElement(self.audio_set, 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])
         rep.set('codecs', format['acodec'])
@@ -168,11 +218,9 @@ class Manifest():
         channels.set('schemeIdUri', 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011')
         channels.set('value', str(format['audio_channels']))
 
-        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
         base_url.text = url
 
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
@@ -180,24 +228,27 @@ class Manifest():
         init.set('range', '{}-{}'.format(init_range[0], init_range[1]))
 
     def add_video_format(self, format):
+        url = format['url']
+        # Resolve ranges first so a failing format leaves no partial Representation behind.
+        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+        width, height = str(format['resolution']).split('x', 1)
+
         rep = SubElement(self.video_set, 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])
         rep.set('codecs', format['vcodec'])
         rep.set('startWithSAP', '1')
         rep.set('maxPlayoutRate', '1')
         rep.set('frameRate', str(format['fps']))
-        rep.set('width', str(format['resolution']).split('x',1)[0])
-        rep.set('height', str(format['resolution']).split('x',1)[1])
+        rep.set('width', width)
+        rep.set('height', height)
         rep.set('mimeType', "video/{}".format(format['ext']))
         kbps = format.get('tbr', format.get('vbr'))
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))
 
-        url = format['url']
         base_url = SubElement(rep, 'BaseURL')
         base_url.text = url
 
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
         segment_base = SubElement(rep, 'SegmentBase')
         segment_base.set('indexRange', '{}-{}'.format(idx_range[0], idx_range[1]))
 
