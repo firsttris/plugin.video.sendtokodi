@@ -48,6 +48,12 @@ def test_iso8601_duration_formatting():
     assert dash_builder._iso8601_duration(3661) == "P0DT1H1M1S"
 
 
+def test_iso8601_duration_tolerates_missing_duration():
+    assert dash_builder._iso8601_duration(None) == "P0DT0H0M0S"
+    assert dash_builder._iso8601_duration("0") == "P0DT0H0M0.0S"
+    dash_builder.Manifest(None).emit()
+
+
 def test_transform_url_keeps_original_url():
     url = "https://example.com/v?id=123&quality=high"
     assert dash_builder.transform_url(url) == url
@@ -293,3 +299,56 @@ def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
     payload = dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(url.replace("http://127.0.0.1:8123", "")))
 
     assert payload == b"manifest-v2"
+
+
+def test_stop_httpd_if_idle_keeps_recently_used_server(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
+
+    class FakeHttpd:
+        closed = False
+
+        def server_close(self):
+            self.closed = True
+
+    httpd = FakeHttpd()
+    dash_builder._HTTPD = httpd
+    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
+
+    assert dash_builder._stop_httpd_if_idle(httpd, now=105) is False
+    assert httpd.closed is False
+    assert dash_builder._HTTPD is httpd
+
+
+def test_stop_httpd_if_idle_stops_idle_server(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
+
+    class FakeHttpd:
+        closed = False
+
+        def server_close(self):
+            self.closed = True
+
+    httpd = FakeHttpd()
+    dash_builder._HTTPD = httpd
+    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
+
+    assert dash_builder._stop_httpd_if_idle(httpd, now=111) is True
+    assert httpd.closed is True
+    assert dash_builder._HTTPD is None
+    assert dash_builder._MANIFESTS == {}
+
+
+def test_handle_request_returns_when_server_goes_idle(monkeypatch):
+    calls = []
+
+    class DummyHttpd:
+        def handle_request(self):
+            calls.append(1)
+
+    monkeypatch.setattr(dash_builder, "_stop_httpd_if_idle", lambda _httpd: len(calls) >= 3)
+
+    dash_builder._handle_request(DummyHttpd())
+
+    assert len(calls) == 3

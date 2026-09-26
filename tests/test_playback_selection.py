@@ -26,6 +26,7 @@ from core.playback_selection import (
         split_playlist_entries,
         queueable_playlist_entries,
         resolve_starting_entry,
+        resolve_playlist_insert_position,
 )
 
 
@@ -1235,3 +1236,15 @@ def test_append_headers_to_url_preserves_url_with_query_params():
     )
 
     assert result == "https://example.com/stream.mp4?token=abc|User-Agent=TestAgent"
+
+
+def test_resolve_playlist_insert_position_skips_entries_without_url():
+    entries = [{"url": "a"}, {"id": "no-url"}, {"url": "c"}, {"url": "d"}]
+    starting_entry, unresolved = split_playlist_entries(entries, 3)
+
+    assert starting_entry == {"url": "d"}
+    assert resolve_playlist_insert_position(unresolved, 3) == 2
+
+
+def test_resolve_playlist_insert_position_at_start():
+    assert resolve_playlist_insert_position([{"url": "b"}], 0) == 0

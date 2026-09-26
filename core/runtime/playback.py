@@ -17,6 +17,7 @@ from core.playback_selection import (
     selection_log_messages,
     split_playlist_entries,
     queueable_playlist_entries,
+    resolve_playlist_insert_position,
 )
 
 
@@ -222,11 +223,12 @@ def extract_result_with_progress(ydl, target_url):
         progress.close()
 
 
-def download_result_with_progress(ydl, target_url):
+def download_result_with_progress(ydl, result):
     progress = xbmcgui.DialogProgressBG()
-    progress.create("Downloading " + target_url)
+    progress.create("Downloading " + (result.get("title") or result.get("webpage_url") or ""))
     try:
-        return ydl.extract_info(target_url, download=True)
+        # Reuse the extracted info instead of resolving the url a second time.
+        return ydl.process_ie_result(result, download=True)
     finally:
         progress.close()
 
@@ -265,6 +267,8 @@ def play_playlist_result(
     for video in queueable_playlist_entries(unresolved_entries):
         list_item = _create_list_item_from_flat_playlist_item(video, plugin_url, paramstring)
         playlist.add(list_item.getPath(), list_item)
+
+    index_to_start_at = resolve_playlist_insert_position(unresolved_entries, index_to_start_at)
 
     def extract_starting_entry(url, download=False):
         return ydl.extract_info(url, download=media_download_enabled)

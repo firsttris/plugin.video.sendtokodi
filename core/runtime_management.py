@@ -49,3 +49,16 @@ def build_action_options(selected_version, installed_versions, active_version):
         options.append(("Delete local version", "delete"))
 
     return options
+
+
+def select_versions_to_prune(versions_newest_first, keep_version, max_versions):
+    kept = 1 if keep_version in versions_newest_first else 0
+    to_prune = []
+    for version in versions_newest_first:
+        if version == keep_version:
+            continue
+        if kept < max_versions:
+            kept += 1
+        else:
+            to_prune.append(version)
+    return to_prune

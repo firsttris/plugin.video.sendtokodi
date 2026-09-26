@@ -26,7 +26,9 @@ from core.runtime_update_state import (
     parse_retry_after,
     save_update_state,
 )
+from core.runtime_management import select_versions_to_prune
 from core.update_policy import (
+    INSTALL_PROMPT_SNOOZE_SECONDS,
     UPDATE_CHECK_INTERVAL_SECONDS,
     UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
     UPDATE_BACKOFF_STEPS_SECONDS,
@@ -166,6 +168,24 @@ def _runtime_path_for_version(version):
 
 def _yt_dlp_package_path(runtime_path):
     return os.path.join(runtime_path, "yt_dlp")
+
+
+# Installed versions kept on disk; older ones are pruned after each install.
+MAX_INSTALLED_VERSIONS = 3
+
+
+def _prune_old_versions(keep_version):
+    versions_newest_first = sorted(
+        list_installed_versions(),
+        key=lambda version: os.path.getmtime(_runtime_path_for_version(version)),
+        reverse=True,
+    )
+    for version in select_versions_to_prune(versions_newest_first, keep_version, MAX_INSTALLED_VERSIONS):
+        try:
+            shutil.rmtree(_runtime_path_for_version(version))
+            _log("Removed old yt-dlp version {}".format(version))
+        except Exception as exc:
+            _warn("Could not remove old yt-dlp version {}: {}".format(version, exc))
 
 
 def _find_runtime_for_version(version):
@@ -432,6 +452,7 @@ def _download_and_install(version):
     _extract_yt_dlp_from_tarball(data, runtime_path)
     _write_installed_version(version)
     _log("yt-dlp {} installed at {}".format(version, runtime_path))
+    _prune_old_versions(version)
     return runtime_path
 
 
@@ -564,6 +585,21 @@ def ensure_ytdlp_ready(
             return _ready(fallback_version, fallback_runtime_path, error=str(exc))
 
         return _not_ready("error", None, None, None, error=str(exc))
+
+
+def is_install_prompt_snoozed(now=None):
+    now = int(time.time()) if now is None else int(now)
+    declined_at = int(_load_update_state().get("install_prompt_declined_at") or 0)
+    return now - declined_at < INSTALL_PROMPT_SNOOZE_SECONDS
+
+
+def snooze_install_prompt(now=None):
+    state = _load_update_state()
+    state["install_prompt_declined_at"] = int(time.time()) if now is None else int(now)
+    try:
+        _save_update_state(state)
+    except Exception as exc:
+        _warn("Could not save yt-dlp prompt state: {}".format(exc))
 
 
 def activate_runtime(runtime_path):

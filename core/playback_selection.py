@@ -405,6 +405,11 @@ def queueable_playlist_entries(entries):
     return [entry for entry in entries if 'url' in entry]
 
 
+def resolve_playlist_insert_position(unresolved_entries, start_index):
+    # Entries without a url are not queued, so the start position shifts accordingly.
+    return len(queueable_playlist_entries(unresolved_entries[:start_index]))
+
+
 def resolve_starting_entry(starting_entry, extract_info):
     if 'url' in starting_entry:
         return extract_info(starting_entry['url'], download=False)

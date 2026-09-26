@@ -105,6 +105,12 @@ def find_init_and_index_ranges(url, container):
     return _mp4_find_init_and_index_ranges(r)
 
 def _iso8601_duration(secs):
+    # yt-dlp may report no duration (None) and callers default to the string "0".
+    if not isinstance(secs, (int, float)):
+        try:
+            secs = float(secs)
+        except (TypeError, ValueError):
+            secs = 0
     m, s = divmod(secs, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)
@@ -294,52 +300,79 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
+def _stop_httpd_if_idle(httpd, now=None):
+    # Caller must not hold _HTTPD_STATE_LOCK.
+    global _HTTPD, _HTTPD_THREAD, _LATEST_MANIFEST_ID
+    now = monotonic() if now is None else now
+    with _HTTPD_STATE_LOCK:
+        if _HTTPD is not httpd:
+            return True
+        last_access_at = max(
+            (entry.get('last_access_at', 0) for entry in _MANIFESTS.values()),
+            default=0,
+        )
+        if now - last_access_at < DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
+            return False
+        _HTTPD = None
+        _HTTPD_THREAD = None
+        _MANIFESTS.clear()
+        _LATEST_MANIFEST_ID = None
+    try:
+        httpd.server_close()
+    except Exception:
+        pass
+    return True
+
+
 def _handle_request(httpd):
     try:
         while True:
             httpd.handle_request()
+            if _stop_httpd_if_idle(httpd):
+                return
     except TimeoutError:
         return
 
-def _ensure_httpd_started():
+
+def _ensure_httpd_started_locked():
     global _HTTPD, _HTTPD_THREAD
-    with _HTTPD_STATE_LOCK:
-        if _HTTPD is not None:
-            return _HTTPD
-
-        server_address = ('127.0.0.1', 0)
-        httpd = HTTPServer(server_address, HttpHandler)
-        # Keep server thread alive and periodically return from handle_request
-        # to avoid a permanently blocking accept call.
-        httpd.timeout = 1
-        httpd.handle_timeout = lambda: None
-
-        thread = Thread(target=_handle_request, args=(httpd,))
-        thread.daemon = True
-        thread.start()
-
-        _HTTPD = httpd
-        _HTTPD_THREAD = thread
+    if _HTTPD is not None:
         return _HTTPD
 
+    server_address = ('127.0.0.1', 0)
+    httpd = HTTPServer(server_address, HttpHandler)
+    # Return from handle_request periodically so the idle check can stop the server.
+    httpd.timeout = 1
+    httpd.handle_timeout = lambda: None
 
-def _register_manifest(manifest, refresh_manifest=None):
+    thread = Thread(target=_handle_request, args=(httpd,))
+    thread.daemon = True
+    thread.start()
+
+    _HTTPD = httpd
+    _HTTPD_THREAD = thread
+    return _HTTPD
+
+
+def _register_manifest_locked(manifest, refresh_manifest=None):
     global _LATEST_MANIFEST_ID
     manifest_id = uuid4().hex
-    with _HTTPD_STATE_LOCK:
-        _MANIFESTS[manifest_id] = {
-            'manifest': bytes(manifest),
-            'refresh_manifest': refresh_manifest,
-            'refreshed_at': monotonic(),
-            'last_access_at': monotonic(),
-        }
-        _LATEST_MANIFEST_ID = manifest_id
+    now = monotonic()
+    _MANIFESTS[manifest_id] = {
+        'manifest': bytes(manifest),
+        'refresh_manifest': refresh_manifest,
+        'refreshed_at': now,
+        'last_access_at': now,
+    }
+    _LATEST_MANIFEST_ID = manifest_id
     return manifest_id
 
 
 def start_httpd(manifest, refresh_manifest=None):
-    httpd = _ensure_httpd_started()
-    manifest_id = _register_manifest(manifest, refresh_manifest=refresh_manifest)
+    # Start and register atomically so the idle check cannot stop the server in between.
+    with _HTTPD_STATE_LOCK:
+        httpd = _ensure_httpd_started_locked()
+        manifest_id = _register_manifest_locked(manifest, refresh_manifest=refresh_manifest)
     return "http://127.0.0.1:{}/manifest/{}.mpd".format(httpd.server_port, manifest_id)
 
 

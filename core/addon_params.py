@@ -59,6 +59,11 @@ def parse_query_params(paramstring):
     query_part = paramstring[1:]
     if " " in query_part:
         query_part = query_part.split(" ", 1)[0]
+    # Legacy format "?<raw url>": the target url's own query (e.g. "&url=...")
+    # must not be mistaken for plugin parameters.
+    first_key = query_part.split("&", 1)[0].split("=", 1)[0]
+    if "/" in first_key or ":" in first_key:
+        return {}
     return urllib.parse.parse_qs(query_part)
 
 

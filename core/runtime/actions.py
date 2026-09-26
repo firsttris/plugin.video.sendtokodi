@@ -332,7 +332,11 @@ def configure_managed_ytdlp(handle, log):
     )
     _set_installed_version_display("ytdlp", status.get("installed_version"))
 
-    if not status["ready"] and status["reason"] in ("missing", "version_mismatch"):
+    if (
+        not status["ready"]
+        and status["reason"] in ("missing", "version_mismatch")
+        and not manager_module.is_install_prompt_snoozed()
+    ):
         wanted = settings["version"]
         if wanted == "latest":
             prompt_msg = "Managed yt-dlp is not available. Download latest version now?"
@@ -346,6 +350,8 @@ def configure_managed_ytdlp(handle, log):
                 requested_version=settings["version"],
             )
             _set_installed_version_display("ytdlp", status.get("installed_version"))
+        else:
+            manager_module.snooze_install_prompt()
 
     if status["ready"] and status["runtime_path"] is not None:
         manager_module.activate_runtime(status["runtime_path"])

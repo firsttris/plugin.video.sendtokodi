@@ -398,3 +398,27 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
     assert state["consecutive_failures"] == 1
     assert state["cooldown_until"] == 1120
     assert state["next_check_at"] == 1120
+
+
+def test_prune_old_versions_keeps_newest_and_active(monkeypatch, tmp_path):
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    for age, version in enumerate(["2025.05", "2025.04", "2025.03", "2025.02", "2025.01"]):
+        package = tmp_path / "versions" / version / "yt_dlp"
+        package.mkdir(parents=True)
+        os.utime(package.parent, (1000 - age, 1000 - age))
+
+    ytdlp_manager._prune_old_versions("2025.01")
+
+    assert sorted(os.listdir(tmp_path / "versions")) == ["2025.01", "2025.04", "2025.05"]
+
+
+def test_install_prompt_snooze_expires(monkeypatch, tmp_path):
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+
+    assert ytdlp_manager.is_install_prompt_snoozed(now=1000) is False
+
+    ytdlp_manager.snooze_install_prompt(now=1000)
+
+    assert ytdlp_manager.is_install_prompt_snoozed(now=1001) is True
+    later = 1000 + ytdlp_manager.INSTALL_PROMPT_SNOOZE_SECONDS
+    assert ytdlp_manager.is_install_prompt_snoozed(now=later) is False

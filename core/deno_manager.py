@@ -38,6 +38,7 @@ from core.runtime_update_state import (
     parse_retry_after,
     save_update_state,
 )
+from core.runtime_management import select_versions_to_prune
 from core.update_policy import (
     UPDATE_CHECK_INTERVAL_SECONDS,
     UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
@@ -172,6 +173,24 @@ def _runtime_dir_for_version(version):
 
 def _binary_path_for_version(version):
     return os.path.join(_runtime_dir_for_version(version), _deno_binary_name())
+
+
+# Installed versions kept on disk; older ones are pruned after each install.
+MAX_INSTALLED_VERSIONS = 3
+
+
+def _prune_old_versions(keep_version):
+    versions_newest_first = sorted(
+        list_installed_versions(),
+        key=lambda version: os.path.getmtime(_runtime_dir_for_version(version)),
+        reverse=True,
+    )
+    for version in select_versions_to_prune(versions_newest_first, keep_version, MAX_INSTALLED_VERSIONS):
+        try:
+            shutil.rmtree(_runtime_dir_for_version(version))
+            _log("Removed old Deno version {}".format(version))
+        except Exception as exc:
+            _warn("Could not remove old Deno version {}: {}".format(version, exc))
 
 
 def _find_runtime_for_version(version):
@@ -493,6 +512,7 @@ def _download_deno(show_progress=True, version=None):
 
     _log("Deno installed to {}".format(dest))
     _set_installed_version(target_version)
+    _prune_old_versions(target_version)
     return os.path.join(runtime_dir, binary_name)
 
 
@@ -583,7 +603,12 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
                     )
                     deno_path = _download_deno(show_progress=True, version=target_version)
 
-        if deno_path is None:
+        # An explicit version or forced update must install a managed Deno, not
+        # silently fall back to a system binary.
+        explicit_install = auto_download and (
+            force_refresh_latest or requested != DENO_LATEST_SENTINEL
+        )
+        if deno_path is None and not explicit_install:
             deno_path = _find_in_path()
             if deno_path is not None:
                 _log("Using system Deno at {}".format(deno_path))

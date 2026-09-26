@@ -146,10 +146,59 @@ def test_get_ydl_opts_updates_on_version_mismatch(monkeypatch):
 def test_get_ydl_opts_uses_system_path_when_needed(monkeypatch):
     monkeypatch.setattr(deno_manager, "_find_in_addon_data", lambda: None)
     monkeypatch.setattr(deno_manager, "_find_in_path", lambda: "/usr/bin/deno")
+    monkeypatch.setattr(deno_manager, "_resolve_latest_version", lambda force_refresh=False: "v2.7.5")
+
+    opts = deno_manager.get_ydl_opts(auto_download=True)
+
+    assert opts["js_runtimes"]["deno"]["path"] == "/usr/bin/deno"
+
+
+def test_get_ydl_opts_installs_explicit_version_despite_system_deno(monkeypatch):
+    monkeypatch.setattr(deno_manager, "_find_in_addon_data", lambda: None)
+    monkeypatch.setattr(deno_manager, "_find_in_path", lambda: "/usr/bin/deno")
+    downloaded = []
+
+    def fake_download(show_progress=True, version=None):
+        downloaded.append(version)
+        return "/addon/versions/{}/deno".format(version)
+
+    monkeypatch.setattr(deno_manager, "_download_deno", fake_download)
 
     opts = deno_manager.get_ydl_opts(auto_download=True, requested_version="v2.7.5")
 
-    assert opts["js_runtimes"]["deno"]["path"] == "/usr/bin/deno"
+    assert downloaded == ["v2.7.5"]
+    assert opts["js_runtimes"]["deno"]["path"] == "/addon/versions/v2.7.5/deno"
+
+
+def test_get_ydl_opts_forced_update_installs_despite_system_deno(monkeypatch):
+    monkeypatch.setattr(deno_manager, "_find_in_addon_data", lambda: None)
+    monkeypatch.setattr(deno_manager, "_find_in_path", lambda: "/usr/bin/deno")
+    monkeypatch.setattr(deno_manager, "_resolve_latest_version", lambda force_refresh=False: "v2.9.7")
+    monkeypatch.setattr(
+        deno_manager,
+        "_download_deno",
+        lambda show_progress=True, version=None: "/addon/versions/{}/deno".format(version),
+    )
+
+    opts = deno_manager.get_ydl_opts(auto_download=True, force_refresh_latest=True)
+
+    assert opts["js_runtimes"]["deno"]["path"] == "/addon/versions/v2.9.7/deno"
+
+
+def test_prune_old_versions_keeps_newest_and_active(monkeypatch, tmp_path):
+    import os
+
+    monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
+    for age, version in enumerate(["v5", "v4", "v3", "v2", "v1"]):
+        binary = tmp_path / "versions" / version / deno_manager._deno_binary_name()
+        binary.parent.mkdir(parents=True)
+        binary.write_text("")
+        binary.chmod(0o755)
+        os.utime(binary.parent, (1000 - age, 1000 - age))
+
+    deno_manager._prune_old_versions("v1")
+
+    assert sorted(os.listdir(tmp_path / "versions")) == ["v1", "v4", "v5"]
 
 
 def test_get_ydl_opts_returns_empty_when_missing_and_download_disabled(monkeypatch):

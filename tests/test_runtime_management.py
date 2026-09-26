@@ -41,3 +41,15 @@ def test_build_action_options_for_installed_inactive_version():
         ("Activate local version", "activate"),
         ("Delete local version", "delete"),
     ]
+
+
+def test_select_versions_to_prune_keeps_active_and_newest():
+    result = runtime_management.select_versions_to_prune(["v5", "v4", "v3", "v2", "v1"], "v1", 3)
+
+    assert result == ["v3", "v2"]
+
+
+def test_select_versions_to_prune_ignores_unknown_keep_version():
+    result = runtime_management.select_versions_to_prune(["v3", "v2", "v1"], "v9", 2)
+
+    assert result == ["v1"]

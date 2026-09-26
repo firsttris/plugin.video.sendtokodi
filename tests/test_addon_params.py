@@ -71,6 +71,20 @@ def test_parse_query_params_extracts_query_before_ydl_opts_json():
     }
 
 
+def test_parse_query_params_ignores_query_of_legacy_raw_url():
+    assert parse_query_params("?https://example.com/redirect?id=1&url=https://other.example/x") == {}
+    assert parse_query_params("?https://example.com/v?action=queue&url=x") == {}
+
+
+def test_parse_cli_paramstring_keeps_legacy_url_with_url_query_param():
+    params = parse_cli_paramstring("?https://example.com/redirect?id=1&url=https://other.example/x")
+
+    assert params == {
+        "url": "https://example.com/redirect?id=1&url=https://other.example/x",
+        "ydlOpts": {},
+    }
+
+
 def test_resolve_queue_request_reads_title():
     request = resolve_queue_request("?action=queue&url=https%3A%2F%2Fexample.com%2Fvideo&title=My%20Video")
 

@@ -98,13 +98,18 @@ if legacy_python_workarounds_enabled:
 patch_strptime()
 
 
+_isa_support_cache = {}
+
 try:
     import inputstreamhelper
 
     def isa_supports(stream):
         if stream is None or len(stream) < 1:
             return False
-        return inputstreamhelper.Helper(stream).check_inputstream()
+        # Stream selection asks for the same types once per format; check each only once.
+        if stream not in _isa_support_cache:
+            _isa_support_cache[stream] = inputstreamhelper.Helper(stream).check_inputstream()
+        return _isa_support_cache[stream]
 except ImportError:
     def isa_supports(stream):
         return False
@@ -223,9 +228,9 @@ with ydl:
     try:
         result = extract_result_with_progress(ydl, url)
         if media_download_enabled and 'entries' not in result:
-            result = download_result_with_progress(ydl, url)
+            result = download_result_with_progress(ydl, result)
     except Exception:
-        handle_resolve_failure()
+        handle_resolve_failure(set_resolved_false=True)
 
 if 'entries' in result:
     try:
