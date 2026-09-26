@@ -51,12 +51,6 @@ def _get_runtime_status(runtime_name, manager_module, version):
     return manager_module.get_runtime_status(version)
 
 
-def _list_available_versions(runtime_name, manager_module):
-    if runtime_name == "deno":
-        return manager_module.list_available_versions(limit=20)
-    return manager_module.list_available_versions(limit=20)
-
-
 def _install_runtime_version(
     runtime_name,
     selected_version,
@@ -222,7 +216,7 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
     selection = _choose_runtime_version(
         runtime_name,
         status,
-        lambda: _list_available_versions(runtime_name, manager_module),
+        lambda: manager_module.list_available_versions(limit=20),
         run_with_progress,
         show_info_notification,
         show_error_notification,

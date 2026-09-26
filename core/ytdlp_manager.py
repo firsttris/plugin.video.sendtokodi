@@ -8,35 +8,24 @@ between versions based on addon settings.
 """
 
 import io
-import json
 import logging
 import os
 import time
 import shutil
 import sys
 import tarfile
-import urllib.error
-import urllib.request
+from core import managed_runtime
 from core.runtime_update_state import (
-    apply_failure_state,
-    apply_success_state,
-    compute_failure_cooldown,
     default_update_state,
     load_update_state,
-    parse_retry_after,
     save_update_state,
 )
-from core.runtime_management import select_versions_to_prune
-from core.update_policy import (
-    INSTALL_PROMPT_SNOOZE_SECONDS,
-    UPDATE_CHECK_INTERVAL_SECONDS,
-    UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
-    UPDATE_BACKOFF_STEPS_SECONDS,
-    UPDATE_MAX_COOLDOWN_SECONDS,
-)
+from core.update_policy import INSTALL_PROMPT_SNOOZE_SECONDS
 
 
-YTDLP_LATEST_SENTINEL = "latest"
+YTDLP_LATEST_SENTINEL = managed_runtime.LATEST_SENTINEL
+MAX_INSTALLED_VERSIONS = managed_runtime.MAX_INSTALLED_VERSIONS
+_RUNTIME_LABEL = "yt-dlp"
 
 _LATEST_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 _RELEASES_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases?per_page=100&page={page}"
@@ -44,14 +33,7 @@ _TARBALL_URL = "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar
 
 
 def _log(msg, level=None):
-    """Log via xbmc if available, otherwise fall back to stdlib logging."""
-    try:
-        import xbmc
-        if level is None:
-            level = xbmc.LOGINFO
-        xbmc.log("plugin.video.sendtokodi ytdlp_manager: {}".format(msg), level)
-    except ImportError:
-        logging.getLogger(__name__).info(msg)
+    managed_runtime.log("ytdlp_manager", msg, level)
 
 
 def _warn(msg):
@@ -64,22 +46,7 @@ def _warn(msg):
 
 def _addon_data_dir():
     """Return the addon_data path used for managed yt-dlp installations."""
-    try:
-        import xbmcvfs
-        return xbmcvfs.translatePath(
-            "special://profile/addon_data/plugin.video.sendtokodi/ytdlp/"
-        )
-    except ImportError:
-        pass
-
-    return os.path.join(
-        os.path.expanduser("~"),
-        ".kodi",
-        "userdata",
-        "addon_data",
-        "plugin.video.sendtokodi",
-        "ytdlp",
-    )
+    return managed_runtime.addon_data_dir("ytdlp")
 
 
 def _versions_dir():
@@ -106,59 +73,20 @@ def _save_update_state(state):
     save_update_state(_addon_data_dir(), _update_state_file(), state)
 
 
-def _parse_retry_after(headers):
-    return parse_retry_after(headers, UPDATE_MAX_COOLDOWN_SECONDS)
-
-
-def _compute_failure_cooldown(consecutive_failures):
-    return compute_failure_cooldown(consecutive_failures, UPDATE_BACKOFF_STEPS_SECONDS)
-
-
-def _apply_success_state(state, latest_version, etag, check_interval_seconds):
-    apply_success_state(state, latest_version, etag, check_interval_seconds)
-
-
-def _apply_failure_state(state, error_message, retry_after=None):
-    apply_failure_state(
-        state,
-        error_message,
-        UPDATE_BACKOFF_STEPS_SECONDS,
-        retry_after=retry_after,
-    )
-
-
 def _normalize_requested_version(version):
-    requested = (version or "").strip()
-    if not requested:
-        return YTDLP_LATEST_SENTINEL
-    if requested.lower() == YTDLP_LATEST_SENTINEL:
-        return YTDLP_LATEST_SENTINEL
-    return requested
+    return managed_runtime.normalize_requested_version(version)
 
 
 def _read_installed_version():
-    try:
-        with open(_installed_version_file(), "r") as f:
-            value = f.read().strip()
-            return value or None
-    except Exception:
-        return None
+    return managed_runtime.read_version_file(_installed_version_file())
 
 
 def _write_installed_version(version):
-    os.makedirs(_addon_data_dir(), exist_ok=True)
-    try:
-        with open(_installed_version_file(), "w") as f:
-            f.write(version)
-    except Exception as exc:
-        _warn("Could not write yt-dlp version file: {}".format(exc))
+    managed_runtime.write_version_file(_installed_version_file(), version, _warn, _RUNTIME_LABEL)
 
 
 def _clear_installed_version():
-    try:
-        os.remove(_installed_version_file())
-    except Exception:
-        pass
+    managed_runtime.clear_version_file(_installed_version_file())
 
 
 def _runtime_path_for_version(version):
@@ -170,22 +98,15 @@ def _yt_dlp_package_path(runtime_path):
     return os.path.join(runtime_path, "yt_dlp")
 
 
-# Installed versions kept on disk; older ones are pruned after each install.
-MAX_INSTALLED_VERSIONS = 3
-
-
 def _prune_old_versions(keep_version):
-    versions_newest_first = sorted(
+    managed_runtime.prune_old_versions(
+        keep_version,
         list_installed_versions(),
-        key=lambda version: os.path.getmtime(_runtime_path_for_version(version)),
-        reverse=True,
+        _runtime_path_for_version,
+        _log,
+        _warn,
+        _RUNTIME_LABEL,
     )
-    for version in select_versions_to_prune(versions_newest_first, keep_version, MAX_INSTALLED_VERSIONS):
-        try:
-            shutil.rmtree(_runtime_path_for_version(version))
-            _log("Removed old yt-dlp version {}".format(version))
-        except Exception as exc:
-            _warn("Could not remove old yt-dlp version {}: {}".format(version, exc))
 
 
 def _find_runtime_for_version(version):
@@ -208,18 +129,10 @@ def _find_installed_runtime():
 
 
 def list_installed_versions():
-    versions_dir = _versions_dir()
-    if not os.path.isdir(versions_dir):
-        return []
-
-    versions = []
-    for name in os.listdir(versions_dir):
-        runtime_path = os.path.join(versions_dir, name)
-        if not os.path.isdir(runtime_path):
-            continue
-        if os.path.isdir(_yt_dlp_package_path(runtime_path)):
-            versions.append(name)
-    return sorted(versions, reverse=True)
+    return managed_runtime.list_installed_versions(
+        _versions_dir(),
+        lambda name: os.path.isdir(_yt_dlp_package_path(_runtime_path_for_version(name))),
+    )
 
 
 def activate_installed_version(version):
@@ -236,129 +149,31 @@ def activate_installed_version(version):
 
 
 def delete_installed_version(version):
-    target = (version or "").strip()
-    if not target:
-        return False
-
-    runtime_path = _runtime_path_for_version(target)
-    if not os.path.isdir(runtime_path):
-        return False
-
-    try:
-        shutil.rmtree(runtime_path)
-    except Exception as exc:
-        _warn("Could not delete yt-dlp version {}: {}".format(target, exc))
-        return False
-
-    if _read_installed_version() == target:
-        remaining_versions = list_installed_versions()
-        if remaining_versions:
-            _write_installed_version(remaining_versions[0])
-        else:
-            _clear_installed_version()
-
-    return True
+    return managed_runtime.delete_installed_version(
+        version,
+        _runtime_path_for_version,
+        _read_installed_version,
+        _write_installed_version,
+        _clear_installed_version,
+        list_installed_versions,
+        _warn,
+        _RUNTIME_LABEL,
+    )
 
 
 def _resolve_latest_version(force_refresh=False):
     _log("Resolving latest yt-dlp release version")
-
-    state = _load_update_state()
-    now = int(time.time())
-    cached_version = state.get("latest_known_version")
-
-    if not force_refresh:
-        next_check_at = int(state.get("next_check_at") or 0)
-        cooldown_until = int(state.get("cooldown_until") or 0)
-        if cached_version and now < max(next_check_at, cooldown_until):
-            return cached_version
-
-    request = urllib.request.Request(_LATEST_RELEASE_API)
-    etag = state.get("etag")
-    if etag:
-        request.add_header("If-None-Match", etag)
-
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            tag = (payload.get("tag_name") or "").strip()
-            if not tag:
-                raise RuntimeError("GitHub latest release response has no tag_name")
-
-            _apply_success_state(
-                state,
-                tag,
-                response.headers.get("ETag"),
-                UPDATE_CHECK_INTERVAL_SECONDS,
-            )
-            _save_update_state(state)
-            return tag
-    except urllib.error.HTTPError as exc:
-        if exc.code == 304 and cached_version:
-            _apply_success_state(
-                state,
-                cached_version,
-                exc.headers.get("ETag") or etag,
-                UPDATE_CHECK_NOT_MODIFIED_INTERVAL_SECONDS,
-            )
-            _save_update_state(state)
-            return cached_version
-
-        if exc.code == 429:
-            retry_after = _parse_retry_after(exc.headers)
-            error_message = "GitHub API rate limit hit (HTTP 429)"
-            _apply_failure_state(state, error_message, retry_after=retry_after)
-            _save_update_state(state)
-            if cached_version:
-                return cached_version
-            raise RuntimeError(error_message)
-
-        error_message = "GitHub latest release lookup failed: HTTP {}".format(exc.code)
-        _apply_failure_state(state, error_message)
-        _save_update_state(state)
-        if cached_version:
-            return cached_version
-        raise RuntimeError(error_message)
-    except Exception as exc:
-        _apply_failure_state(state, str(exc))
-        _save_update_state(state)
-        if cached_version:
-            return cached_version
-        raise
+    return managed_runtime.resolve_latest_version(
+        _LATEST_RELEASE_API,
+        _load_update_state,
+        _save_update_state,
+        force_refresh=force_refresh,
+    )
 
 
 def list_available_versions(limit=20):
     """Return available yt-dlp release tags (newest first)."""
-    if limit <= 0:
-        return []
-
-    versions = []
-    page = 1
-
-    try:
-        while len(versions) < limit:
-            url = _RELEASES_API.format(page=page)
-            with urllib.request.urlopen(url, timeout=20) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-
-            if not isinstance(payload, list) or not payload:
-                break
-
-            for release in payload:
-                tag = (release.get("tag_name") or "").strip()
-                if not tag or tag in versions:
-                    continue
-                versions.append(tag)
-                if len(versions) >= limit:
-                    break
-
-            if len(payload) < 100:
-                break
-            page += 1
-    except Exception as exc:
-        _warn("Could not list yt-dlp releases: {}".format(exc))
-
-    return versions
+    return managed_runtime.list_available_versions(_RELEASES_API, limit, _warn, _RUNTIME_LABEL)
 
 
 def _safe_join(base_dir, relative_path):
@@ -412,41 +227,7 @@ def _download_and_install(version):
     url = _TARBALL_URL.format(version=version)
     _log("Downloading yt-dlp {} from {}".format(version, url))
 
-    progress = None
-    try:
-        import xbmcgui
-
-        progress = xbmcgui.DialogProgressBG()
-        progress.create("SendToKodi", "Downloading yt-dlp {}...".format(version))
-    except Exception:
-        progress = None
-
-    try:
-        with urllib.request.urlopen(url, timeout=60) as response:
-            total = int(response.headers.get("Content-Length", 0))
-            downloaded = 0
-            chunks = []
-            chunk_size = 65536  # 64 KiB
-            while True:
-                chunk = response.read(chunk_size)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                downloaded += len(chunk)
-                if progress is not None and total > 0:
-                    pct = int(downloaded * 100 / total)
-                    progress.update(
-                        pct,
-                        "Downloading yt-dlp {} ({}/{} MB)...".format(
-                            version,
-                            downloaded // (1024 * 1024),
-                            total // (1024 * 1024),
-                        ),
-                    )
-            data = b"".join(chunks)
-    finally:
-        if progress is not None:
-            progress.close()
+    data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
 
     runtime_path = _runtime_path_for_version(version)
     _extract_yt_dlp_from_tarball(data, runtime_path)
@@ -590,7 +371,7 @@ def ensure_ytdlp_ready(
 def is_install_prompt_snoozed(now=None):
     now = int(time.time()) if now is None else int(now)
     declined_at = int(_load_update_state().get("install_prompt_declined_at") or 0)
-    return now - declined_at < INSTALL_PROMPT_SNOOZE_SECONDS
+    return declined_at > 0 and now - declined_at < INSTALL_PROMPT_SNOOZE_SECONDS
 
 
 def snooze_install_prompt(now=None):

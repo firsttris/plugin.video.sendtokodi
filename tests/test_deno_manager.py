@@ -7,7 +7,7 @@ import json
 import urllib.error
 from types import SimpleNamespace
 
-from core import deno_manager
+from core import deno_manager, managed_runtime
 
 
 def test_detect_platform_supported(monkeypatch):
@@ -246,7 +246,7 @@ def test_addon_data_dir_uses_xbmcvfs_when_available(monkeypatch):
     fake_xbmcvfs = SimpleNamespace(translatePath=lambda _p: "/kodi/special/path")
     monkeypatch.setitem(sys.modules, "xbmcvfs", fake_xbmcvfs)
 
-    assert deno_manager._addon_data_dir() == "/kodi/special/path"
+    assert managed_runtime.addon_data_dir("deno") == "/kodi/special/path"
 
 
 def test_get_installed_version_returns_none_on_error(monkeypatch):
@@ -306,7 +306,7 @@ def test_download_deno_extracts_binary_and_sets_executable(monkeypatch, tmp_path
             return False
 
     monkeypatch.setattr(deno_manager, "_detect_platform", lambda: ("linux", "x86_64"))
-    monkeypatch.setattr(deno_manager.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
     monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
     monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
@@ -350,7 +350,7 @@ def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
             return False
 
     monkeypatch.setattr(deno_manager, "_detect_platform", lambda: ("linux", "x86_64"))
-    monkeypatch.setattr(deno_manager.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
     monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
 
@@ -493,9 +493,9 @@ def test_resolve_latest_version_uses_cached_value_before_next_check(monkeypatch,
     )
 
     monkeypatch.setattr(deno_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(deno_manager.time, "time", lambda: 1500)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1500)
     monkeypatch.setattr(
-        deno_manager.urllib.request,
+        managed_runtime.urllib.request,
         "urlopen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("network should not run")),
     )
@@ -521,7 +521,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
 
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(deno_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(deno_manager.time, "time", lambda: 1000)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     seen_headers = {}
 
@@ -535,7 +535,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
             None,
         )
 
-    monkeypatch.setattr(deno_manager.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", fake_urlopen)
 
     assert deno_manager._resolve_latest_version() == "v2.7.5"
     assert seen_headers.get("If-none-match") == "etag-1"
@@ -551,7 +551,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
 
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(deno_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(deno_manager.time, "time", lambda: 1000)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     def fake_urlopen(*_args, **_kwargs):
         raise urllib.error.HTTPError(
@@ -562,7 +562,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
             None,
         )
 
-    monkeypatch.setattr(deno_manager.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", fake_urlopen)
 
     with pytest.raises(RuntimeError):
         deno_manager._resolve_latest_version(force_refresh=True)

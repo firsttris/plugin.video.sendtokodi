@@ -6,7 +6,7 @@ import json
 import urllib.error
 import pytest
 
-from core import ytdlp_manager
+from core import ytdlp_manager, managed_runtime
 
 
 def _build_tarball_with_package(root_name="yt-dlp-test"):
@@ -293,7 +293,7 @@ def test_list_available_versions(monkeypatch):
 
     body = json.dumps(payload).encode("utf-8")
     monkeypatch.setattr(
-        ytdlp_manager.urllib.request,
+        managed_runtime.urllib.request,
         "urlopen",
         lambda *_args, **_kwargs: FakeResponse(body),
     )
@@ -320,9 +320,9 @@ def test_resolve_latest_version_uses_cached_value_before_next_check(monkeypatch,
     )
 
     monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1500)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1500)
     monkeypatch.setattr(
-        ytdlp_manager.urllib.request,
+        managed_runtime.urllib.request,
         "urlopen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("network should not run")),
     )
@@ -348,7 +348,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
 
     monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1000)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     seen_headers = {}
 
@@ -362,7 +362,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
             None,
         )
 
-    monkeypatch.setattr(ytdlp_manager.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", fake_urlopen)
 
     assert ytdlp_manager._resolve_latest_version() == "2026.03.26"
     assert seen_headers.get("If-none-match") == "etag-1"
@@ -378,7 +378,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
 
     monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
-    monkeypatch.setattr(ytdlp_manager.time, "time", lambda: 1000)
+    monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     def fake_urlopen(*_args, **_kwargs):
         raise urllib.error.HTTPError(
@@ -389,7 +389,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
             None,
         )
 
-    monkeypatch.setattr(ytdlp_manager.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", fake_urlopen)
 
     with pytest.raises(RuntimeError):
         ytdlp_manager._resolve_latest_version(force_refresh=True)
