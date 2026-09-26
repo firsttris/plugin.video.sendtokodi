@@ -642,6 +642,46 @@ def test_analyze_formats_treats_audio_only_without_acodec_as_audio():
     assert have_audio is True
 
 
+def test_analyze_formats_treats_explicit_none_acodec_as_audio():
+    have_video, have_audio, _dash_video, _dash_audio = analyze_formats(
+        [{"vcodec": "avc1", "acodec": None}]
+    )
+
+    assert have_video is True
+    assert have_audio is True
+
+
+def test_select_playback_source_prefers_muxed_unknown_acodec_over_wider_silent_video():
+    result = {
+        "formats": [
+            {
+                "format": "muxed",
+                "url": "https://example.com/muxed.mp4",
+                "vcodec": "avc1",
+                "acodec": None,
+                "width": 1280,
+            },
+            {
+                "format": "silent",
+                "url": "https://example.com/silent.mp4",
+                "vcodec": "avc1",
+                "acodec": "none",
+                "width": 1920,
+            },
+        ]
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: False,
+    )
+
+    assert selected["format_label"] == "muxed"
+
+
 def test_select_playback_source_uses_raw_format_when_playable():
     result = {
         "formats": [

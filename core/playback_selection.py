@@ -331,9 +331,9 @@ def build_dash_manifest_candidate(
 
 
 def resolve_format_acodec(fmt):
-    acodec = fmt.get('acodec')
-    if acodec is not None:
-        return acodec
+    # An explicit acodec=None means "unknown codec" in yt-dlp and counts as audio.
+    if 'acodec' in fmt:
+        return fmt['acodec']
     # yt-dlp omits acodec for some audio-only formats (e.g. YouTube live HLS audio
     # renditions); fall back to audio_ext so they are not mistaken for silent streams.
     if fmt.get('vcodec', 'none') == 'none' and fmt.get('audio_ext') not in (None, 'none'):
