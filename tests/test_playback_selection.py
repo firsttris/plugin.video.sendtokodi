@@ -588,6 +588,60 @@ def test_select_playback_source_uses_format_manifest_when_original_missing():
     assert selected["format_label"] == "f1"
 
 
+def test_select_playback_source_uses_master_manifest_for_split_live_hls():
+    # YouTube live: audio-only HLS renditions come without an acodec key.
+    master = "https://manifest.googlevideo.com/api/manifest/hls_variant/master.m3u8"
+    result = {
+        "is_live": True,
+        "formats": [
+            {
+                "format": "234 - audio only",
+                "url": "https://manifest.googlevideo.com/api/manifest/hls_playlist/itag/234/index.m3u8",
+                "manifest_url": master,
+                "protocol": "m3u8_native",
+                "vcodec": "none",
+                "audio_ext": "mp4",
+                "video_ext": "none",
+            },
+            {
+                "format": "312 - 1920x1080",
+                "url": "https://manifest.googlevideo.com/api/manifest/hls_playlist/itag/312/index.m3u8",
+                "manifest_url": master,
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.64002A",
+                "acodec": "none",
+                "audio_ext": "none",
+                "video_ext": "mp4",
+                "width": 1920,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=True,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream in ("hls", "mpd"),
+    )
+
+    assert selected["source"] == "format_manifest"
+    assert selected["url"] == master
+    assert selected["isa"] is True
+
+
+def test_analyze_formats_treats_audio_only_without_acodec_as_audio():
+    formats = [
+        {"vcodec": "none", "audio_ext": "mp4", "video_ext": "none"},
+        {"vcodec": "none", "acodec": "none", "audio_ext": "none", "ext": "mhtml"},
+    ]
+
+    have_video, have_audio, _dash_video, _dash_audio = analyze_formats(formats)
+
+    assert have_video is False
+    assert have_audio is True
+
+
 def test_select_playback_source_uses_raw_format_when_playable():
     result = {
         "formats": [

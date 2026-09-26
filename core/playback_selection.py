@@ -330,6 +330,17 @@ def build_dash_manifest_candidate(
     return {'events': build_result['events']}
 
 
+def resolve_format_acodec(fmt):
+    acodec = fmt.get('acodec')
+    if acodec is not None:
+        return acodec
+    # yt-dlp omits acodec for some audio-only formats (e.g. YouTube live HLS audio
+    # renditions); fall back to audio_ext so they are not mistaken for silent streams.
+    if fmt.get('vcodec', 'none') == 'none' and fmt.get('audio_ext') not in (None, 'none'):
+        return 'unknown'
+    return 'none'
+
+
 def analyze_formats(formats):
     have_video = False
     have_audio = False
@@ -338,7 +349,7 @@ def analyze_formats(formats):
 
     for fmt in formats:
         vcodec = fmt.get('vcodec', 'none')
-        acodec = fmt.get('acodec', 'none')
+        acodec = resolve_format_acodec(fmt)
 
         if vcodec != 'none':
             have_video = True
