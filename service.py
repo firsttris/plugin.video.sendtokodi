@@ -93,6 +93,10 @@ legacy_python_workarounds_enabled = _legacy_python_workarounds_enabled(__handle_
 if legacy_python_workarounds_enabled:
     install_stderr_workaround()
 
+# Kodi's embedded python still hits the strptime bug (see core/service_runtime.py),
+# so always patch it, before any background threads start (#177).
+patch_strptime()
+
 
 try:
     import inputstreamhelper
@@ -171,10 +175,6 @@ except Exception as exc:
     showErrorNotification("yt-dlp is unavailable")
     log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
     exit()
-
-# patch broken strptime (see above)
-if legacy_python_workarounds_enabled:
-    patch_strptime()
 
 params = parse_cli_paramstring(sys.argv[2])
 url = str(params['url'])
