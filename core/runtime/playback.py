@@ -266,7 +266,7 @@ def play_playlist_result(
         list_item = _create_list_item_from_flat_playlist_item(video, plugin_url, paramstring)
         playlist.add(list_item.getPath(), list_item)
 
-    def extract_starting_entry(url, _download):
+    def extract_starting_entry(url, download=False):
         return ydl.extract_info(url, download=media_download_enabled)
 
     starting_item = create_list_item_from_video(
