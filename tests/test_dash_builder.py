@@ -315,6 +315,8 @@ def test_manifest_adds_one_adaptation_set_per_audio_language(monkeypatch):
     assert english.get("original") is None
     assert descriptive.get("impaired") == "true"
     assert all(len(s.findall("Representation")) == 1 for s in adaptation_sets)
+    representation_ids = [s.find("Representation").get("id") for s in adaptation_sets]
+    assert representation_ids == ["251-1", "251-0", "251-2", "248"]
 
 
 def test_manifest_prefetch_ranges_probes_once_and_reraises_failures(monkeypatch):

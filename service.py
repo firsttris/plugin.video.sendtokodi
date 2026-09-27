@@ -187,6 +187,7 @@ try:
 except Exception as exc:
     showErrorNotification("yt-dlp is unavailable")
     log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
+    xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
     exit()
 
 params = parse_cli_paramstring(paramstring)

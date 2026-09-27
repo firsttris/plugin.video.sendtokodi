@@ -293,7 +293,8 @@ class Manifest():
         init_range, idx_range = self._find_init_and_index_ranges(url, format['container'])
 
         rep = SubElement(self._audio_set_for(format), 'Representation')
-        rep.set('id', format['format_id'].split('-',1)[0])
+        # Keep the full format_id: dubbed tracks share the itag (251-0, 251-1, ...) and ids must be unique.
+        rep.set('id', str(format['format_id']))
         rep.set('codecs', format['acodec'])
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
@@ -322,7 +323,7 @@ class Manifest():
         width, height = str(format['resolution']).split('x', 1)
 
         rep = SubElement(self.video_set, 'Representation')
-        rep.set('id', format['format_id'].split('-',1)[0])
+        rep.set('id', str(format['format_id']))
         rep.set('codecs', format['vcodec'])
         rep.set('startWithSAP', '1')
         rep.set('maxPlayoutRate', '1')
