@@ -269,6 +269,77 @@ def test_manifest_add_audio_format_sets_language_on_adaptation_set(monkeypatch):
     assert "lang=\"de\"" in manifest.emit().decode("utf-8")
 
 
+def _audio_format(format_id, language, language_preference):
+    return {
+        "format_id": format_id,
+        "acodec": "opus",
+        "asr": 48000,
+        "ext": "webm",
+        "audio_channels": 2,
+        "url": "https://example.com/" + format_id,
+        "container": "webm_dash",
+        "language": language,
+        "language_preference": language_preference,
+    }
+
+
+def test_manifest_adds_one_adaptation_set_per_audio_language(monkeypatch):
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 1), (2, 3)))
+    manifest = dash_builder.Manifest(duration=1)
+
+    manifest.add_audio_format(_audio_format("251-1", "de-DE", 10))
+    manifest.add_audio_format(_audio_format("251-0", "en-US", -1))
+    manifest.add_audio_format(_audio_format("251-2", "en-desc", -10))
+    manifest.add_video_format(
+        {
+            "format_id": "248",
+            "vcodec": "vp9",
+            "fps": 24,
+            "resolution": "1280x720",
+            "ext": "webm",
+            "url": "https://example.com/v",
+            "container": "webm_dash",
+        }
+    )
+
+    adaptation_sets = manifest.period.findall("AdaptationSet")
+    assert [s.get("contentType") for s in adaptation_sets] == ["audio", "audio", "audio", "video"]
+    assert [s.get("id") for s in adaptation_sets] == ["0", "2", "3", "1"]
+    assert [s.get("lang") for s in adaptation_sets[:3]] == ["de", "en", "en"]
+    assert [s.find("Role").get("value") for s in adaptation_sets] == ["main", "dub", "description", "main"]
+
+    german, english, descriptive = adaptation_sets[:3]
+    assert german.get("default") == "true"
+    assert german.get("original") == "true"
+    assert english.get("default") is None
+    assert english.get("original") is None
+    assert descriptive.get("impaired") == "true"
+    assert all(len(s.findall("Representation")) == 1 for s in adaptation_sets)
+
+
+def test_manifest_prefetch_ranges_probes_once_and_reraises_failures(monkeypatch):
+    probed = []
+
+    def fake_find(url, _container):
+        probed.append(url)
+        if url.endswith("251-0"):
+            raise RuntimeError("probe failed")
+        return (0, 1), (2, 3)
+
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", fake_find)
+    manifest = dash_builder.Manifest(duration=1)
+    german = _audio_format("251-1", "de-DE", 10)
+    english = _audio_format("251-0", "en-US", -1)
+
+    manifest.prefetch_ranges([german, english])
+    manifest.add_audio_format(german)
+    with pytest.raises(RuntimeError, match="probe failed"):
+        manifest.add_audio_format(english)
+
+    assert sorted(probed) == ["https://example.com/251-0", "https://example.com/251-1"]
+    assert len(manifest.period.findall("AdaptationSet")) == 2
+
+
 def test_http_handler_head_and_get_methods_write_headers_and_body():
     class DummyWFile:
         def __init__(self):

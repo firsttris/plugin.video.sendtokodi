@@ -1,5 +1,6 @@
 import requests
 import struct
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from threading import Thread, Lock
@@ -19,6 +20,7 @@ _RANGE_REQUEST_TIMEOUT_SECONDS = 20
 # The init/index boxes usually sit in the first few KiB; grow the probe until found.
 _RANGE_PROBE_INITIAL_BYTES = 4096
 _RANGE_PROBE_MAX_BYTES = 256 * 1024
+_RANGE_PROBE_MAX_WORKERS = 8
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -176,6 +178,18 @@ def _dash_language_code(language):
     return primary
 
 
+def _is_descriptive_audio(language):
+    return isinstance(language, str) and 'desc' in language.lower().split('-')[1:]
+
+
+def _is_original_audio(format):
+    # yt-dlp: language_preference 10 marks the language the video is actually in.
+    try:
+        return float(format.get('language_preference')) >= 10
+    except (TypeError, ValueError):
+        return False
+
+
 class Manifest():
     def __init__(self, duration):
         self.mpd = Element('MPD')
@@ -209,16 +223,76 @@ class Manifest():
 
         self.tree = ElementTree(self.mpd)
 
+        self._audio_sets = {}
+        self._prefetched_ranges = {}
+
+    def prefetch_ranges(self, formats):
+        # Probe all streams concurrently; add_*_format then reuses the results.
+        urls = {}
+        for format in formats:
+            url = format.get('url')
+            if url and url not in self._prefetched_ranges:
+                urls[url] = format.get('container')
+        if not urls:
+            return
+
+        def probe(item):
+            url, container = item
+            try:
+                return url, find_init_and_index_ranges(url, container)
+            except Exception as exc:
+                return url, exc
+
+        with ThreadPoolExecutor(max_workers=min(len(urls), _RANGE_PROBE_MAX_WORKERS)) as executor:
+            for url, ranges in executor.map(probe, urls.items()):
+                self._prefetched_ranges[url] = ranges
+
+    def _find_init_and_index_ranges(self, url, container):
+        ranges = self._prefetched_ranges.pop(url, None)
+        if ranges is None:
+            return find_init_and_index_ranges(url, container)
+        if isinstance(ranges, Exception):
+            raise ranges
+        return ranges
+
+    def _audio_set_for(self, format):
+        language = format.get('language')
+        audio_set = self._audio_sets.get(language)
+        if audio_set is not None:
+            return audio_set
+
+        if not self._audio_sets:
+            # The first language added becomes the default track.
+            audio_set = self.audio_set
+            self.audio_set.set('default', 'true')
+        else:
+            audio_set = Element('AdaptationSet')
+            # Keep audio sets together and ahead of the video set; id 1 belongs to video.
+            self.period.insert(len(self._audio_sets), audio_set)
+            audio_set.set('id', str(len(self._audio_sets) + 1))
+            audio_set.set('subsegmentAlignment', 'true')
+            audio_set.set('contentType', 'audio')
+            role = SubElement(audio_set, 'Role')
+            role.set('schemeIdUri', 'urn:mpeg:DASH:role:2011')
+            role.set('value', 'description' if _is_descriptive_audio(language) else 'dub')
+
+        language_code = _dash_language_code(language)
+        if language_code is not None:
+            audio_set.set('lang', language_code)
+        if _is_original_audio(format):
+            audio_set.set('original', 'true')
+        if _is_descriptive_audio(language):
+            audio_set.set('impaired', 'true')
+
+        self._audio_sets[language] = audio_set
+        return audio_set
+
     def add_audio_format(self, format):
         url = format['url']
         # Resolve ranges first so a failing format leaves no partial Representation behind.
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+        init_range, idx_range = self._find_init_and_index_ranges(url, format['container'])
 
-        language = _dash_language_code(format.get('language'))
-        if language is not None:
-            self.audio_set.set('lang', language)
-
-        rep = SubElement(self.audio_set, 'Representation')
+        rep = SubElement(self._audio_set_for(format), 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])
         rep.set('codecs', format['acodec'])
         rep.set('audioSamplingRate', str(format['asr']))
@@ -244,7 +318,7 @@ class Manifest():
     def add_video_format(self, format):
         url = format['url']
         # Resolve ranges first so a failing format leaves no partial Representation behind.
-        init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+        init_range, idx_range = self._find_init_and_index_ranges(url, format['container'])
         width, height = str(format['resolution']).split('x', 1)
 
         rep = SubElement(self.video_set, 'Representation')

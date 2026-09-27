@@ -71,26 +71,35 @@ def test_normalize_dash_audio_streams_falls_back_to_highest_quality_without_comp
     ]
 
 
-def test_normalize_dash_audio_streams_prefers_original_language_over_higher_bitrate_dub():
+def test_normalize_dash_audio_streams_keeps_one_stream_per_language_with_original_first():
     streams = [
-        {"format": "251-0", "container": "webm_dash", "abr": 130, "language": "en-US", "language_preference": -1},
+        {"format": "251-0", "container": "webm_dash", "abr": 118, "language": "en-US", "language_preference": -1},
+        {"format": "250-0", "container": "webm_dash", "abr": 66, "language": "en-US", "language_preference": -1},
         {"format": "251-1", "container": "webm_dash", "abr": 115, "language": "de-DE", "language_preference": 10},
+        {"format": "250-1", "container": "webm_dash", "abr": 63, "language": "de-DE", "language_preference": 10},
         {"format": "251-2", "container": "webm_dash", "abr": 140, "language": "fr-FR", "language_preference": 5},
-        {"format": "250-1", "container": "webm_dash", "abr": 70, "language": "de-DE", "language_preference": 10},
     ]
     selected_video = {"format": "v1", "container": "webm_dash"}
 
-    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [streams[1]]
+    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [
+        streams[2],
+        streams[4],
+        streams[0],
+    ]
 
 
-def test_normalize_dash_audio_streams_prefers_container_match_within_original_language():
+def test_normalize_dash_audio_streams_prefers_container_match_per_language():
     streams = [
         {"format": "140-0", "container": "m4a_dash", "abr": 129, "language": "en-US", "language_preference": -1},
+        {"format": "251-0", "container": "webm_dash", "abr": 130, "language": "en-US", "language_preference": -1},
         {"format": "251-1", "container": "webm_dash", "abr": 115, "language": "de-DE", "language_preference": 10},
     ]
     selected_video = {"format": "v1", "container": "mp4_dash"}
 
-    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [streams[1]]
+    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [
+        streams[2],
+        streams[0],
+    ]
 
 
 def test_find_playlist_start_index_prefers_matching_index_param():
@@ -635,6 +644,35 @@ def test_add_dash_formats_to_builder_all_success():
     assert result["events"] == [
         {"type": "video_added", "format_id": "v1"},
         {"type": "audio_added", "format_id": "a1"},
+    ]
+
+
+def test_add_dash_formats_to_builder_prefetches_all_formats_first():
+    calls = []
+
+    class PrefetchingBuilder(DummyDashBuilder):
+        def prefetch_ranges(self, formats):
+            calls.append(("prefetch", [format_info["format"] for format_info in formats]))
+
+        def add_video_format(self, format_info):
+            calls.append(("video", format_info["format"]))
+
+        def add_audio_format(self, format_info):
+            calls.append(("audio", format_info["format"]))
+
+    add_dash_formats_to_builder(
+        PrefetchingBuilder(),
+        dash_video=[{"format": "v1"}],
+        dash_audio=[{"format": "a-de"}, {"format": "a-en"}],
+        have_video=True,
+        have_audio=True,
+    )
+
+    assert calls == [
+        ("prefetch", ["v1", "a-de", "a-en"]),
+        ("video", "v1"),
+        ("audio", "a-de"),
+        ("audio", "a-en"),
     ]
 
 

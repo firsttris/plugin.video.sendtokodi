@@ -49,33 +49,35 @@ def _dash_audio_language_preference(format_info):
     return _coerce_quality_value(format_info.get('language_preference'))
 
 
-def filter_preferred_language_audio_streams(dash_audio):
-    if not dash_audio:
-        return []
-    best_preference = max(_dash_audio_language_preference(format_info) for format_info in dash_audio)
-    return [
-        format_info for format_info in dash_audio
-        if _dash_audio_language_preference(format_info) == best_preference
-    ]
-
-
-def normalize_dash_audio_streams(dash_audio, preferred_video_format=None):
-    if len(dash_audio) <= 1:
-        return list(dash_audio)
-
-    # Bitrates of dubbed tracks can exceed the original's, so pick the language first.
-    dash_audio = filter_preferred_language_audio_streams(dash_audio)
-
-    preferred_family = _dash_container_family(preferred_video_format or {})
+def _pick_dash_audio_stream(dash_audio, preferred_family):
     if preferred_family is not None:
         compatible_streams = [
             format_info for format_info in dash_audio
             if _dash_container_family(format_info) == preferred_family
         ]
         if compatible_streams:
-            return [max(compatible_streams, key=_dash_audio_quality_key)]
+            return max(compatible_streams, key=_dash_audio_quality_key)
 
-    return [max(dash_audio, key=_dash_audio_quality_key)]
+    return max(dash_audio, key=_dash_audio_quality_key)
+
+
+def normalize_dash_audio_streams(dash_audio, preferred_video_format=None):
+    if len(dash_audio) <= 1:
+        return list(dash_audio)
+
+    # One stream per audio language, so the player can switch between original and dubbed tracks.
+    streams_by_language = {}
+    for format_info in dash_audio:
+        streams_by_language.setdefault(format_info.get('language'), []).append(format_info)
+
+    preferred_family = _dash_container_family(preferred_video_format or {})
+    selected_streams = [
+        _pick_dash_audio_stream(language_streams, preferred_family)
+        for language_streams in streams_by_language.values()
+    ]
+    # The manifest makes the first stream the default track, so the original language goes first.
+    selected_streams.sort(key=_dash_audio_language_preference, reverse=True)
+    return selected_streams
 
 
 def match_preferred_format(format_info, preferred_format_url=None, preferred_format_id=None):
@@ -421,6 +423,11 @@ def add_dash_formats_to_builder(builder, dash_video, dash_audio, have_video, hav
     video_success = not have_video
     audio_success = not have_audio
     events = []
+
+    # Probing every stream one after another delays playback start with many audio languages.
+    prefetch_ranges = getattr(builder, 'prefetch_ranges', None)
+    if prefetch_ranges is not None:
+        prefetch_ranges(list(dash_video) + list(dash_audio))
 
     for fvideo in dash_video:
         format_id = fvideo.get('format', "")
