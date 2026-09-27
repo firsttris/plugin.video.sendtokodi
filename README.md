@@ -115,7 +115,7 @@ Open in Kodi via:
 - **Manage yt-dlp version / Update yt-dlp now**  
   Manually select a version or trigger an immediate update.
 - **yt-dlp config file**  
-  Optional path to an existing yt-dlp config file. If left empty, no config file is loaded. Put custom yt-dlp command line options like `--cookies`, `--extractor-args`, or `--socket-timeout` into that file and then select it here. Only the options set in the file are applied; other yt-dlp config files on the system are ignored. Files on network sources (e.g. `smb://`) are copied locally before loading.
+  Optional path to a [yt-dlp configuration file](https://github.com/yt-dlp/yt-dlp#configuration), in yt-dlp's own format (one command line option per line, e.g. `--cookies`, `--extractor-args` or `--socket-timeout`). If left empty, no config file is loaded. Only the options set in this file are applied; yt-dlp's default config locations are not read. Files on network sources (e.g. `smb://`) are copied locally before loading.
 - **yt-dlp version override (advanced)**  
   Pin/override yt-dlp version manually.
 
