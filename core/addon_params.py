@@ -11,6 +11,7 @@ DEFAULT_JS_RUNTIME_MODE = 'auto'
 DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 10
 MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 600
+DEFAULT_YTDLP_ADDITIONAL_OPTIONS = '{}'
 YT_DLP_OPTIONS_QUERY_PARAM = 'yt-dlp-options'
 LEGACY_YDL_OPTS_QUERY_PARAM = 'ydlOpts'
 
@@ -129,12 +130,53 @@ def resolve_playlist_item_title(video):
     return video['url']
 
 
-def build_ydl_opts(parsed_params, deno_opts=None):
+def build_ydl_opts(parsed_params, additional_opts=None, deno_opts=None):
     ydl_opts = {'extract_flat': 'in_playlist'}
+    if additional_opts:
+        ydl_opts.update(additional_opts)
     ydl_opts.update(parsed_params.get('ydlOpts', {}))
     if deno_opts:
         ydl_opts.update(deno_opts)
     return ydl_opts
+
+
+def resolve_ytdlp_config_settings(handle, get_setting):
+    return {
+        'enabled': get_setting(handle, 'ytdlp_load_config') == 'true',
+        'location': (get_setting(handle, 'ytdlp_config_location') or '').strip(),
+    }
+
+
+def load_ytdlp_config_options(config_settings, parse_options):
+    if not config_settings.get('enabled'):
+        return {}
+
+    location = (config_settings.get('location') or '').strip()
+    if not location:
+        return {}
+
+    if not callable(parse_options):
+        raise ValueError('yt-dlp config parsing is unavailable')
+
+    parsed = parse_options(['--config-locations', location])
+    if hasattr(parsed, 'ydl_opts'):
+        ydl_opts = parsed.ydl_opts
+    elif isinstance(parsed, (list, tuple)) and len(parsed) >= 4:
+        ydl_opts = parsed[3]
+    else:
+        raise ValueError('yt-dlp config parser did not return ydl_opts')
+
+    if not isinstance(ydl_opts, dict):
+        raise ValueError('yt-dlp config parser returned invalid ydl_opts')
+
+    return ydl_opts
+
+
+def resolve_additional_ytdlp_options(handle, get_setting):
+    raw_value = (get_setting(handle, 'ytdlp_additional_options') or '').strip()
+    if not raw_value:
+        raw_value = DEFAULT_YTDLP_ADDITIONAL_OPTIONS
+    return _parse_ydl_opts_json(raw_value)
 
 
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):

@@ -13,12 +13,15 @@ from core.addon_params import (
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
+    load_ytdlp_config_options,
+    resolve_additional_ytdlp_options,
     resolve_deno_settings,
     resolve_deno_opts,
     resolve_js_runtime_opts,
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
+    resolve_ytdlp_config_settings,
     resolve_ytdlp_settings,
 )
 
@@ -216,7 +219,7 @@ def test_build_ydl_opts_includes_extract_flat_and_params_opts():
 def test_build_ydl_opts_merges_deno_opts_when_present():
     opts = build_ydl_opts(
         {"ydlOpts": {"format": "best"}},
-        {"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
+        deno_opts={"js_runtimes": {"deno": {"path": "/usr/bin/deno"}}},
     )
 
     assert opts == {
@@ -224,6 +227,153 @@ def test_build_ydl_opts_merges_deno_opts_when_present():
         "format": "best",
         "js_runtimes": {"deno": {"path": "/usr/bin/deno"}},
     }
+
+
+def test_build_ydl_opts_merges_global_options_before_request_options():
+    opts = build_ydl_opts(
+        {"ydlOpts": {"format": "best", "socket_timeout": 10}},
+        additional_opts={"cookiefile": "/tmp/cookies.txt", "socket_timeout": 30},
+    )
+
+    assert opts == {
+        "extract_flat": "in_playlist",
+        "cookiefile": "/tmp/cookies.txt",
+        "format": "best",
+        "socket_timeout": 10,
+    }
+
+
+def test_resolve_additional_ytdlp_options_uses_default_json_when_empty():
+    opts = resolve_additional_ytdlp_options(1, lambda _handle, _name: "")
+
+    assert opts == {}
+
+
+def test_resolve_ytdlp_config_settings_reads_toggle_and_location():
+    def get_setting(_handle, name):
+        if name == "ytdlp_load_config":
+            return "true"
+        if name == "ytdlp_config_location":
+            return " /tmp/yt-dlp.conf "
+        return ""
+
+    settings = resolve_ytdlp_config_settings(1, get_setting)
+
+    assert settings == {
+        "enabled": True,
+        "location": "/tmp/yt-dlp.conf",
+    }
+
+
+def test_load_ytdlp_config_options_returns_empty_when_disabled():
+    opts = load_ytdlp_config_options(
+        {"enabled": False, "location": "/tmp/yt-dlp.conf"},
+        lambda _args: {"ydl_opts": {"cookiefile": "/tmp/cookies.txt"}},
+    )
+
+    assert opts == {}
+
+
+def test_load_ytdlp_config_options_returns_empty_when_location_missing():
+    opts = load_ytdlp_config_options(
+        {"enabled": True, "location": "  "},
+        lambda _args: {"ydl_opts": {"cookiefile": "/tmp/cookies.txt"}},
+    )
+
+    assert opts == {}
+
+
+def test_load_ytdlp_config_options_reads_ydl_opts_from_named_result():
+    class ParsedOptions(object):
+        def __init__(self, ydl_opts):
+            self.ydl_opts = ydl_opts
+
+    seen = {}
+
+    def parse_options(args):
+        seen["args"] = args
+        return ParsedOptions({"cookiefile": "/tmp/cookies.txt"})
+
+    opts = load_ytdlp_config_options(
+        {"enabled": True, "location": "/tmp/yt-dlp.conf"},
+        parse_options,
+    )
+
+    assert seen["args"] == ["--config-locations", "/tmp/yt-dlp.conf"]
+    assert opts == {"cookiefile": "/tmp/cookies.txt"}
+
+
+def test_load_ytdlp_config_options_reads_ydl_opts_from_tuple_result():
+    opts = load_ytdlp_config_options(
+        {"enabled": True, "location": "/tmp/yt-dlp.conf"},
+        lambda _args: (None, None, None, {"proxy": "http://example.com:8080"}),
+    )
+
+    assert opts == {"proxy": "http://example.com:8080"}
+
+
+def test_load_ytdlp_config_options_rejects_missing_parser():
+    try:
+        load_ytdlp_config_options(
+            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
+            None,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "unavailable" in str(exc)
+
+
+def test_load_ytdlp_config_options_rejects_invalid_parser_result():
+    try:
+        load_ytdlp_config_options(
+            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
+            lambda _args: object(),
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "did not return ydl_opts" in str(exc)
+
+
+def test_load_ytdlp_config_options_rejects_non_dict_ydl_opts():
+    class ParsedOptions(object):
+        def __init__(self, ydl_opts):
+            self.ydl_opts = ydl_opts
+
+    try:
+        load_ytdlp_config_options(
+            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
+            lambda _args: ParsedOptions(["not", "a", "dict"]),
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "invalid ydl_opts" in str(exc)
+
+
+def test_resolve_additional_ytdlp_options_parses_json_object():
+    def get_setting(_handle, name):
+        if name == "ytdlp_additional_options":
+            return '{"cookiefile": "/tmp/cookies.txt", "socket_timeout": 30}'
+        return ""
+
+    opts = resolve_additional_ytdlp_options(1, get_setting)
+
+    assert opts == {
+        "cookiefile": "/tmp/cookies.txt",
+        "socket_timeout": 30,
+    }
+
+
+def test_resolve_additional_ytdlp_options_rejects_non_object_json():
+    def get_setting(_handle, name):
+        if name == "ytdlp_additional_options":
+            return '["not", "an", "object"]'
+        return ""
+
+    try:
+        resolve_additional_ytdlp_options(1, get_setting)
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "JSON object" in str(exc)
 
 
 def test_resolve_deno_opts_always_uses_default_version():

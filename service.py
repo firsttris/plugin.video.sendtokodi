@@ -15,9 +15,12 @@ from core.addon_params import (
     resolve_queue_request,
     resolve_plugin_invocation,
     build_ydl_opts,
+    load_ytdlp_config_options,
+    resolve_additional_ytdlp_options,
     resolve_js_runtime_opts,
     resolve_media_download_settings,
     resolve_dash_httpd_idle_timeout,
+    resolve_ytdlp_config_settings,
 )
 from core.runtime.playback import (
     create_list_item_from_video,
@@ -179,7 +182,8 @@ configure_managed_ytdlp(__handle__, log)
 
 # yt-dlp is the only supported resolver
 try:
-    YoutubeDL = importlib.import_module("yt_dlp").YoutubeDL
+    yt_dlp_module = importlib.import_module("yt_dlp")
+    YoutubeDL = yt_dlp_module.YoutubeDL
 except Exception as exc:
     showErrorNotification("yt-dlp is unavailable")
     log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
@@ -195,7 +199,28 @@ try:
 except Exception as e:
     log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
 
-ydl_opts = build_ydl_opts(params, js_runtime_opts)
+try:
+    config_ytdlp_opts = load_ytdlp_config_options(
+        resolve_ytdlp_config_settings(__handle__, xbmcplugin.getSetting),
+        getattr(yt_dlp_module, 'parse_options', None),
+    )
+except (ValueError, SystemExit) as exc:
+    showErrorNotification("Could not load yt-dlp config")
+    log("Could not load yt-dlp config: {}".format(exc), xbmc.LOGERROR)
+    exit()
+
+try:
+    additional_ytdlp_opts = resolve_additional_ytdlp_options(__handle__, xbmcplugin.getSetting)
+except ValueError as exc:
+    showErrorNotification("Invalid additional yt-dlp options")
+    log("Invalid additional yt-dlp options: {}".format(exc), xbmc.LOGERROR)
+    exit()
+
+global_ytdlp_opts = {}
+global_ytdlp_opts.update(config_ytdlp_opts)
+global_ytdlp_opts.update(additional_ytdlp_opts)
+
+ydl_opts = build_ydl_opts(params, global_ytdlp_opts, js_runtime_opts)
 
 media_download_settings = resolve_media_download_settings(__handle__, xbmcplugin.getSetting)
 media_download_enabled = media_download_settings['enabled']
