@@ -68,22 +68,24 @@ def _infer_selected_stream_kind(result, selected_url):
 def _prompt_preferred_stream_url(result):
     formats = result.get("formats", [])
     entries = []
-    seen_urls = set()
     for format_info in reversed(formats):
         stream_url = format_info.get("url")
-        if not stream_url or stream_url in seen_urls:
+        if not stream_url:
             continue
-        seen_urls.add(stream_url)
-        entries.append((stream_url, _format_stream_option(format_info)))
+        entries.append({
+            "url": stream_url,
+            "format_id": format_info.get("format_id"),
+            "label": _format_stream_option(format_info),
+        })
 
     if not entries:
         return None
 
-    labels = ["Automatic selection"] + [label for _, label in entries]
+    labels = ["Automatic selection"] + [entry["label"] for entry in entries]
     selected_index = xbmcgui.Dialog().select("Select stream", labels)
     if selected_index <= 0:
         return None
-    return entries[selected_index - 1][0]
+    return entries[selected_index - 1]
 
 
 def create_list_item_from_video(
@@ -116,7 +118,7 @@ def create_list_item_from_video(
 
     selection_result = dict(result)
     selection_result["resolve_fresh_result"] = resolve_fresh_result
-    preferred_stream_url = _prompt_preferred_stream_url(selection_result) if askstream else None
+    preferred_stream = _prompt_preferred_stream_url(selection_result) if askstream else None
     selected_source = select_playback_source(
         selection_result,
         usemanifest,
@@ -124,12 +126,13 @@ def create_list_item_from_video(
         maxwidth,
         isa_supports,
         dash_builder,
-        preferred_format_url=preferred_stream_url,
+        preferred_format_url=preferred_stream.get("url") if preferred_stream is not None else None,
+        preferred_format_id=preferred_stream.get("format_id") if preferred_stream is not None else None,
         disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
         strict_max_resolution=strict_max_resolution,
     )
 
-    if selected_source is None and preferred_stream_url is not None:
+    if selected_source is None and preferred_stream is not None:
         log("Selected stream is not playable, falling back to automatic selection", xbmc.LOGWARNING)
         selected_source = select_playback_source(
             selection_result,

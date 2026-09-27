@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 """Pure helpers for managed runtime version/action selection."""
 
+import re
+
+
+def version_sort_key(version):
+    value = (version or '').strip().lower()
+    return [int(part) if part.isdigit() else part for part in re.findall(r'\d+|[a-z]+', value)]
+
+
+def sort_versions_descending(versions):
+    return sorted(versions, key=version_sort_key, reverse=True)
+
 
 def normalize_installed_versions(installed_version, installed_versions):
     versions = set(installed_versions or [])
@@ -11,10 +22,10 @@ def normalize_installed_versions(installed_version, installed_versions):
 
 def merge_remote_and_installed_versions(remote_versions, installed_versions):
     if not remote_versions:
-        return sorted(installed_versions, reverse=True)
+        return sort_versions_descending(installed_versions)
 
     versions = list(remote_versions)
-    for local_version in sorted(installed_versions, reverse=True):
+    for local_version in sort_versions_descending(installed_versions):
         if local_version not in versions:
             versions.append(local_version)
     return versions

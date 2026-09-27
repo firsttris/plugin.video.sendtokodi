@@ -13,6 +13,7 @@ from core.addon_params import (
     parse_cli_paramstring,
     parse_query_params,
     resolve_queue_request,
+    resolve_plugin_invocation,
     build_ydl_opts,
     resolve_js_runtime_opts,
     resolve_media_download_settings,
@@ -76,10 +77,13 @@ def run_with_progress(title, message, operation):
             progress.close()
 
 
+invocation = resolve_plugin_invocation(sys.argv)
+
 # Get the plugin url in plugin:// notation.
-__url__ = sys.argv[0]
+__url__ = invocation['url']
 # Get the plugin handle as an integer number.
-__handle__ = int(sys.argv[1])
+__handle__ = invocation['handle']
+paramstring = invocation['paramstring']
 
 
 def _legacy_python_workarounds_enabled(handle):
@@ -152,15 +156,15 @@ def handle_queue_action(paramstring):
 
 # Open the settings if no parameters have been passed. Prevents crash.
 # This happens when the addon is launched from within the Kodi OSD.
-if not sys.argv[2]:
+if not paramstring:
     refresh_runtime_displays(__handle__, log)
     xbmcaddon.Addon().openSettings()
     exit()
 
-if handle_queue_action(sys.argv[2]):
+if handle_queue_action(paramstring):
     exit()
 
-action = resolve_action_param(sys.argv[2])
+action = resolve_action_param(paramstring)
 if action is not None and handle_runtime_action(
     action,
     __handle__,
@@ -181,7 +185,7 @@ except Exception as exc:
     log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
     exit()
 
-params = parse_cli_paramstring(sys.argv[2])
+params = parse_cli_paramstring(paramstring)
 url = str(params['url'])
 
 js_runtime_opts = {}
@@ -239,7 +243,7 @@ if 'entries' in result:
             url,
             ydl,
             __url__,
-            sys.argv[2],
+            paramstring,
             media_download_enabled,
             ydl_opts,
             usemanifest,

@@ -67,6 +67,24 @@ def parse_query_params(paramstring):
     return urllib.parse.parse_qs(query_part)
 
 
+def resolve_plugin_invocation(argv):
+    values = list(argv or [])
+    plugin_url = values[0] if len(values) > 0 else ''
+
+    try:
+        handle = int(values[1]) if len(values) > 1 else 0
+    except (TypeError, ValueError):
+        handle = 0
+
+    paramstring = values[2] if len(values) > 2 and values[2] is not None else ''
+
+    return {
+        'url': plugin_url,
+        'handle': handle,
+        'paramstring': paramstring,
+    }
+
+
 def resolve_queue_request(paramstring):
     parsed = parse_query_params(paramstring)
     action = parsed.get("action", [None])[0]

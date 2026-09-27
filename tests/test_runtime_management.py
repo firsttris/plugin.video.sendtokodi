@@ -53,3 +53,18 @@ def test_select_versions_to_prune_ignores_unknown_keep_version():
     result = runtime_management.select_versions_to_prune(["v3", "v2", "v1"], "v9", 2)
 
     assert result == ["v1"]
+
+
+def test_sort_versions_descending_uses_numeric_components():
+    result = runtime_management.sort_versions_descending(["v2.9.9", "v2.10.0", "v2.7.5"])
+
+    assert result == ["v2.10.0", "v2.9.9", "v2.7.5"]
+
+
+def test_merge_remote_and_installed_versions_appends_local_versions_in_numeric_order():
+    result = runtime_management.merge_remote_and_installed_versions(
+        [],
+        {"v2.9.9", "v2.10.0", "v2.7.5"},
+    )
+
+    assert result == ["v2.10.0", "v2.9.9", "v2.7.5"]

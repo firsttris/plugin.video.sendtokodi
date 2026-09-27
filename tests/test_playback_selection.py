@@ -31,9 +31,16 @@ from core.playback_selection import (
 
 
 def test_normalize_dash_audio_streams_keeps_last_when_multiple():
-    streams = [{"format": "a1"}, {"format": "a2"}, {"format": "a3"}]
+    streams = [
+        {"format": "a-mp4-low", "container": "m4a_dash", "abr": 96},
+        {"format": "a-webm-high", "container": "webm_dash", "abr": 192},
+        {"format": "a-mp4-high", "container": "m4a_dash", "abr": 160},
+    ]
+    selected_video = {"format": "v1", "container": "mp4_dash"}
 
-    assert normalize_dash_audio_streams(streams) == [{"format": "a3"}]
+    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [
+        {"format": "a-mp4-high", "container": "m4a_dash", "abr": 160}
+    ]
 
 
 def test_analyze_formats_detects_stream_types_and_dash_groups():
@@ -48,7 +55,18 @@ def test_analyze_formats_detects_stream_types_and_dash_groups():
     assert have_video is True
     assert have_audio is True
     assert [entry["format"] for entry in dash_video] == ["v1"]
-    assert [entry["format"] for entry in dash_audio] == ["a2"]
+    assert [entry["format"] for entry in dash_audio] == ["a1", "a2"]
+
+
+def test_normalize_dash_audio_streams_falls_back_to_highest_quality_without_compatible_container():
+    streams = [
+        {"format": "a-low", "container": "m4a_dash", "abr": 96},
+        {"format": "a-high", "container": "webm_dash", "abr": 192},
+    ]
+
+    assert normalize_dash_audio_streams(streams) == [
+        {"format": "a-high", "container": "webm_dash", "abr": 192}
+    ]
 
 
 def test_find_playlist_start_index_prefers_matching_index_param():
@@ -505,6 +523,85 @@ def test_build_dash_manifest_candidate_refresh_uses_fresh_result_formats():
     assert refreshed_manifest == "manifest-payload-2"
 
 
+def test_build_dash_manifest_candidate_refresh_keeps_selected_video_and_compatible_audio():
+    builders = []
+
+    class BuilderWithPayload(DummyDashBuilder):
+        def __init__(self, payload):
+            super().__init__()
+            self.payload = payload
+
+        def emit(self):
+            return self.payload
+
+    def manifest_factory(_duration):
+        payload = "manifest-payload-{}".format(len(builders) + 1)
+        builder = BuilderWithPayload(payload)
+        builders.append(builder)
+        return builder
+
+    captured_refresh = {"callback": None}
+
+    def start_httpd(manifest, refresh_manifest=None):
+        captured_refresh["callback"] = refresh_manifest
+        return "http://localhost/mpd?data=" + manifest
+
+    result = build_dash_manifest_candidate(
+        duration="12",
+        dash_video=[{"format": "v4k", "format_id": "401", "url": "https://example.com/v4k", "container": "mp4_dash"}],
+        dash_audio=[{"format": "a-init", "container": "m4a_dash", "abr": 128}],
+        have_video=True,
+        have_audio=True,
+        manifest_factory=manifest_factory,
+        start_httpd=start_httpd,
+        resolve_fresh_result=lambda: {
+            "duration": "20",
+            "formats": [
+                {
+                    "format": "v1080",
+                    "format_id": "137",
+                    "url": "https://example.com/v1080",
+                    "vcodec": "avc1",
+                    "acodec": "none",
+                    "container": "mp4_dash",
+                },
+                {
+                    "format": "v4k",
+                    "format_id": "401",
+                    "url": "https://example.com/v4k",
+                    "vcodec": "avc1",
+                    "acodec": "none",
+                    "container": "mp4_dash",
+                },
+                {
+                    "format": "a-webm",
+                    "vcodec": "none",
+                    "acodec": "opus",
+                    "container": "webm_dash",
+                    "abr": 192,
+                },
+                {
+                    "format": "a-mp4",
+                    "vcodec": "none",
+                    "acodec": "aac",
+                    "container": "m4a_dash",
+                    "abr": 128,
+                },
+            ],
+        },
+        preferred_video_format={"format": "v4k", "format_id": "401", "url": "https://example.com/v4k", "container": "mp4_dash"},
+        preferred_video_format_id="401",
+        preferred_video_url="https://example.com/v4k",
+    )
+
+    refreshed_manifest = captured_refresh["callback"]()
+
+    assert result["url"].startswith("http://localhost/mpd?data=")
+    assert builders[1].video_added == ["v4k"]
+    assert builders[1].audio_added == ["a-mp4"]
+    assert refreshed_manifest == "manifest-payload-2"
+
+
 def test_resolve_manifest_candidate_returns_none_without_url():
     assert resolve_manifest_candidate(None, manifest_supported=True, headers={"A": "B"}) is None
 
@@ -772,6 +869,45 @@ def test_select_playback_source_prefers_user_selected_stream_url():
 
     assert selected["source"] == "raw_format"
     assert selected["url"] == "https://example.com/360.mp4"
+
+
+def test_select_playback_source_prefers_user_selected_format_id_when_urls_match():
+    result = {
+        "formats": [
+            {
+                "format": "f360",
+                "format_id": "18",
+                "url": "https://example.com/master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 640,
+            },
+            {
+                "format": "f1080",
+                "format_id": "37",
+                "url": "https://example.com/master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1",
+                "acodec": "aac",
+                "width": 1920,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+        preferred_format_url="https://example.com/master.m3u8",
+        preferred_format_id="18",
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/master.m3u8"
+    assert selected["format_label"] == "f360"
 
 
 def test_select_playback_source_prefers_raw_4k_over_original_manifest_when_allowed():

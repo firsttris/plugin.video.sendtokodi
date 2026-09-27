@@ -1,10 +1,75 @@
 from urllib.parse import parse_qs, urlparse, quote, urlencode
 
 
-def normalize_dash_audio_streams(dash_audio):
-    if len(dash_audio) > 1:
-        return [dash_audio[-1]]
-    return dash_audio
+def _dash_container_family(format_info):
+    container = (format_info.get('container') or '').lower()
+    if container in ('mp4_dash', 'm4a_dash'):
+        return 'mp4'
+    if container == 'webm_dash':
+        return 'webm'
+    return None
+
+
+def _coerce_quality_value(value):
+    if value is None:
+        return 0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _dash_audio_quality_key(format_info):
+    return (
+        _coerce_quality_value(format_info.get('abr')),
+        _coerce_quality_value(format_info.get('tbr')),
+        _coerce_quality_value(format_info.get('asr')),
+        _coerce_quality_value(format_info.get('filesize') or format_info.get('filesize_approx')),
+    )
+
+
+def normalize_dash_audio_streams(dash_audio, preferred_video_format=None):
+    if len(dash_audio) <= 1:
+        return list(dash_audio)
+
+    preferred_family = _dash_container_family(preferred_video_format or {})
+    if preferred_family is not None:
+        compatible_streams = [
+            format_info for format_info in dash_audio
+            if _dash_container_family(format_info) == preferred_family
+        ]
+        if compatible_streams:
+            return [max(compatible_streams, key=_dash_audio_quality_key)]
+
+    return [max(dash_audio, key=_dash_audio_quality_key)]
+
+
+def match_preferred_format(format_info, preferred_format_url=None, preferred_format_id=None):
+    if preferred_format_id is not None:
+        return format_info.get('format_id') == preferred_format_id
+    if preferred_format_url is not None:
+        return format_info.get('url') == preferred_format_url
+    return True
+
+
+def filter_preferred_dash_video_formats(dash_video, preferred_format_url=None, preferred_format_id=None):
+    if preferred_format_id is not None:
+        matching_formats = [
+            format_info for format_info in dash_video
+            if format_info.get('format_id') == preferred_format_id
+        ]
+        if matching_formats:
+            return matching_formats
+
+    if preferred_format_url is not None:
+        matching_formats = [
+            format_info for format_info in dash_video
+            if format_info.get('url') == preferred_format_url
+        ]
+        if matching_formats:
+            return matching_formats
+
+    return dash_video
 
 
 def guess_manifest_type(format_info, url):
@@ -279,6 +344,9 @@ def build_dash_manifest_candidate(
     manifest_factory,
     start_httpd,
     resolve_fresh_result=None,
+    preferred_video_format=None,
+    preferred_video_format_id=None,
+    preferred_video_url=None,
 ):
     def build_manifest_bytes():
         refreshed_duration = duration
@@ -296,12 +364,23 @@ def build_dash_manifest_candidate(
             refreshed_have_video, refreshed_have_audio, refreshed_dash_video, refreshed_dash_audio = analyze_formats(
                 fresh_result.get('formats', [])
             )
+            refreshed_dash_video = filter_preferred_dash_video_formats(
+                refreshed_dash_video,
+                preferred_format_url=preferred_video_url,
+                preferred_format_id=preferred_video_format_id,
+            )
 
         refreshed_builder = manifest_factory(refreshed_duration)
+        refreshed_preferred_video = preferred_video_format
+        if refreshed_dash_video:
+            refreshed_preferred_video = refreshed_dash_video[0]
         refreshed_result = add_dash_formats_to_builder(
             refreshed_builder,
             refreshed_dash_video,
-            refreshed_dash_audio,
+            normalize_dash_audio_streams(
+                refreshed_dash_audio,
+                preferred_video_format=refreshed_preferred_video,
+            ),
             refreshed_have_video,
             refreshed_have_audio,
         )
@@ -313,7 +392,10 @@ def build_dash_manifest_candidate(
     build_result = add_dash_formats_to_builder(
         builder,
         dash_video,
-        dash_audio,
+        normalize_dash_audio_streams(
+            dash_audio,
+            preferred_video_format=preferred_video_format,
+        ),
         have_video,
         have_audio,
     )
@@ -362,7 +444,7 @@ def analyze_formats(formats):
         if vcodec == 'none' and acodec != 'none' and container in ['m4a_dash', 'webm_dash']:
             dash_audio.append(fmt)
 
-    return have_video, have_audio, dash_video, normalize_dash_audio_streams(dash_audio)
+    return have_video, have_audio, dash_video, dash_audio
 
 
 def find_playlist_start_index(url, entries):
@@ -424,6 +506,7 @@ def select_playback_source(
     isa_supports,
     dashbuilder=None,
     preferred_format_url=None,
+    preferred_format_id=None,
     disable_opus_for_audio_only_hls_native=False,
     strict_max_resolution=True,
 ):
@@ -433,7 +516,7 @@ def select_playback_source(
         dash_manifest_factory = dashbuilder.Manifest
         dash_start_httpd = dashbuilder.start_httpd
 
-    has_manual_stream_preference = preferred_format_url is not None
+    has_manual_stream_preference = preferred_format_id is not None or preferred_format_url is not None
 
     if not strict_max_resolution and preferred_format_url is None:
         manifest_url = result.get('manifest_url') if usemanifest else None
@@ -460,7 +543,11 @@ def select_playback_source(
         if should_skip_manifest_candidate(have_video, vcodec, acodec):
             continue
 
-        if preferred_format_url is not None and format_info.get('url') != preferred_format_url:
+        if not match_preferred_format(
+            format_info,
+            preferred_format_url=preferred_format_url,
+            preferred_format_id=preferred_format_id,
+        ):
             continue
 
         if (
@@ -480,6 +567,9 @@ def select_playback_source(
                     dash_manifest_factory,
                     dash_start_httpd,
                     result.get('resolve_fresh_result'),
+                    preferred_video_format=format_info,
+                    preferred_video_format_id=format_info.get('format_id'),
+                    preferred_video_url=format_info.get('url'),
                 )
             dash_url = dash_result.get('url') if dash_result is not None else None
             if dash_url is not None:
@@ -519,6 +609,9 @@ def select_playback_source(
             dash_result = None
             if dash_manifest_factory is not None and dash_start_httpd is not None:
                 selected_dash_video = pick_best_dash_video_format(dash_video, maxwidth) if strict_max_resolution else None
+                preferred_dash_video = selected_dash_video
+                if preferred_dash_video is None and dash_video:
+                    preferred_dash_video = dash_video[-1]
                 dash_result = build_dash_manifest_candidate(
                     result.get('duration', "0"),
                     [selected_dash_video] if selected_dash_video is not None else dash_video,
@@ -528,6 +621,9 @@ def select_playback_source(
                     dash_manifest_factory,
                     dash_start_httpd,
                     result.get('resolve_fresh_result'),
+                    preferred_video_format=preferred_dash_video,
+                    preferred_video_format_id=preferred_dash_video.get('format_id') if preferred_dash_video is not None else None,
+                    preferred_video_url=preferred_dash_video.get('url') if preferred_dash_video is not None else None,
                 )
             dash_url = dash_result.get('url') if dash_result is not None else None
             if dash_url is not None:

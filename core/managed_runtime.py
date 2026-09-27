@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from core.runtime_management import select_versions_to_prune
+from core.runtime_management import select_versions_to_prune, sort_versions_descending
 from core.runtime_update_state import (
     apply_failure_state,
     apply_success_state,
@@ -106,7 +106,7 @@ def list_installed_versions(versions_dir, is_installed):
     for name in os.listdir(versions_dir):
         if os.path.isdir(os.path.join(versions_dir, name)) and is_installed(name):
             versions.append(name)
-    return sorted(versions, reverse=True)
+    return sort_versions_descending(versions)
 
 
 def delete_installed_version(

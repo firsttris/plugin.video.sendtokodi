@@ -9,6 +9,7 @@ from core.addon_params import (
     parse_cli_paramstring,
     parse_query_params,
     resolve_queue_request,
+    resolve_plugin_invocation,
     build_flat_playlist_item_url,
     resolve_playlist_item_title,
     build_ydl_opts,
@@ -74,6 +75,36 @@ def test_parse_query_params_extracts_query_before_ydl_opts_json():
 def test_parse_query_params_ignores_query_of_legacy_raw_url():
     assert parse_query_params("?https://example.com/redirect?id=1&url=https://other.example/x") == {}
     assert parse_query_params("?https://example.com/v?action=queue&url=x") == {}
+
+
+def test_resolve_plugin_invocation_uses_safe_defaults_for_missing_args():
+    invocation = resolve_plugin_invocation([])
+
+    assert invocation == {
+        "url": "",
+        "handle": 0,
+        "paramstring": "",
+    }
+
+
+def test_resolve_plugin_invocation_parses_handle_and_paramstring():
+    invocation = resolve_plugin_invocation(["plugin://plugin.video.sendtokodi", "7", "?url=test"])
+
+    assert invocation == {
+        "url": "plugin://plugin.video.sendtokodi",
+        "handle": 7,
+        "paramstring": "?url=test",
+    }
+
+
+def test_resolve_plugin_invocation_falls_back_when_handle_is_invalid():
+    invocation = resolve_plugin_invocation(["plugin://plugin.video.sendtokodi", "oops"])
+
+    assert invocation == {
+        "url": "plugin://plugin.video.sendtokodi",
+        "handle": 0,
+        "paramstring": "",
+    }
 
 
 def test_parse_cli_paramstring_keeps_legacy_url_with_url_query_param():
