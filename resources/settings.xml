@@ -95,11 +95,6 @@
                     <default></default>
                     <control type="edit" format="string"/>
                 </setting>
-                <setting type="string" id="ytdlp_additional_options" label="32057">
-                    <level>1</level>
-                    <default>{}</default>
-                    <control type="edit" format="string"/>
-                </setting>
             </group>
         </category>
         <category id="adaptive" label="33000">

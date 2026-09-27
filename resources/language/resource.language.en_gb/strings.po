@@ -104,10 +104,6 @@ msgctxt "#32059"
 msgid "yt-dlp config location (file or directory)"
 msgstr ""
 
-msgctxt "#32057"
-msgid "Additional yt-dlp options (JSON)"
-msgstr ""
-
 msgctxt "#32054"
 msgid "yt-dlp version override (advanced)"
 msgstr ""

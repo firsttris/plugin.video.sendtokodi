@@ -11,7 +11,6 @@ DEFAULT_JS_RUNTIME_MODE = 'auto'
 DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 10
 MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 600
-DEFAULT_YTDLP_ADDITIONAL_OPTIONS = '{}'
 YT_DLP_OPTIONS_QUERY_PARAM = 'yt-dlp-options'
 LEGACY_YDL_OPTS_QUERY_PARAM = 'ydlOpts'
 
@@ -171,15 +170,6 @@ def load_ytdlp_config_options(config_settings, parse_options):
         raise ValueError('yt-dlp config parser returned invalid ydl_opts')
 
     return ydl_opts
-
-
-def resolve_additional_ytdlp_options(handle, get_setting):
-    raw_value = (get_setting(handle, 'ytdlp_additional_options') or '').strip()
-    if not raw_value:
-        raw_value = DEFAULT_YTDLP_ADDITIONAL_OPTIONS
-    return _parse_ydl_opts_json(raw_value)
-
-
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     requested_version = DEFAULT_DENO_VERSION

@@ -14,7 +14,6 @@ from core.addon_params import (
     resolve_playlist_item_title,
     build_ydl_opts,
     load_ytdlp_config_options,
-    resolve_additional_ytdlp_options,
     resolve_deno_settings,
     resolve_deno_opts,
     resolve_js_runtime_opts,
@@ -241,14 +240,6 @@ def test_build_ydl_opts_merges_global_options_before_request_options():
         "format": "best",
         "socket_timeout": 10,
     }
-
-
-def test_resolve_additional_ytdlp_options_uses_default_json_when_empty():
-    opts = resolve_additional_ytdlp_options(1, lambda _handle, _name: "")
-
-    assert opts == {}
-
-
 def test_resolve_ytdlp_config_settings_enables_config_when_location_is_set():
     def get_setting(_handle, name):
         if name == "ytdlp_config_location":
@@ -354,33 +345,6 @@ def test_load_ytdlp_config_options_rejects_non_dict_ydl_opts():
         assert False, "Expected ValueError"
     except ValueError as exc:
         assert "invalid ydl_opts" in str(exc)
-
-
-def test_resolve_additional_ytdlp_options_parses_json_object():
-    def get_setting(_handle, name):
-        if name == "ytdlp_additional_options":
-            return '{"cookiefile": "/tmp/cookies.txt", "socket_timeout": 30}'
-        return ""
-
-    opts = resolve_additional_ytdlp_options(1, get_setting)
-
-    assert opts == {
-        "cookiefile": "/tmp/cookies.txt",
-        "socket_timeout": 30,
-    }
-
-
-def test_resolve_additional_ytdlp_options_rejects_non_object_json():
-    def get_setting(_handle, name):
-        if name == "ytdlp_additional_options":
-            return '["not", "an", "object"]'
-        return ""
-
-    try:
-        resolve_additional_ytdlp_options(1, get_setting)
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert "JSON object" in str(exc)
 
 
 def test_resolve_deno_opts_always_uses_default_version():
