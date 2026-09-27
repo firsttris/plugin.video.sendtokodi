@@ -1,6 +1,17 @@
 from urllib.parse import parse_qs, urlparse, quote, urlencode
 
 
+_SUBTITLE_FORMAT_PREFERENCE = (
+    'srt',
+    'vtt',
+    'ttml',
+    'srv3',
+    'srv2',
+    'srv1',
+    'json3',
+)
+
+
 def _dash_container_family(format_info):
     container = (format_info.get('container') or '').lower()
     if container in ('mp4_dash', 'm4a_dash'):
@@ -92,17 +103,48 @@ def guess_manifest_type(format_info, url):
     return None
 
 
-def collect_subtitle_urls(subtitles):
-    urls = []
-    for subtitle_entries in (subtitles or {}).values():
-        if not isinstance(subtitle_entries, list):
+def collect_subtitle_entries(subtitles):
+    subtitle_entries = []
+    for language_code, subtitle_variants in (subtitles or {}).items():
+        if not isinstance(subtitle_variants, list):
             continue
-        for subtitle_list_entry in subtitle_entries:
+
+        best_subtitle_entry = None
+        best_subtitle_rank = len(_SUBTITLE_FORMAT_PREFERENCE)
+
+        for subtitle_list_entry in subtitle_variants:
             if not isinstance(subtitle_list_entry, dict):
                 continue
+
             subtitle_url = subtitle_list_entry.get('url')
-            if subtitle_url:
-                urls.append(subtitle_url)
+            if not subtitle_url:
+                continue
+
+            subtitle_ext = (subtitle_list_entry.get('ext') or '').lower()
+            try:
+                subtitle_rank = _SUBTITLE_FORMAT_PREFERENCE.index(subtitle_ext)
+            except ValueError:
+                subtitle_rank = len(_SUBTITLE_FORMAT_PREFERENCE)
+
+            if best_subtitle_entry is None or subtitle_rank < best_subtitle_rank:
+                best_subtitle_entry = {
+                    'language': language_code,
+                    'name': subtitle_list_entry.get('name') or language_code,
+                    'ext': subtitle_ext,
+                    'url': subtitle_url,
+                }
+                best_subtitle_rank = subtitle_rank
+
+        if best_subtitle_entry is not None:
+            subtitle_entries.append(best_subtitle_entry)
+
+    return subtitle_entries
+
+
+def collect_subtitle_urls(subtitles):
+    urls = []
+    for subtitle_entry in collect_subtitle_entries(subtitles):
+        urls.append(subtitle_entry['url'])
     return urls
 
 

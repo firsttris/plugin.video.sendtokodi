@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import os
+
+import requests
 import xbmc
 import xbmcgui
 import xbmcvfs
@@ -7,6 +10,7 @@ from core import dash_builder
 from core.addon_params import build_flat_playlist_item_url, resolve_playlist_item_title
 from core.playback_selection import (
     append_headers_to_url,
+    collect_subtitle_entries,
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
@@ -19,6 +23,10 @@ from core.playback_selection import (
     queueable_playlist_entries,
     resolve_playlist_insert_position,
 )
+from core.subtitle_support import build_subtitle_file_name
+
+
+_SUBTITLE_DOWNLOAD_TIMEOUT_SECONDS = 20
 
 
 def _resolve_downloaded_file_path(result):
@@ -31,6 +39,57 @@ def _resolve_downloaded_file_path(result):
     if "_filename" in result:
         return result["_filename"]
     return None
+
+
+def _subtitle_download_dir():
+    return xbmcvfs.translatePath("special://profile/addon_data/plugin.video.sendtokodi/subtitles")
+
+
+def _download_subtitle_file(subtitle_url, destination_path, http_headers):
+    response = requests.get(subtitle_url, headers=http_headers or None, timeout=_SUBTITLE_DOWNLOAD_TIMEOUT_SECONDS)
+    try:
+        response.raise_for_status()
+        with open(destination_path, 'wb') as subtitle_file:
+            subtitle_file.write(response.content)
+    finally:
+        response.close()
+
+
+def _resolve_subtitle_paths(subtitles, http_headers, log):
+    subtitle_entries = collect_subtitle_entries(subtitles)
+    if not subtitle_entries:
+        return []
+
+    subtitle_directory = _subtitle_download_dir()
+    try:
+        os.makedirs(subtitle_directory, exist_ok=True)
+    except Exception as exc:
+        log('Failed to create subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
+        return collect_subtitle_urls(subtitles)
+
+    subtitle_paths = []
+    used_file_names = set()
+    for subtitle_entry in subtitle_entries:
+        subtitle_url = subtitle_entry.get('url')
+        if not subtitle_url:
+            continue
+
+        if not subtitle_url.startswith(('http://', 'https://')):
+            subtitle_paths.append(subtitle_url)
+            continue
+
+        destination_path = os.path.join(
+            subtitle_directory,
+            build_subtitle_file_name(subtitle_entry, used_file_names=used_file_names),
+        )
+        try:
+            _download_subtitle_file(subtitle_url, destination_path, http_headers)
+            subtitle_paths.append(destination_path)
+        except Exception as exc:
+            log('Failed to download subtitle {}: {}'.format(subtitle_url, exc), xbmc.LOGWARNING)
+            subtitle_paths.append(subtitle_url)
+
+    return subtitle_paths
 
 
 def _format_stream_option(format_info):
@@ -188,7 +247,7 @@ def create_list_item_from_video(
 
     subtitles = result.get("subtitles", {})
     if subtitles:
-        list_item.setSubtitles(collect_subtitle_urls(subtitles))
+        list_item.setSubtitles(_resolve_subtitle_paths(subtitles, result.get("http_headers"), log))
 
     # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
     # sent when downloading a manifest and streaming match those originally sent by yt-dlp.

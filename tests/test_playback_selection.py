@@ -3,6 +3,7 @@ from urllib.parse import quote
 from core.playback_selection import (
     analyze_formats,
     append_headers_to_url,
+    collect_subtitle_entries,
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
@@ -105,25 +106,45 @@ def test_guess_manifest_type_returns_none_for_plain_file_url():
     assert guess_manifest_type({}, "https://example.com/video.mp4") is None
 
 
-def test_collect_subtitle_urls_flattens_all_languages():
+def test_collect_subtitle_urls_keeps_one_preferred_entry_per_language():
     subtitles = {
-        "en": [{"url": "https://example.com/en.vtt"}],
-        "de": [{"url": "https://example.com/de1.vtt"}, {"url": "https://example.com/de2.vtt"}],
+        "en": [{"url": "https://example.com/en.vtt", "ext": "vtt"}],
+        "de": [
+            {"url": "https://example.com/de.json3", "ext": "json3"},
+            {"url": "https://example.com/de.srt", "ext": "srt"},
+            {"url": "https://example.com/de.vtt", "ext": "vtt"},
+        ],
     }
 
     urls = collect_subtitle_urls(subtitles)
 
     assert urls == [
         "https://example.com/en.vtt",
-        "https://example.com/de1.vtt",
-        "https://example.com/de2.vtt",
+        "https://example.com/de.srt",
+    ]
+
+
+def test_collect_subtitle_entries_keep_language_name_and_ext():
+    subtitles = {
+        "de": [
+            {"url": "https://example.com/de.json3", "ext": "json3", "name": "German"},
+            {"url": "https://example.com/de.srt", "ext": "srt", "name": "German"},
+        ],
+        "en": [{"url": "https://example.com/en.vtt", "ext": "vtt", "name": "English"}],
+    }
+
+    subtitle_entries = collect_subtitle_entries(subtitles)
+
+    assert subtitle_entries == [
+        {"language": "de", "name": "German", "ext": "srt", "url": "https://example.com/de.srt"},
+        {"language": "en", "name": "English", "ext": "vtt", "url": "https://example.com/en.vtt"},
     ]
 
 
 def test_collect_subtitle_urls_ignores_malformed_entries():
     subtitles = {
         "en": None,
-        "de": [{"url": "https://example.com/de.vtt"}, {"name": "missing-url"}],
+        "de": [{"url": "https://example.com/de.vtt", "ext": "vtt"}, {"name": "missing-url"}],
         "fr": "https://example.com/fr.vtt",
         "es": ["bad-entry"],
     }
@@ -131,6 +152,19 @@ def test_collect_subtitle_urls_ignores_malformed_entries():
     urls = collect_subtitle_urls(subtitles)
 
     assert urls == ["https://example.com/de.vtt"]
+
+
+def test_collect_subtitle_urls_falls_back_to_first_unknown_format_when_needed():
+    subtitles = {
+        "de": [
+            {"url": "https://example.com/de.custom", "ext": "custom"},
+            {"url": "https://example.com/de.other", "ext": "other"},
+        ]
+    }
+
+    urls = collect_subtitle_urls(subtitles)
+
+    assert urls == ["https://example.com/de.custom"]
 
 
 def test_encode_inputstream_headers_returns_urlencoded_string():
