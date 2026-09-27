@@ -245,6 +245,28 @@ def test_manifest_add_formats_without_bandwidth(monkeypatch):
 
     xml_text = manifest.emit().decode("utf-8")
     assert "bandwidth=" not in xml_text
+    assert manifest.audio_set.get("lang") is None
+
+
+def test_manifest_add_audio_format_sets_language_on_adaptation_set(monkeypatch):
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 1), (2, 3)))
+    manifest = dash_builder.Manifest(duration=1)
+
+    manifest.add_audio_format(
+        {
+            "format_id": "251-1",
+            "acodec": "opus",
+            "asr": 48000,
+            "ext": "webm",
+            "audio_channels": 2,
+            "url": "https://example.com/a",
+            "container": "webm_dash",
+            "language": "de-DE",
+        }
+    )
+
+    assert manifest.audio_set.get("lang") == "de"
+    assert "lang=\"de\"" in manifest.emit().decode("utf-8")
 
 
 def test_http_handler_head_and_get_methods_write_headers_and_body():

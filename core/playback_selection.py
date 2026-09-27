@@ -43,9 +43,28 @@ def _dash_audio_quality_key(format_info):
     )
 
 
+def _dash_audio_language_preference(format_info):
+    # yt-dlp ranks the original audio track above dubbed or descriptive ones
+    # (YouTube: original 10, default 5, other dubs -1, descriptive -10).
+    return _coerce_quality_value(format_info.get('language_preference'))
+
+
+def filter_preferred_language_audio_streams(dash_audio):
+    if not dash_audio:
+        return []
+    best_preference = max(_dash_audio_language_preference(format_info) for format_info in dash_audio)
+    return [
+        format_info for format_info in dash_audio
+        if _dash_audio_language_preference(format_info) == best_preference
+    ]
+
+
 def normalize_dash_audio_streams(dash_audio, preferred_video_format=None):
     if len(dash_audio) <= 1:
         return list(dash_audio)
+
+    # Bitrates of dubbed tracks can exceed the original's, so pick the language first.
+    dash_audio = filter_preferred_language_audio_streams(dash_audio)
 
     preferred_family = _dash_container_family(preferred_video_format or {})
     if preferred_family is not None:

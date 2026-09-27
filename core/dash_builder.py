@@ -166,6 +166,16 @@ def transform_url(url):
     return url
 
 
+def _dash_language_code(language):
+    # yt-dlp reports e.g. "de-DE" or "en-desc"; Kodi maps the primary subtag to a language name.
+    if not isinstance(language, str):
+        return None
+    primary = language.strip().split('-', 1)[0].lower()
+    if not primary or primary in ('und', 'none'):
+        return None
+    return primary
+
+
 class Manifest():
     def __init__(self, duration):
         self.mpd = Element('MPD')
@@ -203,6 +213,10 @@ class Manifest():
         url = format['url']
         # Resolve ranges first so a failing format leaves no partial Representation behind.
         init_range, idx_range = find_init_and_index_ranges(url, format['container'])
+
+        language = _dash_language_code(format.get('language'))
+        if language is not None:
+            self.audio_set.set('lang', language)
 
         rep = SubElement(self.audio_set, 'Representation')
         rep.set('id', format['format_id'].split('-',1)[0])

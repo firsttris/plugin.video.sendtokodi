@@ -71,6 +71,28 @@ def test_normalize_dash_audio_streams_falls_back_to_highest_quality_without_comp
     ]
 
 
+def test_normalize_dash_audio_streams_prefers_original_language_over_higher_bitrate_dub():
+    streams = [
+        {"format": "251-0", "container": "webm_dash", "abr": 130, "language": "en-US", "language_preference": -1},
+        {"format": "251-1", "container": "webm_dash", "abr": 115, "language": "de-DE", "language_preference": 10},
+        {"format": "251-2", "container": "webm_dash", "abr": 140, "language": "fr-FR", "language_preference": 5},
+        {"format": "250-1", "container": "webm_dash", "abr": 70, "language": "de-DE", "language_preference": 10},
+    ]
+    selected_video = {"format": "v1", "container": "webm_dash"}
+
+    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [streams[1]]
+
+
+def test_normalize_dash_audio_streams_prefers_container_match_within_original_language():
+    streams = [
+        {"format": "140-0", "container": "m4a_dash", "abr": 129, "language": "en-US", "language_preference": -1},
+        {"format": "251-1", "container": "webm_dash", "abr": 115, "language": "de-DE", "language_preference": 10},
+    ]
+    selected_video = {"format": "v1", "container": "mp4_dash"}
+
+    assert normalize_dash_audio_streams(streams, preferred_video_format=selected_video) == [streams[1]]
+
+
 def test_find_playlist_start_index_prefers_matching_index_param():
     entries = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
 
