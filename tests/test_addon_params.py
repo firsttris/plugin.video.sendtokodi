@@ -249,10 +249,8 @@ def test_resolve_additional_ytdlp_options_uses_default_json_when_empty():
     assert opts == {}
 
 
-def test_resolve_ytdlp_config_settings_reads_toggle_and_location():
+def test_resolve_ytdlp_config_settings_enables_config_when_location_is_set():
     def get_setting(_handle, name):
-        if name == "ytdlp_load_config":
-            return "true"
         if name == "ytdlp_config_location":
             return " /tmp/yt-dlp.conf "
         return ""
@@ -265,7 +263,16 @@ def test_resolve_ytdlp_config_settings_reads_toggle_and_location():
     }
 
 
-def test_load_ytdlp_config_options_returns_empty_when_disabled():
+def test_resolve_ytdlp_config_settings_disables_config_when_location_is_empty():
+    settings = resolve_ytdlp_config_settings(1, lambda _handle, _name: "")
+
+    assert settings == {
+        "enabled": False,
+        "location": "",
+    }
+
+
+def test_load_ytdlp_config_options_returns_empty_when_location_is_disabled():
     opts = load_ytdlp_config_options(
         {"enabled": False, "location": "/tmp/yt-dlp.conf"},
         lambda _args: {"ydl_opts": {"cookiefile": "/tmp/cookies.txt"}},

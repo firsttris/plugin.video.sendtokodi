@@ -90,18 +90,9 @@
                     <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_update_now)</data>
                     <control type="button" format="action"/>
                 </setting>
-                <setting type="boolean" id="ytdlp_load_config" label="32058">
-                    <level>1</level>
-                    <default>false</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting type="string" id="ytdlp_config_location" label="32059">
-                    <level>1</level>
+                    <level>0</level>
                     <default></default>
-                    <dependencies>
-                        <dependency type="visible" setting="ytdlp_load_config">true</dependency>
-                        <dependency type="enable" setting="ytdlp_load_config">true</dependency>
-                    </dependencies>
                     <control type="edit" format="string"/>
                 </setting>
                 <setting type="string" id="ytdlp_additional_options" label="32057">

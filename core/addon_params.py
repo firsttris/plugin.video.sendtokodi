@@ -141,9 +141,10 @@ def build_ydl_opts(parsed_params, additional_opts=None, deno_opts=None):
 
 
 def resolve_ytdlp_config_settings(handle, get_setting):
+    location = (get_setting(handle, 'ytdlp_config_location') or '').strip()
     return {
-        'enabled': get_setting(handle, 'ytdlp_load_config') == 'true',
-        'location': (get_setting(handle, 'ytdlp_config_location') or '').strip(),
+        'enabled': bool(location),
+        'location': location,
     }
 
 

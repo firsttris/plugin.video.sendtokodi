@@ -114,10 +114,8 @@ Open in Kodi via:
   Read-only display of installed yt-dlp.
 - **Manage yt-dlp version / Update yt-dlp now**  
   Manually select a version or trigger an immediate update.
-- **Load yt-dlp config file**  
-  Enables loading a yt-dlp config via `--config-locations`.
 - **yt-dlp config location (file or directory)**  
-  Path to a config file or to a directory that contains `yt-dlp.conf`.
+  Optional path to a config file or to a directory that contains `yt-dlp.conf`. If left empty, no config file is loaded.
 - **Additional yt-dlp options (JSON)**  
   Merges extra `YoutubeDL` options into every request after the optional config file is loaded. Useful for settings like `cookiefile`, `extractor_args`, or timeouts. Example:
   `{"cookiefile":"/storage/.config/yt-dlp/cookies.txt","extractor_args":{"youtube":{"player_client":["tv_downgraded","web"]}}}`
