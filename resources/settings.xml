@@ -90,10 +90,14 @@
                     <data>RunPlugin(plugin://plugin.video.sendtokodi/?action=ytdlp_update_now)</data>
                     <control type="button" format="action"/>
                 </setting>
-                <setting type="string" id="ytdlp_config_location" label="32059">
+                <setting type="path" id="ytdlp_config_location" label="32059">
                     <level>0</level>
                     <default></default>
-                    <control type="edit" format="string"/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                        <writable>false</writable>
+                    </constraints>
+                    <control type="button" format="file"/>
                 </setting>
             </group>
         </category>

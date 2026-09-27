@@ -114,8 +114,8 @@ Open in Kodi via:
   Read-only display of installed yt-dlp.
 - **Manage yt-dlp version / Update yt-dlp now**  
   Manually select a version or trigger an immediate update.
-- **yt-dlp config location (file or directory)**  
-  Optional path to a config file or to a directory that contains `yt-dlp.conf`. If left empty, no config file is loaded. Put custom yt-dlp options like `cookiefile`, `extractor_args`, or timeouts into that config file.
+- **yt-dlp config file**  
+  Optional path to an existing yt-dlp config file. If left empty, no config file is loaded. Put custom yt-dlp options like `cookiefile`, `extractor_args`, or timeouts into that file and then select it here.
 - **yt-dlp version override (advanced)**  
   Pin/override yt-dlp version manually.
 

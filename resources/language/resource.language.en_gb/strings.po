@@ -101,7 +101,7 @@ msgid "Update yt-dlp now"
 msgstr ""
 
 msgctxt "#32059"
-msgid "yt-dlp config location (file or directory)"
+msgid "yt-dlp config file"
 msgstr ""
 
 msgctxt "#32054"
