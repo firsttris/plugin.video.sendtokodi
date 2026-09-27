@@ -169,6 +169,41 @@ def test_collect_subtitle_urls_falls_back_to_first_unknown_format_when_needed():
     assert urls == ["https://example.com/de.custom"]
 
 
+def test_collect_subtitle_urls_ignores_live_chat_tracks():
+    subtitles = {
+        "live_chat": [
+            {
+                "url": "https://example.com/api/live_chat_replay?fmt=json3",
+                "ext": "json3",
+                "name": "live_chat json",
+            }
+        ],
+        "de": [
+            {"url": "https://example.com/de.vtt", "ext": "vtt", "name": "German"},
+        ],
+    }
+
+    urls = collect_subtitle_urls(subtitles)
+
+    assert urls == ["https://example.com/de.vtt"]
+
+
+def test_collect_subtitle_entries_drops_live_chat_when_only_track_present():
+    subtitles = {
+        "live_chat": [
+            {
+                "url": "https://example.com/api/live_chat?fmt=json3",
+                "ext": "json3",
+                "name": "live_chat json",
+            }
+        ]
+    }
+
+    subtitle_entries = collect_subtitle_entries(subtitles)
+
+    assert subtitle_entries == []
+
+
 def test_encode_inputstream_headers_returns_urlencoded_string():
     encoded = encode_inputstream_headers({"User-Agent": "UA", "Referer": "https://example.com"})
 

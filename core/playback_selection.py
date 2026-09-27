@@ -11,6 +11,13 @@ _SUBTITLE_FORMAT_PREFERENCE = (
     'json3',
 )
 
+_NON_SUBTITLE_TRACK_MARKERS = (
+    'live_chat',
+    'live chat',
+    'chat_replay',
+    'chat replay',
+)
+
 
 def _dash_container_family(format_info):
     container = (format_info.get('container') or '').lower()
@@ -103,6 +110,21 @@ def guess_manifest_type(format_info, url):
     return None
 
 
+def _is_non_subtitle_track(subtitle_list_entry):
+    ext = (subtitle_list_entry.get('ext') or '').strip().lower()
+    if ext in ('json', 'jsonl'):
+        return True
+
+    text_fields = [
+        subtitle_list_entry.get('name'),
+        subtitle_list_entry.get('url'),
+        subtitle_list_entry.get('format'),
+        subtitle_list_entry.get('format_id'),
+    ]
+    normalized_text = ' '.join(str(value).strip().lower() for value in text_fields if value)
+    return any(marker in normalized_text for marker in _NON_SUBTITLE_TRACK_MARKERS)
+
+
 def collect_subtitle_entries(subtitles):
     subtitle_entries = []
     for language_code, subtitle_variants in (subtitles or {}).items():
@@ -114,6 +136,9 @@ def collect_subtitle_entries(subtitles):
 
         for subtitle_list_entry in subtitle_variants:
             if not isinstance(subtitle_list_entry, dict):
+                continue
+
+            if _is_non_subtitle_track(subtitle_list_entry):
                 continue
 
             subtitle_url = subtitle_list_entry.get('url')
