@@ -1,3 +1,5 @@
+import pytest
+
 from core.addon_params import (
     DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS,
     DEFAULT_DENO_VERSION,
@@ -20,7 +22,8 @@ from core.addon_params import (
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
     resolve_media_download_settings,
-    resolve_ytdlp_config_settings,
+    resolve_local_ytdlp_config_path,
+    resolve_ytdlp_config_location,
     resolve_ytdlp_settings,
 )
 
@@ -240,111 +243,108 @@ def test_build_ydl_opts_merges_global_options_before_request_options():
         "format": "best",
         "socket_timeout": 10,
     }
-def test_resolve_ytdlp_config_settings_enables_config_when_location_is_set():
+def test_resolve_ytdlp_config_location_strips_setting_value():
     def get_setting(_handle, name):
         if name == "ytdlp_config_location":
             return " /tmp/yt-dlp.conf "
         return ""
 
-    settings = resolve_ytdlp_config_settings(1, get_setting)
-
-    assert settings == {
-        "enabled": True,
-        "location": "/tmp/yt-dlp.conf",
-    }
+    assert resolve_ytdlp_config_location(1, get_setting) == "/tmp/yt-dlp.conf"
 
 
-def test_resolve_ytdlp_config_settings_disables_config_when_location_is_empty():
-    settings = resolve_ytdlp_config_settings(1, lambda _handle, _name: "")
-
-    assert settings == {
-        "enabled": False,
-        "location": "",
-    }
+def test_resolve_ytdlp_config_location_returns_empty_when_unset():
+    assert resolve_ytdlp_config_location(1, lambda _handle, _name: None) == ""
 
 
-def test_load_ytdlp_config_options_returns_empty_when_location_is_disabled():
-    opts = load_ytdlp_config_options(
-        {"enabled": False, "location": "/tmp/yt-dlp.conf"},
-        lambda _args: {"ydl_opts": {"cookiefile": "/tmp/cookies.txt"}},
+def test_resolve_local_ytdlp_config_path_keeps_local_paths():
+    copied = []
+
+    path = resolve_local_ytdlp_config_path(
+        "special://profile/yt-dlp.conf",
+        lambda value: value.replace("special://profile", "/home/kodi/.kodi/userdata"),
+        lambda source, destination: copied.append((source, destination)) or True,
+        "special://profile/copy.conf",
     )
 
-    assert opts == {}
+    assert path == "/home/kodi/.kodi/userdata/yt-dlp.conf"
+    assert copied == []
 
 
-def test_load_ytdlp_config_options_returns_empty_when_location_missing():
-    opts = load_ytdlp_config_options(
-        {"enabled": True, "location": "  "},
-        lambda _args: {"ydl_opts": {"cookiefile": "/tmp/cookies.txt"}},
+def test_resolve_local_ytdlp_config_path_copies_network_paths():
+    copied = []
+
+    path = resolve_local_ytdlp_config_path(
+        "smb://nas/share/yt-dlp.conf",
+        lambda value: value.replace("special://profile", "/home/kodi/.kodi/userdata"),
+        lambda source, destination: copied.append((source, destination)) or True,
+        "special://profile/copy.conf",
     )
 
-    assert opts == {}
+    assert path == "/home/kodi/.kodi/userdata/copy.conf"
+    assert copied == [("smb://nas/share/yt-dlp.conf", "special://profile/copy.conf")]
 
 
-def test_load_ytdlp_config_options_reads_ydl_opts_from_named_result():
-    class ParsedOptions(object):
-        def __init__(self, ydl_opts):
-            self.ydl_opts = ydl_opts
+def test_resolve_local_ytdlp_config_path_rejects_failed_copy():
+    try:
+        resolve_local_ytdlp_config_path(
+            "smb://nas/share/yt-dlp.conf",
+            lambda value: value,
+            lambda _source, _destination: False,
+            "special://profile/copy.conf",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "smb://nas/share/yt-dlp.conf" in str(exc)
 
-    seen = {}
+
+class _ParsedOptions(object):
+    def __init__(self, ydl_opts):
+        self.ydl_opts = ydl_opts
+
+
+def test_load_ytdlp_config_options_returns_empty_without_location():
+    def parse_options(_args):
+        raise AssertionError("parse_options must not be called")
+
+    assert load_ytdlp_config_options("", parse_options) == {}
+
+
+def test_load_ytdlp_config_options_keeps_only_options_changed_by_config():
+    seen = []
+    defaults = {"extract_flat": "discard_in_playlist", "socket_timeout": None, "retries": 10}
 
     def parse_options(args):
-        seen["args"] = args
-        return ParsedOptions({"cookiefile": "/tmp/cookies.txt"})
+        seen.append(args)
+        if "--config-locations" in args:
+            return _ParsedOptions(dict(defaults, socket_timeout=10.0, cookiefile="/tmp/cookies.txt"))
+        return _ParsedOptions(dict(defaults))
 
-    opts = load_ytdlp_config_options(
-        {"enabled": True, "location": "/tmp/yt-dlp.conf"},
-        parse_options,
-    )
+    opts = load_ytdlp_config_options("/tmp/yt-dlp.conf", parse_options)
 
-    assert seen["args"] == ["--config-locations", "/tmp/yt-dlp.conf"]
-    assert opts == {"cookiefile": "/tmp/cookies.txt"}
+    assert seen == [
+        ["--ignore-config"],
+        ["--ignore-config", "--config-locations", "/tmp/yt-dlp.conf"],
+    ]
+    assert opts == {"socket_timeout": 10.0, "cookiefile": "/tmp/cookies.txt"}
 
 
-def test_load_ytdlp_config_options_reads_ydl_opts_from_tuple_result():
-    opts = load_ytdlp_config_options(
-        {"enabled": True, "location": "/tmp/yt-dlp.conf"},
-        lambda _args: (None, None, None, {"proxy": "http://example.com:8080"}),
-    )
+def test_load_ytdlp_config_options_does_not_override_plugin_extract_flat(tmp_path):
+    yt_dlp = pytest.importorskip("yt_dlp")
+    config_path = tmp_path / "yt-dlp.conf"
+    config_path.write_text("--socket-timeout 10\n")
 
-    assert opts == {"proxy": "http://example.com:8080"}
+    opts = load_ytdlp_config_options(str(config_path), yt_dlp.parse_options)
+
+    assert opts == {"socket_timeout": 10.0}
+    assert build_ydl_opts({"ydlOpts": {}}, opts)["extract_flat"] == "in_playlist"
 
 
 def test_load_ytdlp_config_options_rejects_missing_parser():
     try:
-        load_ytdlp_config_options(
-            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
-            None,
-        )
+        load_ytdlp_config_options("/tmp/yt-dlp.conf", None)
         assert False, "Expected ValueError"
     except ValueError as exc:
         assert "unavailable" in str(exc)
-
-
-def test_load_ytdlp_config_options_rejects_invalid_parser_result():
-    try:
-        load_ytdlp_config_options(
-            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
-            lambda _args: object(),
-        )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert "did not return ydl_opts" in str(exc)
-
-
-def test_load_ytdlp_config_options_rejects_non_dict_ydl_opts():
-    class ParsedOptions(object):
-        def __init__(self, ydl_opts):
-            self.ydl_opts = ydl_opts
-
-    try:
-        load_ytdlp_config_options(
-            {"enabled": True, "location": "/tmp/yt-dlp.conf"},
-            lambda _args: ParsedOptions(["not", "a", "dict"]),
-        )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert "invalid ydl_opts" in str(exc)
 
 
 def test_resolve_deno_opts_always_uses_default_version():

@@ -139,37 +139,39 @@ def build_ydl_opts(parsed_params, additional_opts=None, deno_opts=None):
     return ydl_opts
 
 
-def resolve_ytdlp_config_settings(handle, get_setting):
-    location = (get_setting(handle, 'ytdlp_config_location') or '').strip()
-    return {
-        'enabled': bool(location),
-        'location': location,
-    }
+def resolve_ytdlp_config_location(handle, get_setting):
+    return (get_setting(handle, 'ytdlp_config_location') or '').strip()
 
 
-def load_ytdlp_config_options(config_settings, parse_options):
-    if not config_settings.get('enabled'):
-        return {}
+def resolve_local_ytdlp_config_path(location, translate_path, copy_file, local_copy_path):
+    translated_location = translate_path(location)
+    if '://' not in translated_location:
+        return translated_location
 
-    location = (config_settings.get('location') or '').strip()
+    # yt-dlp can only open local files, so network sources (smb://, nfs://, ...) are copied first.
+    if not copy_file(translated_location, local_copy_path):
+        raise ValueError('could not copy yt-dlp config from {}'.format(location))
+    return translate_path(local_copy_path)
+
+
+def load_ytdlp_config_options(location, parse_options):
     if not location:
         return {}
 
     if not callable(parse_options):
         raise ValueError('yt-dlp config parsing is unavailable')
 
-    parsed = parse_options(['--config-locations', location])
-    if hasattr(parsed, 'ydl_opts'):
-        ydl_opts = parsed.ydl_opts
-    elif isinstance(parsed, (list, tuple)) and len(parsed) >= 4:
-        ydl_opts = parsed[3]
-    else:
-        raise ValueError('yt-dlp config parser did not return ydl_opts')
+    # parse_options returns yt-dlp's complete CLI defaults, so only keep what the config file changes.
+    # Otherwise CLI defaults (e.g. extract_flat) would override the plugin's own options.
+    default_opts = parse_options(['--ignore-config']).ydl_opts
+    config_opts = parse_options(['--ignore-config', '--config-locations', location]).ydl_opts
+    return {
+        key: value
+        for key, value in config_opts.items()
+        if key not in default_opts or default_opts[key] != value
+    }
 
-    if not isinstance(ydl_opts, dict):
-        raise ValueError('yt-dlp config parser returned invalid ydl_opts')
 
-    return ydl_opts
 def resolve_deno_opts(handle, get_setting, get_deno_ydl_opts):
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     requested_version = DEFAULT_DENO_VERSION

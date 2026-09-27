@@ -11,12 +11,9 @@ _SUBTITLE_FORMAT_PREFERENCE = (
     'json3',
 )
 
-_NON_SUBTITLE_TRACK_MARKERS = (
-    'live_chat',
-    'live chat',
-    'chat_replay',
-    'chat replay',
-)
+# yt-dlp lists YouTube's live chat as a subtitle track under this language key.
+_LIVE_CHAT_LANGUAGE_CODE = 'live_chat'
+_LIVE_CHAT_PROTOCOL_PREFIX = 'youtube_live_chat'
 
 
 def _dash_container_family(format_info):
@@ -110,19 +107,17 @@ def guess_manifest_type(format_info, url):
     return None
 
 
-def _is_non_subtitle_track(subtitle_list_entry):
-    ext = (subtitle_list_entry.get('ext') or '').strip().lower()
-    if ext in ('json', 'jsonl'):
+def _is_non_subtitle_track(language_code, subtitle_list_entry):
+    if language_code == _LIVE_CHAT_LANGUAGE_CODE:
         return True
 
-    text_fields = [
-        subtitle_list_entry.get('name'),
-        subtitle_list_entry.get('url'),
-        subtitle_list_entry.get('format'),
-        subtitle_list_entry.get('format_id'),
-    ]
-    normalized_text = ' '.join(str(value).strip().lower() for value in text_fields if value)
-    return any(marker in normalized_text for marker in _NON_SUBTITLE_TRACK_MARKERS)
+    protocol = (subtitle_list_entry.get('protocol') or '').strip().lower()
+    if protocol.startswith(_LIVE_CHAT_PROTOCOL_PREFIX):
+        return True
+
+    # Chat dumps (e.g. Twitch rechat) come as plain json, which Kodi cannot display as subtitles.
+    ext = (subtitle_list_entry.get('ext') or '').strip().lower()
+    return ext in ('json', 'jsonl')
 
 
 def collect_subtitle_entries(subtitles):
@@ -138,7 +133,7 @@ def collect_subtitle_entries(subtitles):
             if not isinstance(subtitle_list_entry, dict):
                 continue
 
-            if _is_non_subtitle_track(subtitle_list_entry):
+            if _is_non_subtitle_track(language_code, subtitle_list_entry):
                 continue
 
             subtitle_url = subtitle_list_entry.get('url')
@@ -251,13 +246,21 @@ def should_allow_native_hls_without_isa(format_info, manifest_type):
     return is_audio_only or is_muxed_av
 
 
-def should_prefer_manifest_over_raw_hls(result, format_info, manifest_candidate):
+def should_prefer_manifest_over_raw_hls(result, format_info, manifest_candidate, maxwidth, strict_max_resolution):
     if manifest_candidate is None:
         return False
     if not result.get('is_live'):
         return False
     if guess_manifest_type(format_info, format_info.get('url')) != 'hls':
         return False
+    if strict_max_resolution:
+        # The master playlist lets the player pick any variant, so only use it when none exceeds the limit.
+        manifest_url = format_info.get('manifest_url')
+        for other_format in result.get('formats', []):
+            if other_format.get('manifest_url') != manifest_url:
+                continue
+            if should_filter_by_max_width(other_format.get('width'), maxwidth):
+                return False
     return True
 
 
@@ -311,38 +314,30 @@ def resolve_start_index(index):
     return index
 
 
-def resolve_manifest_candidate(manifest_url, manifest_supported, headers):
+def resolve_manifest_candidate(manifest_url, manifest_type, isa_supports, headers, is_live=False):
     if manifest_url is None:
         return None
-    if not manifest_supported:
+    # Kodi's native HLS player offers an automatic quality for live masters, so these
+    # are played without ISA, and therefore also work when ISA is not installed.
+    native_live_hls = is_live and manifest_type == 'hls'
+    if not native_live_hls and not isa_supports(manifest_type):
         return None
     return {
         'url': manifest_url,
-        'isa': True,
+        'isa': not native_live_hls,
         'headers': headers,
+        'manifest_type': manifest_type,
     }
 
 
-def maybe_prefer_native_live_hls_manifest(candidate, manifest_type, result):
-    if candidate is None:
-        return None
-    if manifest_type != 'hls':
-        return candidate
-    if not result.get('is_live'):
-        return candidate
-
-    native_candidate = dict(candidate)
-    native_candidate['isa'] = False
-    return native_candidate
-
-
-def resolve_result_fallback_candidate(result_url, manifest_supported, headers):
+def resolve_result_fallback_candidate(result_url, manifest_type, manifest_supported, headers):
     if result_url is None:
         return None
     return {
         'url': result_url,
         'isa': manifest_supported,
         'headers': headers,
+        'manifest_type': manifest_type,
     }
 
 
@@ -387,10 +382,11 @@ def evaluate_raw_format_candidate(
         # For muxed HLS variants this can be more reliable than ISA on some Kodi setups.
         'isa': False if native_hls_without_isa else manifest_supported,
         'headers': format_info.get('http_headers'),
+        'manifest_type': manifest_type,
     }
 
 
-def resolve_filtered_fallback_candidate(filtered_format, manifest_supported):
+def resolve_filtered_fallback_candidate(filtered_format, manifest_type, manifest_supported):
     if filtered_format is None:
         return None
 
@@ -398,6 +394,7 @@ def resolve_filtered_fallback_candidate(filtered_format, manifest_supported):
         'url': filtered_format['url'],
         'isa': manifest_supported,
         'headers': filtered_format.get('http_headers'),
+        'manifest_type': manifest_type,
     }
 
 
@@ -619,13 +616,10 @@ def select_playback_source(
         manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
         original_manifest_candidate = resolve_manifest_candidate(
             manifest_url,
-            isa_supports(manifest_type) if manifest_url is not None else False,
-            result.get('http_headers'),
-        )
-        original_manifest_candidate = maybe_prefer_native_live_hls_manifest(
-            original_manifest_candidate,
             manifest_type,
-            result,
+            isa_supports,
+            result.get('http_headers'),
+            is_live=result.get('is_live', False),
         )
         if original_manifest_candidate is not None:
             original_manifest_candidate['source'] = 'original_manifest'
@@ -679,6 +673,7 @@ def select_playback_source(
                     'url': dash_url,
                     'isa': True,
                     'headers': format_info.get('http_headers'),
+                    'manifest_type': 'mpd',
                     'source': 'dash_manifest',
                     'events': dash_result.get('events', []),
                 }
@@ -688,19 +683,22 @@ def select_playback_source(
             manifest_type = guess_manifest_type(format_info, manifest_url) if manifest_url is not None else None
             format_manifest_candidate = resolve_manifest_candidate(
                 manifest_url,
-                isa_supports(manifest_type) if manifest_url is not None else False,
-                format_info.get('http_headers'),
-            )
-            format_manifest_candidate = maybe_prefer_native_live_hls_manifest(
-                format_manifest_candidate,
                 manifest_type,
-                result,
+                isa_supports,
+                format_info.get('http_headers'),
+                is_live=result.get('is_live', False),
             )
             if format_manifest_candidate is not None and not strict_max_resolution:
                 format_manifest_candidate['source'] = 'format_manifest'
                 format_manifest_candidate['format_label'] = format_info.get('format', "")
                 return format_manifest_candidate
-            if should_prefer_manifest_over_raw_hls(result, format_info, format_manifest_candidate):
+            if should_prefer_manifest_over_raw_hls(
+                result,
+                format_info,
+                format_manifest_candidate,
+                maxwidth,
+                strict_max_resolution,
+            ):
                 format_manifest_candidate['source'] = 'format_manifest'
                 format_manifest_candidate['format_label'] = format_info.get('format', "")
                 return format_manifest_candidate
@@ -743,6 +741,7 @@ def select_playback_source(
                     'url': dash_url,
                     'isa': True,
                     'headers': format_info.get('http_headers'),
+                    'manifest_type': 'mpd',
                     'source': 'dash_manifest',
                     'events': dash_result.get('events', []),
                 }
@@ -785,29 +784,32 @@ def select_playback_source(
     manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
     original_manifest_candidate = resolve_manifest_candidate(
         manifest_url,
-        isa_supports(manifest_type) if manifest_url is not None else False,
-        result.get('http_headers'),
-    )
-    original_manifest_candidate = maybe_prefer_native_live_hls_manifest(
-        original_manifest_candidate,
         manifest_type,
-        result,
+        isa_supports,
+        result.get('http_headers'),
+        is_live=result.get('is_live', False),
     )
     if original_manifest_candidate is not None and preferred_format_url is None:
         original_manifest_candidate['source'] = 'original_manifest'
         return original_manifest_candidate
 
+    filtered_manifest_type = (
+        guess_manifest_type(filtered_format, filtered_format['url']) if filtered_format is not None else None
+    )
     filtered_fallback = resolve_filtered_fallback_candidate(
         filtered_format,
-        isa_supports(guess_manifest_type(filtered_format, filtered_format['url'])) if filtered_format is not None else False,
+        filtered_manifest_type,
+        isa_supports(filtered_manifest_type) if filtered_format is not None else False,
     )
     if filtered_fallback is not None:
         filtered_fallback['source'] = 'filtered_fallback'
         return filtered_fallback
 
+    result_manifest_type = guess_manifest_type(result, result.get('url')) if result.get('url') is not None else None
     result_fallback = resolve_result_fallback_candidate(
         result.get('url'),
-        isa_supports(guess_manifest_type(result, result.get('url'))) if result.get('url') is not None else False,
+        result_manifest_type,
+        isa_supports(result_manifest_type) if result.get('url') is not None else False,
         result.get('http_headers'),
     )
     if result_fallback is not None:

@@ -117,6 +117,7 @@ def test_create_list_item_from_video_sets_hls_manifest_type_for_isa(monkeypatch)
             'url': 'https://example.com/master.m3u8',
             'isa': True,
             'headers': {'User-Agent': 'UA'},
+            'manifest_type': 'hls',
             'source': 'format_manifest',
         },
     )
@@ -150,6 +151,75 @@ def test_create_list_item_from_video_sets_hls_manifest_type_for_isa(monkeypatch)
     assert list_item.mime_type == 'application/vnd.apple.mpegurl'
 
 
+def test_create_list_item_from_video_uses_selected_manifest_type_instead_of_url(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        playback,
+        'select_playback_source',
+        lambda *_args, **_kwargs: {
+            'url': 'https://x.streaming.media.azure.net/a/b.ism/manifest(format=m3u8-aapl)',
+            'isa': True,
+            'headers': None,
+            'manifest_type': 'hls',
+            'source': 'raw_format',
+        },
+    )
+
+    list_item = playback.create_list_item_from_video(
+        result={'title': 'azure', 'formats': []},
+        ydl_opts={},
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        strict_max_resolution=True,
+        askstream=False,
+        disable_opus_for_audio_only_hls_native=False,
+        isa_supports=lambda _stream: True,
+        youtube_dl_cls=None,
+        log=lambda *_args, **_kwargs: None,
+        show_error_notification=lambda *_args, **_kwargs: None,
+    )
+
+    assert list_item.properties['inputstream.adaptive.manifest_type'] == 'hls'
+    assert list_item.mime_type == 'application/vnd.apple.mpegurl'
+
+
+def test_create_list_item_from_video_skips_manifest_type_unknown_to_isa(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        playback,
+        'select_playback_source',
+        lambda *_args, **_kwargs: {
+            'url': 'rtmp://example.com/live/stream',
+            'isa': True,
+            'headers': None,
+            'manifest_type': 'rtmp',
+            'source': 'raw_format',
+        },
+    )
+
+    list_item = playback.create_list_item_from_video(
+        result={'title': 'rtmp', 'formats': []},
+        ydl_opts={},
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        strict_max_resolution=True,
+        askstream=False,
+        disable_opus_for_audio_only_hls_native=False,
+        isa_supports=lambda _stream: True,
+        youtube_dl_cls=None,
+        log=lambda *_args, **_kwargs: None,
+        show_error_notification=lambda *_args, **_kwargs: None,
+    )
+
+    assert list_item.properties['inputstream'] == 'inputstream.adaptive'
+    assert 'inputstream.adaptive.manifest_type' not in list_item.properties
+    assert list_item.mime_type is None
+
+
 def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch):
     playback = _load_playback_module(monkeypatch)
     monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
@@ -160,6 +230,7 @@ def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch
             'url': 'http://127.0.0.1:12345/manifest/test.mpd',
             'isa': True,
             'headers': {'User-Agent': 'UA'},
+            'manifest_type': 'mpd',
             'source': 'dash_manifest',
             'events': [],
         },

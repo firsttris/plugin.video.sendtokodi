@@ -14,7 +14,6 @@ from core.playback_selection import (
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
-    guess_manifest_type,
     resolve_effective_headers,
     resolve_start_index,
     resolve_starting_entry,
@@ -46,12 +45,6 @@ def _resolve_downloaded_file_path(result):
     if "_filename" in result:
         return result["_filename"]
     return None
-
-
-def _resolve_inputstream_manifest_type(url):
-    if not url:
-        return None
-    return guess_manifest_type({}, url)
 
 
 def _subtitle_download_dir():
@@ -223,10 +216,12 @@ def create_list_item_from_video(
         url = selected_source["url"]
         isa = selected_source["isa"]
         headers = selected_source["headers"]
+        manifest_type = selected_source.get("manifest_type")
     else:
         url = None
         isa = None
         headers = None
+        manifest_type = None
 
     if url is None:
         msg = "No supported streams found"
@@ -268,12 +263,12 @@ def create_list_item_from_video(
 
     if isa:
         list_item.setProperty("inputstream", "inputstream.adaptive")
-        manifest_type = _resolve_inputstream_manifest_type(url)
-        if manifest_type is not None:
+        # Use the type detected during stream selection (protocol aware); guessing from the url alone
+        # misdetects urls like ".ism/manifest(format=m3u8-aapl)". ISA only knows the types listed here.
+        mime_type = _INPUTSTREAM_MIME_TYPES.get(manifest_type)
+        if mime_type is not None:
             list_item.setProperty("inputstream.adaptive.manifest_type", manifest_type)
-            mime_type = _INPUTSTREAM_MIME_TYPES.get(manifest_type)
-            if mime_type is not None:
-                list_item.setMimeType(mime_type)
+            list_item.setMimeType(mime_type)
         encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)

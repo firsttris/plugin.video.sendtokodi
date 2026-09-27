@@ -13,7 +13,6 @@ from core.playback_selection import (
     should_allow_native_hls_without_isa,
     add_dash_formats_to_builder,
     build_dash_manifest_candidate,
-    maybe_prefer_native_live_hls_manifest,
     resolve_filtered_fallback_candidate,
     resolve_effective_headers,
     resolve_manifest_candidate,
@@ -204,6 +203,46 @@ def test_collect_subtitle_entries_drops_live_chat_when_only_track_present():
     assert subtitle_entries == []
 
 
+def test_collect_subtitle_entries_drops_live_chat_protocol_under_other_language_key():
+    subtitles = {
+        "en": [
+            {
+                "url": "https://example.com/api/chat",
+                "ext": "json3",
+                "protocol": "youtube_live_chat_replay",
+            }
+        ]
+    }
+
+    assert collect_subtitle_entries(subtitles) == []
+
+
+def test_collect_subtitle_entries_drops_plain_json_tracks():
+    subtitles = {
+        "rechat": [
+            {"url": "https://example.com/rechat", "ext": "json"},
+        ]
+    }
+
+    assert collect_subtitle_entries(subtitles) == []
+
+
+def test_collect_subtitle_entries_keeps_real_subtitles_mentioning_live_chat():
+    subtitles = {
+        "en": [
+            {
+                "url": "https://example.com/shows/live_chat_replay/en.vtt",
+                "ext": "vtt",
+                "name": "Live Chat Replay - English",
+            }
+        ]
+    }
+
+    subtitle_entries = collect_subtitle_entries(subtitles)
+
+    assert [entry["url"] for entry in subtitle_entries] == ["https://example.com/shows/live_chat_replay/en.vtt"]
+
+
 def test_encode_inputstream_headers_returns_urlencoded_string():
     encoded = encode_inputstream_headers({"User-Agent": "UA", "Referer": "https://example.com"})
 
@@ -267,37 +306,11 @@ def test_should_prefer_manifest_over_raw_hls_for_live_hls_streams():
             "protocol": "m3u8_native",
         },
         {"url": "https://example.com/master.m3u8", "isa": True, "headers": None},
+        maxwidth=1920,
+        strict_max_resolution=True,
     )
 
     assert preferred is True
-
-
-def test_maybe_prefer_native_live_hls_manifest_disables_isa_for_live_hls():
-    candidate = maybe_prefer_native_live_hls_manifest(
-        {"url": "https://example.com/master.m3u8", "isa": True, "headers": {"User-Agent": "UA"}},
-        'hls',
-        {"is_live": True},
-    )
-
-    assert candidate == {
-        "url": "https://example.com/master.m3u8",
-        "isa": False,
-        "headers": {"User-Agent": "UA"},
-    }
-
-
-def test_maybe_prefer_native_live_hls_manifest_keeps_isa_for_non_live():
-    candidate = maybe_prefer_native_live_hls_manifest(
-        {"url": "https://example.com/master.m3u8", "isa": True, "headers": {"User-Agent": "UA"}},
-        'hls',
-        {},
-    )
-
-    assert candidate == {
-        "url": "https://example.com/master.m3u8",
-        "isa": True,
-        "headers": {"User-Agent": "UA"},
-    }
 
 
 def test_should_not_prefer_manifest_over_raw_hls_for_non_live_streams():
@@ -308,9 +321,68 @@ def test_should_not_prefer_manifest_over_raw_hls_for_non_live_streams():
             "protocol": "m3u8_native",
         },
         {"url": "https://example.com/master.m3u8", "isa": True, "headers": None},
+        maxwidth=1920,
+        strict_max_resolution=True,
     )
 
     assert preferred is False
+
+
+def _live_hls_variant(width, manifest_url="https://example.com/master.m3u8"):
+    return {
+        "url": "https://example.com/{}.m3u8".format(width),
+        "manifest_url": manifest_url,
+        "protocol": "m3u8_native",
+        "width": width,
+    }
+
+
+def test_should_not_prefer_manifest_over_raw_hls_when_variant_exceeds_strict_limit():
+    variant_720 = _live_hls_variant(1280)
+    result = {"is_live": True, "formats": [variant_720, _live_hls_variant(1920)]}
+
+    preferred = should_prefer_manifest_over_raw_hls(
+        result,
+        variant_720,
+        {"url": "https://example.com/master.m3u8", "isa": False, "headers": None},
+        maxwidth=1280,
+        strict_max_resolution=True,
+    )
+
+    assert preferred is False
+
+
+def test_should_prefer_manifest_over_raw_hls_ignores_limit_when_not_strict():
+    variant_720 = _live_hls_variant(1280)
+    result = {"is_live": True, "formats": [variant_720, _live_hls_variant(1920)]}
+
+    preferred = should_prefer_manifest_over_raw_hls(
+        result,
+        variant_720,
+        {"url": "https://example.com/master.m3u8", "isa": False, "headers": None},
+        maxwidth=1280,
+        strict_max_resolution=False,
+    )
+
+    assert preferred is True
+
+
+def test_should_prefer_manifest_over_raw_hls_ignores_variants_of_other_manifests():
+    variant_720 = _live_hls_variant(1280)
+    result = {
+        "is_live": True,
+        "formats": [variant_720, _live_hls_variant(1920, "https://example.com/other.m3u8")],
+    }
+
+    preferred = should_prefer_manifest_over_raw_hls(
+        result,
+        variant_720,
+        {"url": "https://example.com/master.m3u8", "isa": False, "headers": None},
+        maxwidth=1280,
+        strict_max_resolution=True,
+    )
+
+    assert preferred is True
 
 
 def test_should_try_dash_builder_true_for_last_video_format_when_supported():
@@ -407,6 +479,7 @@ def test_evaluate_raw_format_candidate_selects_playable_stream():
         "url": "https://example.com/v",
         "isa": True,
         "headers": {"User-Agent": "UA"},
+        "manifest_type": "hls",
     }
 
 
@@ -431,6 +504,7 @@ def test_evaluate_raw_format_candidate_uses_native_for_muxed_hls_when_isa_unavai
         "url": "https://example.com/stream.m3u8",
         "isa": False,
         "headers": {"User-Agent": "UA"},
+        "manifest_type": "hls",
     }
 
 
@@ -455,6 +529,7 @@ def test_evaluate_raw_format_candidate_uses_native_for_audio_only_hls_when_isa_a
         "url": "https://example.com/audio.m3u8",
         "isa": False,
         "headers": {"User-Agent": "UA"},
+        "manifest_type": "hls",
     }
 
 
@@ -479,12 +554,13 @@ def test_evaluate_raw_format_candidate_skips_audio_only_native_hls_opus_when_dis
 
 
 def test_resolve_filtered_fallback_candidate_returns_none_without_filtered_format():
-    assert resolve_filtered_fallback_candidate(None, manifest_supported=False) is None
+    assert resolve_filtered_fallback_candidate(None, manifest_type=None, manifest_supported=False) is None
 
 
 def test_resolve_filtered_fallback_candidate_returns_expected_payload():
     fallback = resolve_filtered_fallback_candidate(
         {"url": "https://example.com/fallback", "http_headers": {"Referer": "https://example.com"}},
+        manifest_type="hls",
         manifest_supported=True,
     )
 
@@ -492,6 +568,7 @@ def test_resolve_filtered_fallback_candidate_returns_expected_payload():
         "url": "https://example.com/fallback",
         "isa": True,
         "headers": {"Referer": "https://example.com"},
+        "manifest_type": "hls",
     }
 
 
@@ -741,17 +818,23 @@ def test_build_dash_manifest_candidate_refresh_keeps_selected_video_and_compatib
 
 
 def test_resolve_manifest_candidate_returns_none_without_url():
-    assert resolve_manifest_candidate(None, manifest_supported=True, headers={"A": "B"}) is None
+    assert resolve_manifest_candidate(None, "hls", lambda _stream: True, headers={"A": "B"}) is None
 
 
 def test_resolve_manifest_candidate_returns_none_when_not_supported():
-    assert resolve_manifest_candidate("https://example.com/manifest.mpd", manifest_supported=False, headers={}) is None
+    assert resolve_manifest_candidate(
+        "https://example.com/manifest.mpd",
+        "mpd",
+        lambda _stream: False,
+        headers={},
+    ) is None
 
 
 def test_resolve_manifest_candidate_returns_payload_when_supported():
     payload = resolve_manifest_candidate(
         "https://example.com/manifest.mpd",
-        manifest_supported=True,
+        "mpd",
+        lambda stream: stream == "mpd",
         headers={"User-Agent": "UA"},
     )
 
@@ -759,16 +842,46 @@ def test_resolve_manifest_candidate_returns_payload_when_supported():
         "url": "https://example.com/manifest.mpd",
         "isa": True,
         "headers": {"User-Agent": "UA"},
+        "manifest_type": "mpd",
     }
 
 
+def test_resolve_manifest_candidate_plays_live_hls_natively_without_isa():
+    payload = resolve_manifest_candidate(
+        "https://example.com/master.m3u8",
+        "hls",
+        lambda _stream: False,
+        headers={"User-Agent": "UA"},
+        is_live=True,
+    )
+
+    assert payload == {
+        "url": "https://example.com/master.m3u8",
+        "isa": False,
+        "headers": {"User-Agent": "UA"},
+        "manifest_type": "hls",
+    }
+
+
+def test_resolve_manifest_candidate_keeps_isa_for_non_live_hls():
+    payload = resolve_manifest_candidate(
+        "https://example.com/master.m3u8",
+        "hls",
+        lambda stream: stream == "hls",
+        headers=None,
+    )
+
+    assert payload["isa"] is True
+
+
 def test_resolve_result_fallback_candidate_returns_none_without_url():
-    assert resolve_result_fallback_candidate(None, manifest_supported=False, headers=None) is None
+    assert resolve_result_fallback_candidate(None, None, manifest_supported=False, headers=None) is None
 
 
 def test_resolve_result_fallback_candidate_returns_payload():
     payload = resolve_result_fallback_candidate(
         "https://example.com/video.mp4",
+        None,
         manifest_supported=False,
         headers={"Referer": "https://example.com"},
     )
@@ -777,6 +890,7 @@ def test_resolve_result_fallback_candidate_returns_payload():
         "url": "https://example.com/video.mp4",
         "isa": False,
         "headers": {"Referer": "https://example.com"},
+        "manifest_type": None,
     }
 
 
@@ -1137,6 +1251,101 @@ def test_select_playback_source_prefers_live_hls_manifest_over_raw_variant_when_
     assert selected["source"] == "format_manifest"
     assert selected["url"] == "https://example.com/live-master.m3u8"
     assert selected["isa"] is False
+
+
+def test_select_playback_source_prefers_live_hls_manifest_without_isa_installed():
+    result = {
+        "is_live": True,
+        "formats": [
+            {
+                "format": "301 - 1920x1080",
+                "url": "https://example.com/live-1080-playlist.m3u8",
+                "manifest_url": "https://example.com/live-master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.4D402A",
+                "acodec": "mp4a.40.2",
+                "width": 1920,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: False,
+    )
+
+    assert selected["source"] == "format_manifest"
+    assert selected["url"] == "https://example.com/live-master.m3u8"
+    assert selected["isa"] is False
+
+
+def test_select_playback_source_keeps_strict_limit_for_live_hls():
+    master = "https://example.com/live-master.m3u8"
+    result = {
+        "is_live": True,
+        "formats": [
+            {
+                "format": "720",
+                "url": "https://example.com/live-720.m3u8",
+                "manifest_url": master,
+                "protocol": "m3u8_native",
+                "vcodec": "avc1",
+                "acodec": "mp4a.40.2",
+                "width": 1280,
+            },
+            {
+                "format": "1080",
+                "url": "https://example.com/live-1080.m3u8",
+                "manifest_url": master,
+                "protocol": "m3u8_native",
+                "vcodec": "avc1",
+                "acodec": "mp4a.40.2",
+                "width": 1920,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1280,
+        isa_supports=lambda stream: stream == "hls",
+        strict_max_resolution=True,
+    )
+
+    assert selected["source"] == "raw_format"
+    assert selected["url"] == "https://example.com/live-720.m3u8"
+    assert selected["isa"] is False
+    assert selected["manifest_type"] == "hls"
+
+
+def test_select_playback_source_reports_protocol_manifest_type():
+    result = {
+        "formats": [
+            {
+                "format": "azure-hls",
+                "url": "https://x.streaming.media.azure.net/a/b.ism/manifest(format=m3u8-aapl)",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1",
+                "acodec": "mp4a.40.2",
+                "width": 1280,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda _stream: True,
+    )
+
+    assert selected["manifest_type"] == "hls"
 
 
 def test_select_playback_source_returns_none_for_unplayable_user_selected_stream_url():

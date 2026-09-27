@@ -17,9 +17,10 @@ from core.addon_params import (
     build_ydl_opts,
     load_ytdlp_config_options,
     resolve_js_runtime_opts,
+    resolve_local_ytdlp_config_path,
     resolve_media_download_settings,
     resolve_dash_httpd_idle_timeout,
-    resolve_ytdlp_config_settings,
+    resolve_ytdlp_config_location,
 )
 from core.runtime.playback import (
     create_list_item_from_video,
@@ -198,15 +199,27 @@ try:
 except Exception as e:
     log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
 
-try:
-    config_ytdlp_opts = load_ytdlp_config_options(
-        resolve_ytdlp_config_settings(__handle__, xbmcplugin.getSetting),
-        getattr(yt_dlp_module, 'parse_options', None),
-    )
-except (ValueError, SystemExit) as exc:
-    showErrorNotification("Could not load yt-dlp config")
-    log("Could not load yt-dlp config: {}".format(exc), xbmc.LOGERROR)
-    exit()
+YTDLP_CONFIG_LOCAL_COPY_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-config-copy.conf'
+
+config_ytdlp_opts = {}
+ytdlp_config_location = resolve_ytdlp_config_location(__handle__, xbmcplugin.getSetting)
+if ytdlp_config_location:
+    try:
+        config_ytdlp_opts = load_ytdlp_config_options(
+            resolve_local_ytdlp_config_path(
+                ytdlp_config_location,
+                xbmcvfs.translatePath,
+                xbmcvfs.copy,
+                YTDLP_CONFIG_LOCAL_COPY_PATH,
+            ),
+            getattr(yt_dlp_module, 'parse_options', None),
+        )
+    # yt-dlp reports invalid configs via optparse errors or SystemExit (e.g. from parser.error).
+    except (Exception, SystemExit) as exc:
+        showErrorNotification("Could not load yt-dlp config")
+        log("Could not load yt-dlp config: {}".format(exc), xbmc.LOGERROR)
+        xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
+        exit()
 
 ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
 
