@@ -259,7 +259,7 @@ class Manifest():
         try:
             from xml.etree.ElementTree import indent
             indent(self.tree)
-        except:
+        except Exception:
             pass
         f = BytesIO()
         self.tree.write(f, encoding='utf-8', xml_declaration=True)

@@ -190,37 +190,42 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
         shutil.rmtree(tmp_path)
     os.makedirs(tmp_path, exist_ok=True)
 
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tf:
-        for member in tf.getmembers():
-            name = member.name.replace("\\", "/")
-            if "/" not in name:
-                continue
+    try:
+        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tf:
+            for member in tf.getmembers():
+                name = member.name.replace("\\", "/")
+                if "/" not in name:
+                    continue
 
-            rel_name = name.split("/", 1)[1]
-            if rel_name != "yt_dlp" and not rel_name.startswith("yt_dlp/"):
-                continue
+                rel_name = name.split("/", 1)[1]
+                if rel_name != "yt_dlp" and not rel_name.startswith("yt_dlp/"):
+                    continue
 
-            target_path = _safe_join(tmp_path, rel_name)
-            if member.isdir():
-                os.makedirs(target_path, exist_ok=True)
-                continue
+                target_path = _safe_join(tmp_path, rel_name)
+                if member.isdir():
+                    os.makedirs(target_path, exist_ok=True)
+                    continue
 
-            src = tf.extractfile(member)
-            if src is None:
-                continue
+                src = tf.extractfile(member)
+                if src is None:
+                    continue
 
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            with open(target_path, "wb") as dst:
-                dst.write(src.read())
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                with open(target_path, "wb") as dst:
+                    dst.write(src.read())
 
-    expected_init = os.path.join(tmp_path, "yt_dlp", "__init__.py")
-    if not os.path.isfile(expected_init):
-        raise RuntimeError("Downloaded archive does not contain a valid yt_dlp package")
+        expected_init = os.path.join(tmp_path, "yt_dlp", "__init__.py")
+        if not os.path.isfile(expected_init):
+            raise RuntimeError("Downloaded archive does not contain a valid yt_dlp package")
 
-    if os.path.isdir(destination_runtime_path):
-        shutil.rmtree(destination_runtime_path)
-    os.makedirs(os.path.dirname(destination_runtime_path), exist_ok=True)
-    os.rename(tmp_path, destination_runtime_path)
+        if os.path.isdir(destination_runtime_path):
+            shutil.rmtree(destination_runtime_path)
+        os.makedirs(os.path.dirname(destination_runtime_path), exist_ok=True)
+        os.rename(tmp_path, destination_runtime_path)
+    except Exception:
+        if os.path.isdir(tmp_path):
+            shutil.rmtree(tmp_path)
+        raise
 
 
 def _download_and_install(version):

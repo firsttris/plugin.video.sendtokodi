@@ -120,6 +120,19 @@ def test_collect_subtitle_urls_flattens_all_languages():
     ]
 
 
+def test_collect_subtitle_urls_ignores_malformed_entries():
+    subtitles = {
+        "en": None,
+        "de": [{"url": "https://example.com/de.vtt"}, {"name": "missing-url"}],
+        "fr": "https://example.com/fr.vtt",
+        "es": ["bad-entry"],
+    }
+
+    urls = collect_subtitle_urls(subtitles)
+
+    assert urls == ["https://example.com/de.vtt"]
+
+
 def test_encode_inputstream_headers_returns_urlencoded_string():
     encoded = encode_inputstream_headers({"User-Agent": "UA", "Referer": "https://example.com"})
 

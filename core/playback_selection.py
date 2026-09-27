@@ -93,11 +93,17 @@ def guess_manifest_type(format_info, url):
 
 
 def collect_subtitle_urls(subtitles):
-    return [
-        subtitle_list_entry['url']
-        for lang in subtitles
-        for subtitle_list_entry in subtitles[lang]
-    ]
+    urls = []
+    for subtitle_entries in (subtitles or {}).values():
+        if not isinstance(subtitle_entries, list):
+            continue
+        for subtitle_list_entry in subtitle_entries:
+            if not isinstance(subtitle_list_entry, dict):
+                continue
+            subtitle_url = subtitle_list_entry.get('url')
+            if subtitle_url:
+                urls.append(subtitle_url)
+    return urls
 
 
 def append_headers_to_url(url, headers):
