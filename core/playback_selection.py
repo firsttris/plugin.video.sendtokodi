@@ -226,6 +226,16 @@ def should_allow_native_hls_without_isa(format_info, manifest_type):
     return is_audio_only or is_muxed_av
 
 
+def should_prefer_manifest_over_raw_hls(result, format_info, manifest_candidate):
+    if manifest_candidate is None:
+        return False
+    if not result.get('is_live'):
+        return False
+    if guess_manifest_type(format_info, format_info.get('url')) != 'hls':
+        return False
+    return True
+
+
 def should_skip_audio_only_hls_native_opus(format_info, manifest_type, disable_opus_for_audio_only_hls_native):
     if not disable_opus_for_audio_only_hls_native:
         return False
@@ -286,6 +296,19 @@ def resolve_manifest_candidate(manifest_url, manifest_supported, headers):
         'isa': True,
         'headers': headers,
     }
+
+
+def maybe_prefer_native_live_hls_manifest(candidate, manifest_type, result):
+    if candidate is None:
+        return None
+    if manifest_type != 'hls':
+        return candidate
+    if not result.get('is_live'):
+        return candidate
+
+    native_candidate = dict(candidate)
+    native_candidate['isa'] = False
+    return native_candidate
 
 
 def resolve_result_fallback_candidate(result_url, manifest_supported, headers):
@@ -568,10 +591,16 @@ def select_playback_source(
 
     if not strict_max_resolution and preferred_format_url is None:
         manifest_url = result.get('manifest_url') if usemanifest else None
+        manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
         original_manifest_candidate = resolve_manifest_candidate(
             manifest_url,
-            isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
+            isa_supports(manifest_type) if manifest_url is not None else False,
             result.get('http_headers'),
+        )
+        original_manifest_candidate = maybe_prefer_native_live_hls_manifest(
+            original_manifest_candidate,
+            manifest_type,
+            result,
         )
         if original_manifest_candidate is not None:
             original_manifest_candidate['source'] = 'original_manifest'
@@ -631,12 +660,22 @@ def select_playback_source(
 
         if preferred_format_url is None:
             manifest_url = format_info.get('manifest_url') if usemanifest else None
+            manifest_type = guess_manifest_type(format_info, manifest_url) if manifest_url is not None else None
             format_manifest_candidate = resolve_manifest_candidate(
                 manifest_url,
-                isa_supports(guess_manifest_type(format_info, manifest_url)) if manifest_url is not None else False,
+                isa_supports(manifest_type) if manifest_url is not None else False,
                 format_info.get('http_headers'),
             )
+            format_manifest_candidate = maybe_prefer_native_live_hls_manifest(
+                format_manifest_candidate,
+                manifest_type,
+                result,
+            )
             if format_manifest_candidate is not None and not strict_max_resolution:
+                format_manifest_candidate['source'] = 'format_manifest'
+                format_manifest_candidate['format_label'] = format_info.get('format', "")
+                return format_manifest_candidate
+            if should_prefer_manifest_over_raw_hls(result, format_info, format_manifest_candidate):
                 format_manifest_candidate['source'] = 'format_manifest'
                 format_manifest_candidate['format_label'] = format_info.get('format', "")
                 return format_manifest_candidate
@@ -718,10 +757,16 @@ def select_playback_source(
         return format_manifest_fallback
 
     manifest_url = result.get('manifest_url') if usemanifest else None
+    manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
     original_manifest_candidate = resolve_manifest_candidate(
         manifest_url,
-        isa_supports(guess_manifest_type(result, manifest_url)) if manifest_url is not None else False,
+        isa_supports(manifest_type) if manifest_url is not None else False,
         result.get('http_headers'),
+    )
+    original_manifest_candidate = maybe_prefer_native_live_hls_manifest(
+        original_manifest_candidate,
+        manifest_type,
+        result,
     )
     if original_manifest_candidate is not None and preferred_format_url is None:
         original_manifest_candidate['source'] = 'original_manifest'

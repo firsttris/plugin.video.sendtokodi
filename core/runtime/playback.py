@@ -14,6 +14,7 @@ from core.playback_selection import (
     collect_subtitle_urls,
     encode_inputstream_headers,
     find_playlist_start_index,
+    guess_manifest_type,
     resolve_effective_headers,
     resolve_start_index,
     resolve_starting_entry,
@@ -28,6 +29,12 @@ from core.subtitle_support import build_subtitle_file_name
 
 _SUBTITLE_DOWNLOAD_TIMEOUT_SECONDS = 20
 
+_INPUTSTREAM_MIME_TYPES = {
+    'hls': 'application/vnd.apple.mpegurl',
+    'mpd': 'application/dash+xml',
+    'ism': 'application/vnd.ms-sstr+xml',
+}
+
 
 def _resolve_downloaded_file_path(result):
     requested_downloads = result.get("requested_downloads", [])
@@ -39,6 +46,12 @@ def _resolve_downloaded_file_path(result):
     if "_filename" in result:
         return result["_filename"]
     return None
+
+
+def _resolve_inputstream_manifest_type(url):
+    if not url:
+        return None
+    return guess_manifest_type({}, url)
 
 
 def _subtitle_download_dir():
@@ -255,6 +268,12 @@ def create_list_item_from_video(
 
     if isa:
         list_item.setProperty("inputstream", "inputstream.adaptive")
+        manifest_type = _resolve_inputstream_manifest_type(url)
+        if manifest_type is not None:
+            list_item.setProperty("inputstream.adaptive.manifest_type", manifest_type)
+            mime_type = _INPUTSTREAM_MIME_TYPES.get(manifest_type)
+            if mime_type is not None:
+                list_item.setMimeType(mime_type)
         encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)

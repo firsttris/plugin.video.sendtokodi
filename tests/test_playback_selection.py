@@ -13,6 +13,7 @@ from core.playback_selection import (
     should_allow_native_hls_without_isa,
     add_dash_formats_to_builder,
     build_dash_manifest_candidate,
+    maybe_prefer_native_live_hls_manifest,
     resolve_filtered_fallback_candidate,
     resolve_effective_headers,
     resolve_manifest_candidate,
@@ -20,6 +21,7 @@ from core.playback_selection import (
     resolve_start_index,
     selection_log_messages,
     select_playback_source,
+    should_prefer_manifest_over_raw_hls,
     should_filter_by_max_width,
     should_skip_manifest_candidate,
     should_skip_non_adaptive_candidate,
@@ -220,6 +222,60 @@ def test_should_allow_native_hls_without_isa_for_audio_only_hls_variant():
     )
 
     assert allowed is True
+
+
+def test_should_prefer_manifest_over_raw_hls_for_live_hls_streams():
+    preferred = should_prefer_manifest_over_raw_hls(
+        {"is_live": True},
+        {
+            "url": "https://example.com/stream.m3u8",
+            "protocol": "m3u8_native",
+        },
+        {"url": "https://example.com/master.m3u8", "isa": True, "headers": None},
+    )
+
+    assert preferred is True
+
+
+def test_maybe_prefer_native_live_hls_manifest_disables_isa_for_live_hls():
+    candidate = maybe_prefer_native_live_hls_manifest(
+        {"url": "https://example.com/master.m3u8", "isa": True, "headers": {"User-Agent": "UA"}},
+        'hls',
+        {"is_live": True},
+    )
+
+    assert candidate == {
+        "url": "https://example.com/master.m3u8",
+        "isa": False,
+        "headers": {"User-Agent": "UA"},
+    }
+
+
+def test_maybe_prefer_native_live_hls_manifest_keeps_isa_for_non_live():
+    candidate = maybe_prefer_native_live_hls_manifest(
+        {"url": "https://example.com/master.m3u8", "isa": True, "headers": {"User-Agent": "UA"}},
+        'hls',
+        {},
+    )
+
+    assert candidate == {
+        "url": "https://example.com/master.m3u8",
+        "isa": True,
+        "headers": {"User-Agent": "UA"},
+    }
+
+
+def test_should_not_prefer_manifest_over_raw_hls_for_non_live_streams():
+    preferred = should_prefer_manifest_over_raw_hls(
+        {},
+        {
+            "url": "https://example.com/stream.m3u8",
+            "protocol": "m3u8_native",
+        },
+        {"url": "https://example.com/master.m3u8", "isa": True, "headers": None},
+    )
+
+    assert preferred is False
 
 
 def test_should_try_dash_builder_true_for_last_video_format_when_supported():
@@ -772,7 +828,7 @@ def test_select_playback_source_uses_master_manifest_for_split_live_hls():
 
     assert selected["source"] == "format_manifest"
     assert selected["url"] == master
-    assert selected["isa"] is True
+    assert selected["isa"] is False
 
 
 def test_analyze_formats_treats_audio_only_without_acodec_as_audio():
@@ -1017,6 +1073,35 @@ def test_select_playback_source_adaptive_first_prefers_original_manifest():
 
     assert selected["source"] == "original_manifest"
     assert selected["url"] == "https://example.com/master.m3u8"
+
+
+def test_select_playback_source_prefers_live_hls_manifest_over_raw_variant_when_available():
+    result = {
+        "is_live": True,
+        "formats": [
+            {
+                "format": "301 - 1920x1080",
+                "url": "https://example.com/live-1080-playlist.m3u8",
+                "manifest_url": "https://example.com/live-master.m3u8",
+                "protocol": "m3u8_native",
+                "vcodec": "avc1.4D402A",
+                "acodec": "mp4a.40.2",
+                "width": 1920,
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=True,
+        usedashbuilder=False,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "hls",
+    )
+
+    assert selected["source"] == "format_manifest"
+    assert selected["url"] == "https://example.com/live-master.m3u8"
+    assert selected["isa"] is False
 
 
 def test_select_playback_source_returns_none_for_unplayable_user_selected_stream_url():
