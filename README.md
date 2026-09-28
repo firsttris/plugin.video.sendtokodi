@@ -1,7 +1,7 @@
 # SendToKodi (Kodi Add-on)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/firsttris/chrome.sendtokodi/master/public/banner/1280x800.png" alt="SendToKodi Banner" />
+  <img src="https://github.com/firsttris/chrome.sendtokodi/blob/master/store-assets/banner/1280x800.png" alt="SendToKodi Banner" />
 </p>
 
 <p align="center">
