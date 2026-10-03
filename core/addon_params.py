@@ -3,6 +3,8 @@ import os
 import platform
 import urllib.parse
 
+from core.ytdlp_manager import DEFAULT_YTDLP_SOURCE, YTDLP_SOURCES
+
 
 DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
 DEFAULT_YTDLP_VERSION = 'latest'
@@ -272,11 +274,19 @@ def resolve_media_download_settings(handle, get_setting):
     }
 
 
+def resolve_ytdlp_source(handle, get_setting):
+    value = (get_setting(handle, "ytdlp_source") or '').strip().lower()
+    if value in YTDLP_SOURCES:
+        return value
+    return DEFAULT_YTDLP_SOURCE
+
+
 def resolve_ytdlp_settings(handle, get_setting):
     auto_update = get_setting(handle, "ytdlp_autodownload") == 'true'
     return {
         'auto_update': auto_update,
         'version': DEFAULT_YTDLP_VERSION,
+        'source': resolve_ytdlp_source(handle, get_setting),
     }
 
 

@@ -27,9 +27,46 @@ YTDLP_LATEST_SENTINEL = managed_runtime.LATEST_SENTINEL
 MAX_INSTALLED_VERSIONS = managed_runtime.MAX_INSTALLED_VERSIONS
 _RUNTIME_LABEL = "yt-dlp"
 
-_LATEST_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
-_RELEASES_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases?per_page=100&page={page}"
-_TARBALL_URL = "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz"
+YTDLP_SOURCE_STABLE = "stable"
+YTDLP_SOURCE_NIGHTLY = "nightly"
+DEFAULT_YTDLP_SOURCE = YTDLP_SOURCE_STABLE
+YTDLP_SOURCES = (YTDLP_SOURCE_STABLE, YTDLP_SOURCE_NIGHTLY)
+
+# Per-source release endpoints. "nightly" tracks yt-dlp/yt-dlp-nightly-builds
+# (builds of master); its releases carry a yt-dlp.tar.gz asset whose layout
+# matches the tag archive (<top>/yt_dlp/...), so the existing extractor is
+# reused unchanged. The nightly *repository* archive is only a README stub —
+# the source has to come from the release asset.
+_SOURCE_REPOS = {
+    YTDLP_SOURCE_STABLE: "yt-dlp/yt-dlp",
+    YTDLP_SOURCE_NIGHTLY: "yt-dlp/yt-dlp-nightly-builds",
+}
+_SOURCE_TARBALL_URLS = {
+    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz",
+    YTDLP_SOURCE_NIGHTLY: "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/{version}/yt-dlp.tar.gz",
+}
+
+
+def normalize_source(source):
+    """Return a known yt-dlp source, falling back to the default (stable)."""
+    value = (source or "").strip().lower()
+    if value in YTDLP_SOURCES:
+        return value
+    return DEFAULT_YTDLP_SOURCE
+
+
+def _latest_release_api(source):
+    return "https://api.github.com/repos/{}/releases/latest".format(_SOURCE_REPOS[source])
+
+
+def _releases_api(source):
+    return "https://api.github.com/repos/{}/releases?per_page=100&page={{page}}".format(
+        _SOURCE_REPOS[source]
+    )
+
+
+def _tarball_url(source, version):
+    return _SOURCE_TARBALL_URLS[source].format(version=version)
 
 
 def _log(msg, level=None):
@@ -161,19 +198,41 @@ def delete_installed_version(version):
     )
 
 
-def _resolve_latest_version(force_refresh=False):
-    _log("Resolving latest yt-dlp release version")
+def _resolve_latest_version(force_refresh=False, source=DEFAULT_YTDLP_SOURCE):
+    source = normalize_source(source)
+    _log("Resolving latest yt-dlp release version (source={})".format(source))
+
+    def load_state():
+        # The cached "latest" belongs to one source: switching channel must not
+        # reuse the other channel's version, so drop the cache on a source change.
+        # States written before this option existed carry no "source" key and
+        # were produced by the stable channel.
+        state = _load_update_state()
+        if state.get("source", YTDLP_SOURCE_STABLE) != source:
+            state["source"] = source
+            state["latest_known_version"] = None
+            state["next_check_at"] = 0
+            state["cooldown_until"] = 0
+            state["etag"] = None
+        return state
+
+    def save_state(state):
+        state["source"] = source
+        _save_update_state(state)
+
     return managed_runtime.resolve_latest_version(
-        _LATEST_RELEASE_API,
-        _load_update_state,
-        _save_update_state,
+        _latest_release_api(source),
+        load_state,
+        save_state,
         force_refresh=force_refresh,
     )
 
 
-def list_available_versions(limit=20):
-    """Return available yt-dlp release tags (newest first)."""
-    return managed_runtime.list_available_versions(_RELEASES_API, limit, _warn, _RUNTIME_LABEL)
+def list_available_versions(limit=20, source=DEFAULT_YTDLP_SOURCE):
+    """Return available yt-dlp release tags for a source (newest first)."""
+    return managed_runtime.list_available_versions(
+        _releases_api(normalize_source(source)), limit, _warn, _RUNTIME_LABEL
+    )
 
 
 def _safe_join(base_dir, relative_path):
@@ -228,22 +287,28 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
         raise
 
 
-def _download_and_install(version):
-    url = _TARBALL_URL.format(version=version)
-    _log("Downloading yt-dlp {} from {}".format(version, url))
+def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE):
+    source = normalize_source(source)
+    url = _tarball_url(source, version)
+    _log("Downloading yt-dlp {} ({}) from {}".format(version, source, url))
 
     data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
 
     runtime_path = _runtime_path_for_version(version)
     _extract_yt_dlp_from_tarball(data, runtime_path)
     _write_installed_version(version)
-    _log("yt-dlp {} installed at {}".format(version, runtime_path))
+    _log("yt-dlp {} ({}) installed at {}".format(version, source, runtime_path))
     _prune_old_versions(version)
     return runtime_path
 
 
-def get_runtime_status(requested_version=YTDLP_LATEST_SENTINEL, force_refresh_latest=False):
+def get_runtime_status(
+    requested_version=YTDLP_LATEST_SENTINEL,
+    force_refresh_latest=False,
+    source=DEFAULT_YTDLP_SOURCE,
+):
     """Return managed yt-dlp status information for UI/diagnostics."""
+    source = normalize_source(source)
     requested = _normalize_requested_version(requested_version)
     installed_version, installed_runtime_path = _find_installed_runtime()
 
@@ -251,9 +316,9 @@ def get_runtime_status(requested_version=YTDLP_LATEST_SENTINEL, force_refresh_la
     latest_error = None
     try:
         if force_refresh_latest:
-            latest_version = _resolve_latest_version(force_refresh=True)
+            latest_version = _resolve_latest_version(force_refresh=True, source=source)
         else:
-            latest_version = _resolve_latest_version()
+            latest_version = _resolve_latest_version(source=source)
     except Exception as exc:
         latest_error = str(exc)
 
@@ -262,6 +327,7 @@ def get_runtime_status(requested_version=YTDLP_LATEST_SENTINEL, force_refresh_la
         is_latest_installed = installed_version == latest_version
 
     return {
+        "source": source,
         "requested_version": requested,
         "installed_version": installed_version,
         "installed_runtime_path": installed_runtime_path,
@@ -276,6 +342,7 @@ def ensure_ytdlp_ready(
     allow_install=True,
     requested_version=YTDLP_LATEST_SENTINEL,
     force_refresh_latest=False,
+    source=DEFAULT_YTDLP_SOURCE,
 ):
     """
     Ensure a managed yt-dlp runtime is available.
@@ -312,6 +379,7 @@ def ensure_ytdlp_ready(
         }
 
     try:
+        source = normalize_source(source)
         requested = _normalize_requested_version(requested_version)
         installed_version, installed_runtime_path = _find_installed_runtime()
 
@@ -319,9 +387,9 @@ def ensure_ytdlp_ready(
         if requested == YTDLP_LATEST_SENTINEL:
             if allow_install:
                 if force_refresh_latest:
-                    target_version = _resolve_latest_version(force_refresh=True)
+                    target_version = _resolve_latest_version(force_refresh=True, source=source)
                 else:
-                    target_version = _resolve_latest_version()
+                    target_version = _resolve_latest_version(source=source)
             elif installed_version is not None:
                 target_version = None
 
@@ -335,7 +403,7 @@ def ensure_ytdlp_ready(
                 return _ready(target_version, existing_runtime)
 
             if allow_install:
-                runtime_path = _download_and_install(target_version)
+                runtime_path = _download_and_install(target_version, source=source)
                 return _ready(target_version, runtime_path)
 
             return _not_ready(
@@ -353,10 +421,10 @@ def ensure_ytdlp_ready(
 
         if target_version is None:
             if force_refresh_latest:
-                target_version = _resolve_latest_version(force_refresh=True)
+                target_version = _resolve_latest_version(force_refresh=True, source=source)
             else:
-                target_version = _resolve_latest_version()
-        runtime_path = _download_and_install(target_version)
+                target_version = _resolve_latest_version(source=source)
+        runtime_path = _download_and_install(target_version, source=source)
         return _ready(target_version, runtime_path)
     except Exception as exc:
         _warn("Could not ensure yt-dlp runtime: {}".format(exc))

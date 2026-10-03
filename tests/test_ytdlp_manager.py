@@ -158,11 +158,11 @@ def test_ensure_ready_returns_missing_when_no_install_and_autodownload_off(monke
 
 def test_ensure_ready_downloads_when_missing(monkeypatch):
     monkeypatch.setattr(ytdlp_manager, "_find_installed_runtime", lambda: (None, None))
-    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda: "2026.03.26")
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda **_kwargs: "2026.03.26")
     monkeypatch.setattr(
         ytdlp_manager,
         "_download_and_install",
-        lambda version: "/addon/ytdlp/versions/{}".format(version),
+        lambda version, **_kwargs: "/addon/ytdlp/versions/{}".format(version),
     )
 
     result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="latest")
@@ -206,7 +206,7 @@ def test_get_runtime_status_reports_versions(monkeypatch):
         "_find_installed_runtime",
         lambda: ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
     )
-    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda: "2026.03.26")
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda **_kwargs: "2026.03.26")
     monkeypatch.setattr(
         ytdlp_manager,
         "list_installed_versions",
@@ -228,7 +228,7 @@ def test_ensure_ready_switches_to_existing_requested_version_without_download(mo
         "_find_installed_runtime",
         lambda: ("2026.03.10", "/addon/ytdlp/versions/2026.03.10"),
     )
-    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda: "2026.03.26")
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", lambda **_kwargs: "2026.03.26")
     monkeypatch.setattr(
         ytdlp_manager,
         "_find_runtime_for_version",
@@ -242,7 +242,7 @@ def test_ensure_ready_switches_to_existing_requested_version_without_download(mo
     monkeypatch.setattr(
         ytdlp_manager,
         "_download_and_install",
-        lambda _version: (_ for _ in ()).throw(AssertionError("download should not run")),
+        lambda _version, **_kwargs: (_ for _ in ()).throw(AssertionError("download should not run")),
     )
 
     result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="2026.03.26")
@@ -258,7 +258,7 @@ def test_get_runtime_status_handles_latest_lookup_error(monkeypatch):
     monkeypatch.setattr(
         ytdlp_manager,
         "_resolve_latest_version",
-        lambda: (_ for _ in ()).throw(RuntimeError("network error")),
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("network error")),
     )
 
     status = ytdlp_manager.get_runtime_status("2026.03.01")
@@ -277,7 +277,7 @@ def test_ensure_ready_falls_back_to_installed_runtime_on_error(monkeypatch):
     monkeypatch.setattr(
         ytdlp_manager,
         "_resolve_latest_version",
-        lambda: (_ for _ in ()).throw(RuntimeError("rate limit exceeded")),
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("rate limit exceeded")),
     )
 
     result = ytdlp_manager.ensure_ytdlp_ready(allow_install=True, requested_version="latest")
@@ -371,7 +371,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
     def fake_urlopen(request, **_kwargs):
         seen_headers.update(dict(request.header_items()))
         raise urllib.error.HTTPError(
-            ytdlp_manager._LATEST_RELEASE_API,
+            ytdlp_manager._latest_release_api("stable"),
             304,
             "Not Modified",
             {"ETag": "etag-2"},
@@ -398,7 +398,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
 
     def fake_urlopen(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            ytdlp_manager._LATEST_RELEASE_API,
+            ytdlp_manager._latest_release_api("stable"),
             429,
             "Too Many Requests",
             {"Retry-After": "120"},

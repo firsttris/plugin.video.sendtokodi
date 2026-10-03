@@ -180,3 +180,15 @@ msgctxt "#33036"
 msgid "854x480 (SD)"
 msgstr ""
 
+
+msgctxt "#32069"
+msgid "yt-dlp release source (stable|nightly)"
+msgstr ""
+
+msgctxt "#32070"
+msgid "Stable (latest release)"
+msgstr ""
+
+msgctxt "#32071"
+msgid "Nightly (master builds)"
+msgstr ""
