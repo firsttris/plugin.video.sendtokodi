@@ -25,6 +25,7 @@ from core.addon_params import (
     resolve_local_ytdlp_config_path,
     resolve_ytdlp_config_location,
     resolve_ytdlp_settings,
+    resolve_ytdlp_source,
 )
 
 
@@ -687,6 +688,7 @@ def test_resolve_ytdlp_settings_uses_defaults_when_version_empty():
     assert settings == {
         "auto_update": True,
         "version": DEFAULT_YTDLP_VERSION,
+        "source": "stable",
     }
 
 
@@ -696,6 +698,8 @@ def test_resolve_ytdlp_settings_reads_all_values():
             return "false"
         if name == "ytdlp_version":
             return "2026.03.26"
+        if name == "ytdlp_source":
+            return "nightly"
         return ""
 
     settings = resolve_ytdlp_settings(1, get_setting)
@@ -703,7 +707,22 @@ def test_resolve_ytdlp_settings_reads_all_values():
     assert settings == {
         "auto_update": False,
         "version": DEFAULT_YTDLP_VERSION,
+        "source": "nightly",
     }
+
+
+def test_resolve_ytdlp_source_falls_back_to_stable_for_unknown_values():
+    def get_setting(_handle, name):
+        return "banana" if name == "ytdlp_source" else ""
+
+    assert resolve_ytdlp_source(1, get_setting) == "stable"
+
+
+def test_resolve_ytdlp_source_accepts_nightly():
+    def get_setting(_handle, name):
+        return "nightly" if name == "ytdlp_source" else ""
+
+    assert resolve_ytdlp_source(1, get_setting) == "nightly"
 
 
 def test_resolve_dash_httpd_idle_timeout_uses_default_when_missing():

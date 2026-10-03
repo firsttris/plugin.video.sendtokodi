@@ -69,6 +69,17 @@
         </category>
         <category id="ytdlp" label="32061">
             <group id="4">
+                <setting type="string" id="ytdlp_source" label="32069">
+                    <level>0</level>
+                    <default>stable</default>
+                    <constraints>
+                        <options>
+                            <option label="32070">stable</option>
+                            <option label="32071">nightly</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
                 <setting type="boolean" id="ytdlp_autodownload" label="32051">
                     <level>0</level>
                     <default>true</default>

@@ -45,10 +45,10 @@ def _runtime_label(runtime_name):
     return "Deno" if runtime_name == "deno" else "yt-dlp"
 
 
-def _get_runtime_status(runtime_name, manager_module, version):
+def _get_runtime_status(runtime_name, manager_module, version, source):
     if runtime_name == "deno":
         return manager_module.get_runtime_status(version, include_latest=False)
-    return manager_module.get_runtime_status(version)
+    return manager_module.get_runtime_status(version, source=source)
 
 
 def _install_runtime_version(
@@ -58,6 +58,7 @@ def _install_runtime_version(
     run_with_progress,
     show_info_notification,
     show_error_notification,
+    source,
 ):
     runtime_label = _runtime_label(runtime_name)
 
@@ -73,7 +74,7 @@ def _install_runtime_version(
         )
         deno_path = opts.get("js_runtimes", {}).get("deno", {}).get("path")
         if deno_path:
-            status = _get_runtime_status(runtime_name, manager_module, selected_version)
+            status = _get_runtime_status(runtime_name, manager_module, selected_version, source)
             installed_version = status.get("installed_version") or selected_version
             _set_installed_version_display(runtime_name, installed_version)
             show_info_notification("{} {} is installed".format(runtime_label, installed_version))
@@ -89,6 +90,7 @@ def _install_runtime_version(
             allow_install=True,
             requested_version=selected_version,
             force_refresh_latest=True,
+            source=source,
         ),
     )
     if result["ready"]:
@@ -104,21 +106,21 @@ def _install_runtime_version(
     return False
 
 
-def _activate_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification):
+def _activate_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source):
     runtime_label = _runtime_label(runtime_name)
     runtime_path = manager_module.activate_installed_version(selected_version)
     if runtime_path is None:
         show_error_notification("{} {} is not installed locally".format(runtime_label, selected_version))
         return False
 
-    status = _get_runtime_status(runtime_name, manager_module, selected_version)
+    status = _get_runtime_status(runtime_name, manager_module, selected_version, source=source)
     installed_version = status.get("installed_version") or selected_version
     _set_installed_version_display(runtime_name, installed_version)
     show_info_notification("{} {} is active".format(runtime_label, installed_version))
     return True
 
 
-def _delete_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification):
+def _delete_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source):
     runtime_label = _runtime_label(runtime_name)
     should_delete = xbmcgui.Dialog().yesno(
         "SendToKodi",
@@ -132,7 +134,7 @@ def _delete_runtime_version(runtime_name, selected_version, manager_module, show
         show_error_notification("Could not delete {} {}".format(runtime_label, selected_version))
         return False
 
-    status = _get_runtime_status(runtime_name, manager_module, None)
+    status = _get_runtime_status(runtime_name, manager_module, None, source=source)
     remaining_version = status.get("installed_version")
     if remaining_version:
         _set_installed_version_display(runtime_name, remaining_version)
@@ -209,14 +211,17 @@ def _choose_runtime_version(runtime_name, status, list_available_versions, run_w
 def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification, log):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    source = settings.get("source")
 
-    status = _get_runtime_status(runtime_name, manager_module, settings["version"])
+    status = _get_runtime_status(runtime_name, manager_module, settings["version"], source=source)
     _set_installed_version_display(runtime_name, status.get("installed_version"))
 
     selection = _choose_runtime_version(
         runtime_name,
         status,
-        lambda: manager_module.list_available_versions(limit=20),
+        lambda: manager_module.list_available_versions(limit=20, source=source)
+        if runtime_name == "ytdlp"
+        else manager_module.list_available_versions(limit=20),
         run_with_progress,
         show_info_notification,
         show_error_notification,
@@ -234,6 +239,7 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
             run_with_progress,
             show_info_notification,
             show_error_notification,
+            source=source,
         )
     elif action == "activate":
         _activate_runtime_version(
@@ -242,6 +248,7 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
             manager_module,
             show_info_notification,
             show_error_notification,
+            source=source,
         )
     elif action == "delete":
         _delete_runtime_version(
@@ -250,6 +257,7 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
             manager_module,
             show_info_notification,
             show_error_notification,
+            source=source,
         )
 
 
@@ -263,6 +271,7 @@ def _update_runtime_now(runtime_name, handle, run_with_progress, show_info_notif
         run_with_progress,
         show_info_notification,
         show_error_notification,
+        source=settings.get("source"),
     )
 
 
@@ -271,7 +280,12 @@ def refresh_runtime_displays(handle, log):
         try:
             settings = _runtime_settings(runtime_name, handle)
             manager_module = _runtime_module(runtime_name)
-            status = _get_runtime_status(runtime_name, manager_module, settings["version"])
+            status = _get_runtime_status(
+                runtime_name,
+                manager_module,
+                settings["version"],
+                source=settings.get("source"),
+            )
             _set_installed_version_display(runtime_name, status.get("installed_version"))
         except Exception as exc:
             log(
@@ -319,10 +333,12 @@ def handle_runtime_action(action, handle, run_with_progress, show_info_notificat
 def configure_managed_ytdlp(handle, log):
     settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
     manager_module = _runtime_module("ytdlp")
+    source = settings["source"]
 
     status = manager_module.ensure_ytdlp_ready(
         allow_install=settings["auto_update"],
         requested_version=settings["version"],
+        source=source,
     )
     _set_installed_version_display("ytdlp", status.get("installed_version"))
 
@@ -333,15 +349,20 @@ def configure_managed_ytdlp(handle, log):
     ):
         wanted = settings["version"]
         if wanted == "latest":
-            prompt_msg = "Managed yt-dlp is not available. Download latest version now?"
+            prompt_msg = "Managed yt-dlp ({}) is not available. Download latest version now?".format(
+                source
+            )
         else:
-            prompt_msg = "Managed yt-dlp {} is not installed. Download it now?".format(wanted)
+            prompt_msg = "Managed yt-dlp ({}) {} is not installed. Download it now?".format(
+                source, wanted
+            )
 
         should_download = xbmcgui.Dialog().yesno("SendToKodi", prompt_msg)
         if should_download:
             status = manager_module.ensure_ytdlp_ready(
                 allow_install=True,
                 requested_version=settings["version"],
+                source=source,
             )
             _set_installed_version_display("ytdlp", status.get("installed_version"))
         else:
@@ -349,7 +370,7 @@ def configure_managed_ytdlp(handle, log):
 
     if status["ready"] and status["runtime_path"] is not None:
         manager_module.activate_runtime(status["runtime_path"])
-        log("Using managed yt-dlp version {}".format(status["version"]))
+        log("Using managed yt-dlp version {} (source={})".format(status["version"], source))
         return
 
     error_message = status.get("error")
