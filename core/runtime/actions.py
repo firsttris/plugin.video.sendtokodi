@@ -339,6 +339,22 @@ def configure_managed_ytdlp(handle, log):
     manager_module = _runtime_module("ytdlp")
     source = settings["source"]
 
+    if not manager_module.is_managed_source(source):
+        # Explicit choice with nothing importable: revert to stable and say so.
+        # The entry point also refuses to resolve in that case.
+        log(
+            "yt-dlp source is 'system' but no yt_dlp package is importable; "
+            "reverting to stable",
+            xbmc.LOGWARNING,
+        )
+        xbmcgui.Dialog().notification(
+            "SendToKodi",
+            "yt-dlp system source: library not found, reverting to stable",
+            xbmcgui.NOTIFICATION_WARNING,
+        )
+        xbmcaddon.Addon().setSetting("ytdlp_source", "stable")
+        source = "stable"
+
     status = manager_module.ensure_ytdlp_ready(
         allow_install=settings["auto_update"],
         requested_version=settings["version"],
@@ -374,7 +390,12 @@ def configure_managed_ytdlp(handle, log):
 
     if status["ready"] and status["runtime_path"] is not None:
         manager_module.activate_runtime(status["runtime_path"])
-        log("Using managed yt-dlp version {} (source={})".format(status["version"], source))
+        log("Using managed yt-dlp version {} (source={})".format(status["version"], source), xbmc.LOGINFO)
+        return
+
+    if status["ready"]:
+        # system source: the library is importable, nothing to activate.
+        log("Using system yt-dlp {} (source={})".format(status["version"], source), xbmc.LOGINFO)
         return
 
     error_message = status.get("error")
