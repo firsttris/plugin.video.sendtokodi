@@ -239,8 +239,12 @@ def _resolve_latest_version(force_refresh=False, source=DEFAULT_YTDLP_SOURCE):
 
 def list_available_versions(limit=20, source=DEFAULT_YTDLP_SOURCE):
     """Return available yt-dlp release tags for a source (newest first)."""
+    source = normalize_source(source)
+    if not is_managed_source(source):
+        # No release endpoint for a system install: nothing to download.
+        return []
     return managed_runtime.list_available_versions(
-        _releases_api(normalize_source(source)), limit, _warn, _RUNTIME_LABEL
+        _releases_api(source), limit, _warn, _RUNTIME_LABEL
     )
 
 
