@@ -390,12 +390,12 @@ def configure_managed_ytdlp(handle, log):
 
     if status["ready"] and status["runtime_path"] is not None:
         manager_module.activate_runtime(status["runtime_path"])
-        log("Using managed yt-dlp version {} (source={})".format(status["version"], source))
+        log("Using managed yt-dlp version {} (source={})".format(status["version"], source), xbmc.LOGINFO)
         return
 
     if status["ready"]:
         # system source: the library is importable, nothing to activate.
-        log("Using system yt-dlp {} (source={})".format(status["version"], source))
+        log("Using system yt-dlp {} (source={})".format(status["version"], source), xbmc.LOGINFO)
         return
 
     error_message = status.get("error")
