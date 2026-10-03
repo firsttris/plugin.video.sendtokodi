@@ -76,6 +76,7 @@
                         <options>
                             <option label="32070">stable</option>
                             <option label="32071">nightly</option>
+                            <option label="32072">system</option>
                         </options>
                     </constraints>
                     <control type="spinner" format="string"/>

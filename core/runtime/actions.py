@@ -377,6 +377,25 @@ def configure_managed_ytdlp(handle, log):
         log("Using managed yt-dlp version {} (source={})".format(status["version"], source))
         return
 
+    if status["ready"]:
+        # system source: the library is importable, nothing to activate.
+        log("Using system yt-dlp {} (source={})".format(status["version"], source))
+        return
+
+    if not manager_module.is_managed_source(source):
+        # Explicit choice with nothing importable: say so instead of failing
+        # silently. The entry point also refuses to resolve in that case.
+        log(
+            "yt-dlp source is 'system' but no yt_dlp package is importable",
+            xbmc.LOGERROR,
+        )
+        xbmcgui.Dialog().notification(
+            "SendToKodi",
+            "yt-dlp is not available for the 'system' source",
+            xbmcgui.NOTIFICATION_ERROR,
+        )
+        return
+
     error_message = status.get("error")
     if error_message:
         log(

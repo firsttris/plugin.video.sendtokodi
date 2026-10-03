@@ -7,6 +7,7 @@ This module allows the addon to keep a managed yt-dlp installation under
 between versions based on addon settings.
 """
 
+import importlib
 import io
 import logging
 import os
@@ -29,8 +30,9 @@ _RUNTIME_LABEL = "yt-dlp"
 
 YTDLP_SOURCE_STABLE = "stable"
 YTDLP_SOURCE_NIGHTLY = "nightly"
+YTDLP_SOURCE_SYSTEM = "system"
 DEFAULT_YTDLP_SOURCE = YTDLP_SOURCE_STABLE
-YTDLP_SOURCES = (YTDLP_SOURCE_STABLE, YTDLP_SOURCE_NIGHTLY)
+YTDLP_SOURCES = (YTDLP_SOURCE_STABLE, YTDLP_SOURCE_NIGHTLY, YTDLP_SOURCE_SYSTEM)
 
 # Per-source release endpoints. "nightly" tracks yt-dlp/yt-dlp-nightly-builds
 # (builds of master); its releases carry a yt-dlp.tar.gz asset whose layout
@@ -53,6 +55,29 @@ def normalize_source(source):
     if value in YTDLP_SOURCES:
         return value
     return DEFAULT_YTDLP_SOURCE
+
+
+def is_managed_source(source):
+    """True when the source is downloaded and installed by the manager.
+
+    "system" is the opposite: the library is expected to already be importable
+    (put there by the packaging), so nothing is downloaded.
+    """
+    return normalize_source(source) != YTDLP_SOURCE_SYSTEM
+
+
+def resolve_system_ytdlp():
+    """Return the version of an importable yt_dlp, or None when there is none.
+
+    Where the package lives is a packaging concern: the addon only asks whether
+    it can be imported. Nothing is added to sys.path here.
+    """
+    try:
+        module = importlib.import_module("yt_dlp")
+    except Exception:
+        return None
+
+    return getattr(getattr(module, "version", None), "__version__", None) or "unknown"
 
 
 def _latest_release_api(source):
@@ -290,8 +315,24 @@ def get_runtime_status(
     force_refresh_latest=False,
     source=DEFAULT_YTDLP_SOURCE,
 ):
-    """Return managed yt-dlp status information for UI/diagnostics."""
+    """Return yt-dlp status information for UI/diagnostics."""
     source = normalize_source(source)
+
+    if not is_managed_source(source):
+        system_version = resolve_system_ytdlp()
+        return {
+            "source": source,
+            "requested_version": _normalize_requested_version(requested_version),
+            "installed_version": system_version,
+            "installed_runtime_path": None,
+            # No managed version is in use, so none is listed: showing the
+            # managed ones would suggest they can be selected.
+            "installed_versions": [],
+            "latest_version": None,
+            "is_latest_installed": None,
+            "latest_error": None,
+        }
+
     requested = _normalize_requested_version(requested_version)
     installed_version, installed_runtime_path = _find_installed_runtime()
 
@@ -328,13 +369,13 @@ def ensure_ytdlp_ready(
     source=DEFAULT_YTDLP_SOURCE,
 ):
     """
-    Ensure a managed yt-dlp runtime is available.
+    Ensure a yt-dlp runtime is available.
 
     Returns a status dict with:
       - ready (bool)
       - reason (None | "missing" | "version_mismatch" | "error")
       - version (resolved target version when known)
-      - runtime_path (path to use when ready)
+      - runtime_path (path to use when ready; None for the system source)
       - installed_version (currently installed managed version, if any)
       - installed_runtime_path (path of installed managed runtime, if any)
       - error (error message when reason == "error")
@@ -361,8 +402,17 @@ def ensure_ytdlp_ready(
             "error": error,
         }
 
+    source = normalize_source(source)
+
+    if not is_managed_source(source):
+        # Nothing to download: the addon only asks whether yt_dlp is importable,
+        # and the entry point raises its own error when it is not.
+        version = resolve_system_ytdlp()
+        if version is None:
+            return _not_ready("missing", None, None, None)
+        return _ready(version, None)
+
     try:
-        source = normalize_source(source)
         requested = _normalize_requested_version(requested_version)
         installed_version, installed_runtime_path = _find_installed_runtime()
 
