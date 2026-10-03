@@ -45,10 +45,16 @@ def _runtime_label(runtime_name):
     return "Deno" if runtime_name == "deno" else "yt-dlp"
 
 
-def _get_runtime_status(runtime_name, manager_module, version, source):
+def _get_runtime_status(runtime_name, manager_module, version, source=None):
     if runtime_name == "deno":
         return manager_module.get_runtime_status(version, include_latest=False)
     return manager_module.get_runtime_status(version, source=source)
+
+
+def _list_available_versions(runtime_name, manager_module, source=None):
+    if runtime_name == "deno":
+        return manager_module.list_available_versions(limit=20)
+    return manager_module.list_available_versions(limit=20, source=source)
 
 
 def _install_runtime_version(
@@ -58,7 +64,7 @@ def _install_runtime_version(
     run_with_progress,
     show_info_notification,
     show_error_notification,
-    source,
+    source=None,
 ):
     runtime_label = _runtime_label(runtime_name)
 
@@ -74,7 +80,7 @@ def _install_runtime_version(
         )
         deno_path = opts.get("js_runtimes", {}).get("deno", {}).get("path")
         if deno_path:
-            status = _get_runtime_status(runtime_name, manager_module, selected_version, source)
+            status = _get_runtime_status(runtime_name, manager_module, selected_version)
             installed_version = status.get("installed_version") or selected_version
             _set_installed_version_display(runtime_name, installed_version)
             show_info_notification("{} {} is installed".format(runtime_label, installed_version))
@@ -106,7 +112,7 @@ def _install_runtime_version(
     return False
 
 
-def _activate_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source):
+def _activate_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source=None):
     runtime_label = _runtime_label(runtime_name)
     runtime_path = manager_module.activate_installed_version(selected_version)
     if runtime_path is None:
@@ -120,7 +126,7 @@ def _activate_runtime_version(runtime_name, selected_version, manager_module, sh
     return True
 
 
-def _delete_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source):
+def _delete_runtime_version(runtime_name, selected_version, manager_module, show_info_notification, show_error_notification, source=None):
     runtime_label = _runtime_label(runtime_name)
     should_delete = xbmcgui.Dialog().yesno(
         "SendToKodi",
@@ -219,9 +225,7 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
     selection = _choose_runtime_version(
         runtime_name,
         status,
-        lambda: manager_module.list_available_versions(limit=20, source=source)
-        if runtime_name == "ytdlp"
-        else manager_module.list_available_versions(limit=20),
+        lambda: _list_available_versions(runtime_name, manager_module, source),
         run_with_progress,
         show_info_notification,
         show_error_notification,

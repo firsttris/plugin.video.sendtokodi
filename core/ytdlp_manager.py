@@ -94,20 +94,24 @@ def _installed_version_file():
     return os.path.join(_addon_data_dir(), "ytdlp_version.txt")
 
 
-def _update_state_file():
-    return os.path.join(_addon_data_dir(), "ytdlp_update_state.json")
+def _update_state_file(source=DEFAULT_YTDLP_SOURCE):
+    # One state file per source, so each channel keeps its own cached "latest".
+    # The stable channel keeps the original file name used before sources existed.
+    if source == YTDLP_SOURCE_STABLE:
+        return os.path.join(_addon_data_dir(), "ytdlp_update_state.json")
+    return os.path.join(_addon_data_dir(), "ytdlp_update_state_{}.json".format(source))
 
 
 def _default_update_state():
     return default_update_state()
 
 
-def _load_update_state():
-    return load_update_state(_update_state_file())
+def _load_update_state(source=DEFAULT_YTDLP_SOURCE):
+    return load_update_state(_update_state_file(source))
 
 
-def _save_update_state(state):
-    save_update_state(_addon_data_dir(), _update_state_file(), state)
+def _save_update_state(state, source=DEFAULT_YTDLP_SOURCE):
+    save_update_state(_addon_data_dir(), _update_state_file(source), state)
 
 
 def _normalize_requested_version(version):
@@ -199,31 +203,11 @@ def delete_installed_version(version):
 
 
 def _resolve_latest_version(force_refresh=False, source=DEFAULT_YTDLP_SOURCE):
-    source = normalize_source(source)
     _log("Resolving latest yt-dlp release version (source={})".format(source))
-
-    def load_state():
-        # The cached "latest" belongs to one source: switching channel must not
-        # reuse the other channel's version, so drop the cache on a source change.
-        # States written before this option existed carry no "source" key and
-        # were produced by the stable channel.
-        state = _load_update_state()
-        if state.get("source", YTDLP_SOURCE_STABLE) != source:
-            state["source"] = source
-            state["latest_known_version"] = None
-            state["next_check_at"] = 0
-            state["cooldown_until"] = 0
-            state["etag"] = None
-        return state
-
-    def save_state(state):
-        state["source"] = source
-        _save_update_state(state)
-
     return managed_runtime.resolve_latest_version(
         _latest_release_api(source),
-        load_state,
-        save_state,
+        lambda: _load_update_state(source),
+        lambda state: _save_update_state(state, source),
         force_refresh=force_refresh,
     )
 
@@ -288,7 +272,6 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
 
 
 def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE):
-    source = normalize_source(source)
     url = _tarball_url(source, version)
     _log("Downloading yt-dlp {} ({}) from {}".format(version, source, url))
 

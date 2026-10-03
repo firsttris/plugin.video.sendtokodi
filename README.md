@@ -108,6 +108,8 @@ Open in Kodi via:
 
 ### yt-dlp
 
+- **yt-dlp release channel**  
+  `Stable` (default) uses official yt-dlp releases. `Nightly` uses the [nightly builds](https://github.com/yt-dlp/yt-dlp-nightly-builds) of yt-dlp master, which often contain site fixes (e.g. for YouTube) weeks before the next stable release.
 - **Auto-update yt-dlp**  
   Keeps yt-dlp updated automatically (recommended).
 - **Installed yt-dlp version**  

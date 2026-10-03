@@ -182,7 +182,7 @@ msgstr ""
 
 
 msgctxt "#32069"
-msgid "yt-dlp release source (stable|nightly)"
+msgid "yt-dlp release channel"
 msgstr ""
 
 msgctxt "#32070"

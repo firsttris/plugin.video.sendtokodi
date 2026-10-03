@@ -335,7 +335,7 @@ def test_resolve_latest_version_uses_cached_value_before_next_check(monkeypatch,
         )
     )
 
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda *_args: str(state_file))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1500)
     monkeypatch.setattr(
         managed_runtime.urllib.request,
@@ -363,7 +363,7 @@ def test_resolve_latest_version_uses_if_none_match_and_handles_304(monkeypatch, 
     )
 
     monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda *_args: str(state_file))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     seen_headers = {}
@@ -393,7 +393,7 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
     state_file.write_text(json.dumps(ytdlp_manager._default_update_state()))
 
     monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda *_args: str(state_file))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     def fake_urlopen(*_args, **_kwargs):

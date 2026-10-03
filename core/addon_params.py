@@ -3,7 +3,7 @@ import os
 import platform
 import urllib.parse
 
-from core.ytdlp_manager import DEFAULT_YTDLP_SOURCE, YTDLP_SOURCES
+from core.ytdlp_manager import normalize_source
 
 
 DEFAULT_MEDIA_DOWNLOAD_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/downloads'
@@ -275,10 +275,7 @@ def resolve_media_download_settings(handle, get_setting):
 
 
 def resolve_ytdlp_source(handle, get_setting):
-    value = (get_setting(handle, "ytdlp_source") or '').strip().lower()
-    if value in YTDLP_SOURCES:
-        return value
-    return DEFAULT_YTDLP_SOURCE
+    return normalize_source(get_setting(handle, "ytdlp_source"))
 
 
 def resolve_ytdlp_settings(handle, get_setting):

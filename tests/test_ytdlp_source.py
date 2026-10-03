@@ -134,24 +134,32 @@ def test_list_available_versions_queries_the_nightly_repository(monkeypatch):
 # --- channel switch ----------------------------------------------------------
 
 
-def test_switching_source_invalidates_the_cached_latest_version(monkeypatch, tmp_path):
-    state_file = tmp_path / "ytdlp_update_state.json"
-    # Cache is populated by the *stable* channel and still "fresh".
-    state_file.write_text(
-        json.dumps(
-            {
-                "source": "stable",
-                "last_checked_at": 1000,
-                "next_check_at": 9999,
-                "latest_known_version": "2026.08.19",
-                "etag": "etag-stable",
-                "cooldown_until": 0,
-                "consecutive_failures": 0,
-                "last_error": None,
-            }
-        )
+def _fresh_state(version):
+    return {
+        "last_checked_at": 1000,
+        "next_check_at": 9999,
+        "latest_known_version": version,
+        "etag": "etag-{}".format(version),
+        "cooldown_until": 0,
+        "consecutive_failures": 0,
+        "last_error": None,
+    }
+
+
+def test_update_state_file_is_separate_per_source(monkeypatch, tmp_path):
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+
+    # Stable keeps the file name used before sources existed.
+    assert ytdlp_manager._update_state_file("stable") == str(tmp_path / "ytdlp_update_state.json")
+    assert ytdlp_manager._update_state_file("nightly") == str(
+        tmp_path / "ytdlp_update_state_nightly.json"
     )
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+
+
+def test_switching_source_does_not_reuse_the_other_sources_cached_latest(monkeypatch, tmp_path):
+    # Cache is populated by the *stable* channel and still "fresh".
+    (tmp_path / "ytdlp_update_state.json").write_text(json.dumps(_fresh_state("2026.08.19")))
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1500)
 
     seen_urls = []
@@ -169,23 +177,12 @@ def test_switching_source_invalidates_the_cached_latest_version(monkeypatch, tmp
     assert seen_urls and "yt-dlp-nightly-builds" in seen_urls[0]
 
 
-def test_same_source_still_uses_the_cached_latest_version(monkeypatch, tmp_path):
-    state_file = tmp_path / "ytdlp_update_state.json"
-    state_file.write_text(
-        json.dumps(
-            {
-                "source": "stable",
-                "last_checked_at": 1000,
-                "next_check_at": 2000,
-                "latest_known_version": "2026.08.19",
-                "etag": "etag-stable",
-                "cooldown_until": 0,
-                "consecutive_failures": 0,
-                "last_error": None,
-            }
-        )
+def test_each_source_uses_its_own_cached_latest_version(monkeypatch, tmp_path):
+    (tmp_path / "ytdlp_update_state.json").write_text(json.dumps(_fresh_state("2026.08.19")))
+    (tmp_path / "ytdlp_update_state_nightly.json").write_text(
+        json.dumps(_fresh_state("2026.09.27.232945"))
     )
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1500)
     monkeypatch.setattr(
         managed_runtime.urllib.request,
@@ -194,13 +191,12 @@ def test_same_source_still_uses_the_cached_latest_version(monkeypatch, tmp_path)
     )
 
     assert ytdlp_manager._resolve_latest_version(source="stable") == "2026.08.19"
+    assert ytdlp_manager._resolve_latest_version(source="nightly") == "2026.09.27.232945"
+    assert ytdlp_manager._resolve_latest_version(source="stable") == "2026.08.19"
 
 
-def test_resolve_latest_version_records_the_active_source(monkeypatch, tmp_path):
-    state_file = tmp_path / "ytdlp_update_state.json"
-    state_file.write_text(json.dumps(ytdlp_manager._default_update_state()))
+def test_resolve_latest_version_writes_the_sources_state_file(monkeypatch, tmp_path):
     monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
-    monkeypatch.setattr(ytdlp_manager, "_update_state_file", lambda: str(state_file))
     monkeypatch.setattr(managed_runtime.time, "time", lambda: 1000)
 
     class FakeResponse:
@@ -221,9 +217,9 @@ def test_resolve_latest_version_records_the_active_source(monkeypatch, tmp_path)
 
     assert ytdlp_manager._resolve_latest_version(source="nightly") == "2026.09.27.232945"
 
-    state = json.loads(state_file.read_text())
-    assert state["source"] == "nightly"
+    state = json.loads((tmp_path / "ytdlp_update_state_nightly.json").read_text())
     assert state["latest_known_version"] == "2026.09.27.232945"
+    assert not (tmp_path / "ytdlp_update_state.json").exists()
 
 
 def test_install_uses_the_tarball_of_the_requested_source(monkeypatch, tmp_path):
