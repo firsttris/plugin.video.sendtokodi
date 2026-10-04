@@ -214,10 +214,28 @@ def _choose_runtime_version(runtime_name, status, list_available_versions, run_w
     return selected_version, action_values[action_index]
 
 
+def _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification):
+    status = manager_module.get_runtime_status(source="system")
+    _set_installed_version_display("ytdlp", status.get("installed_version"))
+    if status.get("installed_version"):
+        show_info_notification(
+            "yt-dlp {} is provided by the system".format(status["installed_version"])
+        )
+    else:
+        show_error_notification("System yt-dlp not found")
+
+
+def _is_system_source(runtime_name, manager_module, settings):
+    return runtime_name == "ytdlp" and not manager_module.is_managed_source(settings.get("source"))
+
+
 def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification, log):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
     source = settings.get("source")
+    if _is_system_source(runtime_name, manager_module, settings):
+        _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
+        return
 
     status = _get_runtime_status(runtime_name, manager_module, settings["version"], source=source)
     _set_installed_version_display(runtime_name, status.get("installed_version"))
@@ -268,6 +286,9 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
 def _update_runtime_now(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    if _is_system_source(runtime_name, manager_module, settings):
+        _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
+        return
     _install_runtime_version(
         runtime_name,
         settings["version"],
@@ -339,28 +360,29 @@ def configure_managed_ytdlp(handle, log):
     manager_module = _runtime_module("ytdlp")
     source = settings["source"]
 
-    if not manager_module.is_managed_source(source):
-        # Explicit choice with nothing importable: revert to stable and say so.
-        # The entry point also refuses to resolve in that case.
-        log(
-            "yt-dlp source is 'system' but no yt_dlp package is importable; "
-            "reverting to stable",
-            xbmc.LOGWARNING,
-        )
-        xbmcgui.Dialog().notification(
-            "SendToKodi",
-            "yt-dlp system source: library not found, reverting to stable",
-            xbmcgui.NOTIFICATION_WARNING,
-        )
-        xbmcaddon.Addon().setSetting("ytdlp_source", "stable")
-        source = "stable"
-
     status = manager_module.ensure_ytdlp_ready(
         allow_install=settings["auto_update"],
         requested_version=settings["version"],
         source=source,
     )
     _set_installed_version_display("ytdlp", status.get("installed_version"))
+
+    if not manager_module.is_managed_source(source):
+        # The system source never downloads; a missing library is a packaging
+        # problem, so only report it and leave the setting alone.
+        if status["ready"]:
+            log("Using system yt-dlp {}".format(status["version"]), xbmc.LOGINFO)
+            return
+        log(
+            "yt-dlp source is 'system' but no yt_dlp package is importable by Kodi's Python",
+            xbmc.LOGWARNING,
+        )
+        xbmcgui.Dialog().notification(
+            "SendToKodi",
+            "System yt-dlp not found (yt-dlp source: system)",
+            xbmcgui.NOTIFICATION_WARNING,
+        )
+        return
 
     if (
         not status["ready"]
@@ -391,11 +413,6 @@ def configure_managed_ytdlp(handle, log):
     if status["ready"] and status["runtime_path"] is not None:
         manager_module.activate_runtime(status["runtime_path"])
         log("Using managed yt-dlp version {} (source={})".format(status["version"], source), xbmc.LOGINFO)
-        return
-
-    if status["ready"]:
-        # system source: the library is importable, nothing to activate.
-        log("Using system yt-dlp {} (source={})".format(status["version"], source), xbmc.LOGINFO)
         return
 
     error_message = status.get("error")
