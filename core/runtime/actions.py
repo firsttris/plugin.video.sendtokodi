@@ -159,6 +159,10 @@ def _delete_runtime_version(runtime_name, selected_version, manager_module, show
 
 def _choose_runtime_version(runtime_name, status, list_available_versions, run_with_progress, show_info_notification, show_error_notification, log):
     runtime_label = _runtime_label(runtime_name)
+    # Show the yt-dlp release channel, so a channel switch is visible before its first download.
+    title_label = runtime_label
+    if status.get("source"):
+        title_label = "{} ({})".format(runtime_label, status["source"])
     remote_versions = run_with_progress(
         "SendToKodi",
         "Loading {} versions...".format(runtime_label),
@@ -191,7 +195,7 @@ def _choose_runtime_version(runtime_name, status, list_available_versions, run_w
     active_version = status.get("installed_version")
     entries = build_version_entries(versions, installed_versions, active_version)
     selected = xbmcgui.Dialog().select(
-        "SendToKodi - manage {} version".format(runtime_label),
+        "SendToKodi - manage {} version".format(title_label),
         entries,
     )
     if selected < 0:
@@ -205,7 +209,7 @@ def _choose_runtime_version(runtime_name, status, list_available_versions, run_w
         return selected_version, action_values[0]
 
     action_index = xbmcgui.Dialog().select(
-        "SendToKodi - {} action ({})".format(runtime_label, selected_version),
+        "SendToKodi - {} action ({})".format(title_label, selected_version),
         action_labels,
     )
     if action_index < 0:

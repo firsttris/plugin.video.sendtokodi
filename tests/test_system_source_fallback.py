@@ -129,3 +129,24 @@ def test_update_now_with_system_source_does_not_install(actions, monkeypatch):
 
     assert infos == []
     assert errors == ["System yt-dlp not found"]
+
+
+def test_version_dialog_title_shows_the_release_channel(actions, monkeypatch):
+    titles = []
+    monkeypatch.setattr(
+        actions.xbmcgui,
+        "Dialog",
+        lambda: SimpleNamespace(select=lambda title, _entries: titles.append(title) or -1),
+    )
+
+    actions._choose_runtime_version(
+        "ytdlp",
+        {"source": "nightly", "installed_version": "2026.08.19", "installed_versions": ["2026.08.19"]},
+        lambda: ["2026.09.27.232945"],
+        lambda _title, _msg, func: func(),
+        lambda _msg: None,
+        lambda _msg: None,
+        lambda *_a: None,
+    )
+
+    assert titles == ["SendToKodi - manage yt-dlp (nightly) version"]

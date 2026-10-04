@@ -109,7 +109,7 @@ Open in Kodi via:
 ### yt-dlp
 
 - **yt-dlp release channel**  
-  `Stable` (default) uses official yt-dlp releases. `Nightly` uses the [nightly builds](https://github.com/yt-dlp/yt-dlp-nightly-builds) of yt-dlp master, which often contain site fixes (e.g. for YouTube) weeks before the next stable release. `System` uses a yt-dlp that is already importable by Kodi's Python and downloads nothing — useful when the platform ships it (e.g. a distribution package). For that mode the package **and its dependencies** must be importable, otherwise the addon reports that yt-dlp is unavailable.
+  `Stable` (default) uses official yt-dlp releases. `Nightly` uses the [nightly builds](https://github.com/yt-dlp/yt-dlp-nightly-builds) of yt-dlp master, which often contain site fixes (e.g. for YouTube) weeks before the next stable release. A channel switch takes effect with the next download; until then, **Installed yt-dlp version** keeps showing the build currently in use. `System` uses a yt-dlp that is already importable by Kodi's Python and downloads nothing — useful when the platform ships it (e.g. a distribution package). For that mode the package **and its dependencies** must be importable, otherwise the addon reports that yt-dlp is unavailable.
 - **Auto-update yt-dlp**  
   Keeps yt-dlp updated automatically (recommended).
 - **Installed yt-dlp version**  
