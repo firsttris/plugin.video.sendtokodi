@@ -21,6 +21,13 @@ _RANGE_REQUEST_TIMEOUT_SECONDS = 20
 _RANGE_PROBE_INITIAL_BYTES = 4096
 _RANGE_PROBE_MAX_BYTES = 256 * 1024
 _RANGE_PROBE_MAX_WORKERS = 8
+# yt-dlp reports AAC-in-MP4 audio as ext "m4a", which is not a valid DASH mimeType;
+# InputStream Adaptive only accepts mp4, webm and x-matroska containers.
+_AUDIO_MIME_TYPES = {
+    'm4a': 'audio/mp4',
+    'mp4': 'audio/mp4',
+    'webm': 'audio/webm',
+}
 
 def _webm_decode_int(byte):
     # Returns size and value
@@ -298,7 +305,7 @@ class Manifest():
         rep.set('codecs', format['acodec'])
         rep.set('audioSamplingRate', str(format['asr']))
         rep.set('startWithSAP', '1')
-        rep.set('mimeType', "audio/{}".format(format['ext']))
+        rep.set('mimeType', _AUDIO_MIME_TYPES.get(format['ext'], "audio/{}".format(format['ext'])))
         kbps = format.get('tbr', format.get('abr'))
         if kbps is not None:
             rep.set('bandwidth', str(int(kbps * 1000)))

@@ -216,6 +216,29 @@ def test_manifest_add_formats_and_emit(monkeypatch):
     assert "range=\"0-9\"" in xml_text
 
 
+def test_manifest_maps_m4a_audio_to_valid_dash_mime_type(monkeypatch):
+    # yt-dlp reports AAC-in-MP4 (itag 140, 140-0, 140-1, ...) as ext "m4a";
+    # "audio/m4a" is rejected by InputStream Adaptive and the track stays silent.
+    monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 1), (2, 3)))
+    manifest = dash_builder.Manifest(duration=1)
+
+    manifest.add_audio_format(
+        {
+            "format_id": "140-1",
+            "acodec": "mp4a.40.2",
+            "asr": 44100,
+            "ext": "m4a",
+            "audio_channels": 2,
+            "url": "https://example.com/a",
+            "container": "m4a_dash",
+        }
+    )
+
+    rep = manifest.audio_set.find("Representation")
+    assert rep.get("mimeType") == "audio/mp4"
+    assert "audio/m4a" not in manifest.emit().decode("utf-8")
+
+
 def test_manifest_add_formats_without_bandwidth(monkeypatch):
     monkeypatch.setattr(dash_builder, "find_init_and_index_ranges", lambda *_args, **_kwargs: ((0, 1), (2, 3)))
     manifest = dash_builder.Manifest(duration=1)
