@@ -1,0 +1,21 @@
+name: Bump version
+
+# The tag is the version (addon.xml gets it at build time): raises the highest vX.Y.Z tag, tags the current commit and starts release.yml on it.
+# Same scheme as in every project, see https://github.com/firsttris/workflows#bump-version
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+jobs:
+  bump:
+    uses: firsttris/workflows/.github/workflows/bump-version.yml@v1
+    with:
+      bump: ${{ inputs.bump }}
+      version-file: ""
+    permissions:
+      contents: write
+      actions: write
