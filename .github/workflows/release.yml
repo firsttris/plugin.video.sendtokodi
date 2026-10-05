@@ -1,0 +1,57 @@
+name: Release
+
+# A tag vX.Y.Z (the button in bump.yml) publishes that version: the tests, the add-on ZIP with the
+# version from the tag written into addon.xml, then the ZIP in the Kodi repository
+# (firsttris/repository.sendtokodi) and the shared GitHub release from firsttris/workflows.
+# Run by hand on master: only the tests.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    uses: ./.github/workflows/reusable-tests.yml
+    secrets: inherit
+
+  build:
+    needs: tests
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Version from the tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Build addon
+        run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ steps.version.outputs.version }}
+      - name: Upload Addon-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Addon-artifacts
+          path: "${{ runner.temp }}/*.zip"
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.PAT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Addon-artifacts
+      - name: Publish addon
+        run: $GITHUB_WORKSPACE/.github/scripts/publish-addon.sh ${{ needs.build.outputs.version }} "github.com/firsttris/repository.sendtokodi.git"
+
+  release:
+    needs: build
+    uses: firsttris/workflows/.github/workflows/github-release.yml@v1
+    with:
+      version-file: ""
+      release-artifact: Addon-artifacts
+    permissions:
+      contents: write
