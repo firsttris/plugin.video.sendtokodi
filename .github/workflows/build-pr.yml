@@ -1,10 +1,16 @@
 name: build-pr
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: ['master']
+# A new push to a pull request cancels its outdated run
+concurrency:
+  group: build-pr-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   tests:
+    # Draft pull requests do not build; "Ready for review" starts the run
+    if: ${{ !github.event.pull_request.draft }}
     uses: ./.github/workflows/reusable-tests.yml
     with:
       upload_coverage: true
