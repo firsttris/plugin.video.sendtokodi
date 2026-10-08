@@ -26,7 +26,6 @@ zip -r "$RUNNER_TEMP/plugin.video.sendtokodi-$VERSION.zip" plugin.video.sendtoko
        "plugin.video.sendtokodi/pytest.ini" \
        "plugin.video.sendtokodi/.coveragerc" \
        "plugin.video.sendtokodi/.editorconfig" \
-       "plugin.video.sendtokodi/CODE_REVIEW.md" \
        "plugin.video.sendtokodi/.coverage" \
        "plugin.video.sendtokodi/coverage.xml" \
        "plugin.video.sendtokodi/htmlcov/*"
