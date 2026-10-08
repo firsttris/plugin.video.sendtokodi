@@ -15,6 +15,7 @@ import time
 import shutil
 import sys
 import tarfile
+import urllib.error
 from core import managed_runtime
 from core.runtime_update_state import (
     default_update_state,
@@ -35,17 +36,24 @@ DEFAULT_YTDLP_SOURCE = YTDLP_SOURCE_STABLE
 YTDLP_SOURCES = (YTDLP_SOURCE_STABLE, YTDLP_SOURCE_NIGHTLY, YTDLP_SOURCE_SYSTEM)
 
 # Per-source release endpoints. "nightly" tracks yt-dlp/yt-dlp-nightly-builds
-# (builds of master); its releases carry a yt-dlp.tar.gz asset whose layout
-# matches the tag archive (<top>/yt_dlp/...), so the existing extractor is
-# reused unchanged. The nightly *repository* archive is only a README stub —
-# the source has to come from the release asset.
+# (builds of master). Both channels publish a yt-dlp.tar.gz release asset whose
+# layout matches the tag archive (<top>/yt_dlp/...), so one extractor serves both.
+# The asset is built with "make all" and therefore ships
+# yt_dlp/extractor/lazy_extractors.py; the plain tag archive does not, and
+# without it every start imports all ~1800 extractor modules (several times
+# slower). The nightly *repository* archive is only a README stub, so nightly
+# has no fallback.
 _SOURCE_REPOS = {
     YTDLP_SOURCE_STABLE: "yt-dlp/yt-dlp",
     YTDLP_SOURCE_NIGHTLY: "yt-dlp/yt-dlp-nightly-builds",
 }
 _SOURCE_TARBALL_URLS = {
-    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz",
+    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/releases/download/{version}/yt-dlp.tar.gz",
     YTDLP_SOURCE_NIGHTLY: "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/{version}/yt-dlp.tar.gz",
+}
+# Used when a (very old) release has no yt-dlp.tar.gz asset.
+_SOURCE_FALLBACK_TARBALL_URLS = {
+    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz",
 }
 
 
@@ -92,6 +100,13 @@ def _releases_api(source):
 
 def _tarball_url(source, version):
     return _SOURCE_TARBALL_URLS[source].format(version=version)
+
+
+def _fallback_tarball_url(source, version):
+    template = _SOURCE_FALLBACK_TARBALL_URLS.get(source)
+    if template is None:
+        return None
+    return template.format(version=version)
 
 
 def _log(msg, level=None):
@@ -304,7 +319,14 @@ def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE):
     url = _tarball_url(source, version)
     _log("Downloading yt-dlp {} ({}) from {}".format(version, source, url))
 
-    data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
+    try:
+        data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
+    except urllib.error.HTTPError as exc:
+        fallback_url = _fallback_tarball_url(source, version)
+        if exc.code != 404 or fallback_url is None:
+            raise
+        _log("No yt-dlp.tar.gz asset for {}, using the tag archive {}".format(version, fallback_url))
+        data = managed_runtime.download_with_progress(fallback_url, _RUNTIME_LABEL, version)
 
     runtime_path = _runtime_path_for_version(version)
     _extract_yt_dlp_from_tarball(data, runtime_path)
