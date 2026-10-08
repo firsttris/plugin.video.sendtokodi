@@ -101,8 +101,8 @@ legacy_python_workarounds_enabled = _legacy_python_workarounds_enabled(__handle_
 if legacy_python_workarounds_enabled:
     install_stderr_workaround()
 
-# Kodi's embedded python still hits the strptime bug (see core/service_runtime.py),
-# so always patch it, before any background threads start (#177).
+# Kodi's sub-interpreters break datetime.strptime up to Python 3.12 (see
+# core/service_runtime.py, #177), so always patch it, before yt-dlp is used.
 patch_strptime()
 
 

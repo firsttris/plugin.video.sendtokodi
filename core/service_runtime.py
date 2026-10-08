@@ -12,9 +12,19 @@ def install_stderr_workaround():
     sys.stderr.__class__ = replacement_stderr
 
 
-# python embedded (as used in kodi) has a known bug for second calls of strptime.
-# The python bug is docmumented here https://bugs.python.org/issue27400
-# The following workaround patch is borrowed from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
+# Kodi runs every add-on invocation in its own Python sub-interpreter and destroys it
+# afterwards. Up to Python 3.12, the C datetime module caches the _strptime module in a
+# static variable that is shared by all interpreters: the first interpreter that calls
+# datetime.datetime.strptime() stores *its* module there. Once that interpreter is gone,
+# the cached module's functions are None, and every later strptime() call in any
+# add-on fails with "TypeError: 'NoneType' object is not callable" (issues #8, #177;
+# https://bugs.python.org/issue27400, fixed in Python 3.13). yt-dlp calls strptime for
+# upload dates and Last-Modified headers, so extraction breaks from the second
+# invocation on, or right away if another add-on used strptime first.
+# A one-time "warmup" call does not help: it fills the shared cache with this
+# invocation's module, which breaks the next invocation. time.strptime() imports
+# _strptime on every call, so routing datetime.strptime through it avoids the cache.
+# Workaround from https://forum.kodi.tv/showthread.php?tid=112916&pid=2914578#pid2914578
 def patch_strptime():
     import datetime
 
