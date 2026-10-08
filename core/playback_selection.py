@@ -612,8 +612,9 @@ def resolve_playlist_insert_position(unresolved_entries, start_index):
 
 
 def resolve_starting_entry(starting_entry, extract_info):
+    """Resolve a flat playlist entry with extract_info(url); fully resolved entries are kept."""
     if 'url' in starting_entry:
-        return extract_info(starting_entry['url'], download=False)
+        return extract_info(starting_entry['url'])
     return starting_entry
 
 

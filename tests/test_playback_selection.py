@@ -1755,12 +1755,11 @@ def test_queueable_playlist_entries_filters_entries_without_url():
 def test_resolve_starting_entry_extracts_when_url_present():
     extracted = resolve_starting_entry(
         {"url": "https://example.com/start"},
-        lambda url, download: {"url": url, "download": download, "title": "resolved"},
+        lambda url: {"url": url, "title": "resolved"},
     )
 
     assert extracted == {
         "url": "https://example.com/start",
-        "download": False,
         "title": "resolved",
     }
 

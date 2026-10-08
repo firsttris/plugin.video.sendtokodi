@@ -12,7 +12,7 @@ add-on from *Add-ons → Video add-ons*. Some settings are only visible at Kodi'
 
 | Setting | Default | What it does |
 |---|---|---|
-| **Auto-download resolved media before playback** | off | Downloads the media file to disk first and plays the local file afterwards. For unstable connections, expiring streams or keeping a copy. Playlists are never downloaded. See [Downloading instead of streaming](usage.md#downloading-instead-of-streaming). |
+| **Auto-download resolved media before playback** | off | Downloads the media file to disk first and plays the local file afterwards. For unstable connections, expiring streams or keeping a copy. A playlist is downloaded video by video as it plays. See [Downloading instead of streaming](usage.md#downloading-instead-of-streaming). |
 | **Media download path** (Advanced) | `special://profile/addon_data/plugin.video.sendtokodi/downloads` | Folder for the downloaded files. Any Kodi path works, including network shares. Only shown when auto-download is on. |
 | **Enable legacy Python embed workarounds** (Expert) | off | Compatibility patch for a `stderr` quirk of Kodi's embedded Python on some old builds. Keep it off unless a traceback in the log mentions `isatty`. |
 

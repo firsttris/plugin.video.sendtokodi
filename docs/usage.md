@@ -107,7 +107,7 @@ downloaded again on every playback, since the subtitle URLs of most sites expire
 first and play the local file afterwards. This helps on slow or unstable connections, with streams that expire quickly,
 and when Kodi should keep a copy. A progress dialog shows the download. The target folder is **Media download path**,
 by default `special://profile/addon_data/plugin.video.sendtokodi/downloads`; any Kodi path works, including network
-shares. Playlists are not downloaded, only single videos.
+shares. A playlist is not downloaded as a whole: each video is downloaded when its turn comes.
 
 ## Playlists and STRM files
 

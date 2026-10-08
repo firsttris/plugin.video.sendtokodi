@@ -145,7 +145,7 @@ def _infer_selected_stream_kind(result, selected_url):
     return "video"
 
 
-def _prompt_preferred_stream_url(result):
+def _prompt_preferred_stream(result):
     formats = result.get("formats", [])
     entries = []
     for format_info in reversed(formats):
@@ -198,7 +198,7 @@ def create_list_item_from_video(
 
     selection_result = dict(result)
     selection_result["resolve_fresh_result"] = resolve_fresh_result
-    preferred_stream = _prompt_preferred_stream_url(selection_result) if askstream else None
+    preferred_stream = _prompt_preferred_stream(selection_result) if askstream else None
     selected_source = select_playback_source(
         selection_result,
         usemanifest,
@@ -361,8 +361,12 @@ def play_playlist_result(
 
     index_to_start_at = resolve_playlist_insert_position(unresolved_entries, index_to_start_at)
 
-    def extract_starting_entry(url, download=False):
-        return ydl.extract_info(url, download=media_download_enabled)
+    def extract_starting_entry(url):
+        # Same as a single video: progress while resolving, then the optional download.
+        entry = extract_result_with_progress(ydl, url)
+        if media_download_enabled:
+            entry = download_result_with_progress(ydl, entry)
+        return entry
 
     starting_item = create_list_item_from_video(
         resolve_starting_entry(starting_entry, extract_starting_entry),
