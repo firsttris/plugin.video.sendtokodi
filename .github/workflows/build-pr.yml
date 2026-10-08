@@ -1,8 +1,13 @@
 name: build-pr
+# Changes to documentation alone don't build.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: ['master']
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
 # A new push to a pull request cancels its outdated run
 concurrency:
   group: build-pr-${{ github.ref }}

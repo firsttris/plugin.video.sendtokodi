@@ -1,8 +1,13 @@
 name: build-master
+# Changes to documentation alone don't build.
 on:
   push:
     branches:
       - 'master'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 jobs:
   tests:
     uses: ./.github/workflows/reusable-tests.yml
