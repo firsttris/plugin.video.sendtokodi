@@ -191,17 +191,14 @@ checkout into Kodi's `addons` folder to run it. Setup, project structure, CI and
 Bug reports, ideas and pull requests are welcome. Before reporting a site that doesn't play, check it with yt-dlp
 outside Kodi; if it fails there, [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues) are the right place.
 
-## 📄 License
-
-[MIT](LICENSE.md). Kodi is a trademark of the XBMC Foundation; this project is not affiliated with the XBMC
-Foundation or yt-dlp.
-
 ---
 
 <div align="center">
 
-⭐ Like SendToKodi? [Star it on GitHub](https://github.com/firsttris/plugin.video.sendtokodi) •
-🐛 [Report a bug](https://github.com/firsttris/plugin.video.sendtokodi/issues) •
-💡 [Request a feature](https://github.com/firsttris/plugin.video.sendtokodi/issues)
+⭐ Like SendToKodi? A [star on GitHub](https://github.com/firsttris/plugin.video.sendtokodi) helps others find it.<br>
+🐛 [Report a bug](https://github.com/firsttris/plugin.video.sendtokodi/issues/new?template=bug_report.md) · 💡 [Request a feature](https://github.com/firsttris/plugin.video.sendtokodi/issues/new)
+
+<sub>License: <a href="LICENSE.md">MIT</a> · © Tristan Teufel and contributors<br>
+Kodi is a trademark of the XBMC Foundation. This project is not affiliated with the XBMC Foundation or yt-dlp.</sub>
 
 </div>
