@@ -15,7 +15,7 @@
     <disclaimer lang="en">The sent URLs are resolved with an external library. In case a website/stream does not work, check if yt-dlp can download them outside of Kodi before opening a bug.</disclaimer>
     <platform>all</platform>
     <license>MIT License</license>
-    <website>https://github.com/firsttris/plugin.video.sendtokodi/blob/master/README.md</website>
+    <website>https://firsttris.github.io/plugin.video.sendtokodi/</website>
     <email>sendtokodi@teufel-it.de</email>
     <source>https://github.com/firsttris/plugin.video.sendtokodi</source>
     <assets>

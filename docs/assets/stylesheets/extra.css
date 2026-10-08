@@ -1,0 +1,20 @@
+/* SendToKodi blue, the colour of the icon and the Kodi badge */
+:root {
+  --md-primary-fg-color: #17b2e7;
+  --md-primary-fg-color--light: #5ccaf0;
+  --md-primary-fg-color--dark: #0e8fbd;
+  --md-accent-fg-color: #0e8fbd;
+}
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color: #5ccaf0;
+}
+/* Images: rounded, with a shadow, never wider than the text */
+.md-typeset img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+/* Wide reference tables (settings, parameters) */
+.md-typeset table:not([class]) {
+  font-size: 0.75rem;
+}

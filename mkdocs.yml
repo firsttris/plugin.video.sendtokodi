@@ -1,0 +1,122 @@
+# Documentation as a website: https://firsttris.github.io/plugin.video.sendtokodi/
+# Source is docs/, built with MkDocs Material (.github/workflows/docs.yml).
+# Locally: pip install -r requirements-docs.txt && mkdocs serve
+site_name: SendToKodi · Kodi Add-on
+site_description: >-
+  SendToKodi is a Kodi add-on that plays videos and audio from YouTube, Twitch,
+  Vimeo, SoundCloud and 1000+ other websites on Kodi. Send links from your
+  browser, Android phone or iPhone, from playlists or via JSON-RPC; yt-dlp
+  resolves them to playable streams.
+site_url: https://firsttris.github.io/plugin.video.sendtokodi/
+repo_url: https://github.com/firsttris/plugin.video.sendtokodi
+repo_name: firsttris/plugin.video.sendtokodi
+edit_uri: edit/master/docs/
+copyright: >-
+  MIT License · Kodi is a trademark of the XBMC Foundation.
+  This project is not affiliated with the XBMC Foundation or yt-dlp.
+
+docs_dir: docs
+# Pages as installation.html instead of installation/: relative image and
+# file links then work the same on the site and on GitHub
+use_directory_urls: false
+
+nav:
+  - Overview: README.md
+  - Users:
+      - Installation: installation.md
+      - Usage: usage.md
+      - Settings: settings.md
+      - Troubleshooting: troubleshooting.md
+      - FAQ: faq.md
+  - Integration:
+      - API & integration: integration.md
+  - Background:
+      - How it works: how-it-works.md
+      - Development: development.md
+
+theme:
+  name: material
+  language: en
+  logo: assets/icon.png
+  favicon: assets/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    # Follows the system setting, switchable
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+plugins:
+  - search:
+      lang: en
+  - git-revision-date-localized:
+      type: date
+      locale: en
+      fallback_to_build_date: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/firsttris/plugin.video.sendtokodi
+      name: Source code on GitHub
+    - icon: material/download
+      link: https://github.com/firsttris/plugin.video.sendtokodi/releases/latest
+      name: Download the latest release
+    - icon: fontawesome/brands/chrome
+      link: https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf
+      name: Browser extension in the Chrome Web Store
+    - icon: fontawesome/brands/firefox-browser
+      link: https://addons.mozilla.org/firefox/addon/sendtokodi/
+      name: Browser extension on Mozilla Add-ons
