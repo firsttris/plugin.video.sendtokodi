@@ -1,157 +1,113 @@
-# SendToKodi (Kodi Add-on)
+<div align="center">
 
-<p align="center">
-  <img src="https://github.com/firsttris/chrome.sendtokodi/blob/master/store-assets/banner/1280x800.png" alt="SendToKodi Banner" />
-</p>
+# SendToKodi: Play YouTube, Twitch, Vimeo and 1000+ Sites on Kodi
 
-<p align="center">
-  <a href="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml"><img src="https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml/badge.svg" alt="Build" /></a>
-  <a href="https://app.codecov.io/gh/firsttris/plugin.video.sendtokodi"><img src="https://codecov.io/gh/firsttris/plugin.video.sendtokodi/graph/badge.svg" alt="Coverage" /></a>
-  <a href="https://kodi.tv"><img src="https://img.shields.io/badge/Kodi-19%2B-17B2E7" alt="Kodi 19+" /></a>
-  <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/v/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Extension" alt="Chrome Extension" /></a>
-  <a href="https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf"><img src="https://img.shields.io/chrome-web-store/users/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Users" alt="Chrome Users" /></a>
-  <a href="https://addons.mozilla.org/firefox/addon/sendtokodi/"><img src="https://img.shields.io/amo/v/sendtokodi?label=Firefox%20Add-on" alt="Firefox Add-on" /></a>
-  <a href="https://addons.mozilla.org/firefox/addon/sendtokodi/"><img src="https://img.shields.io/amo/users/sendtokodi?label=Firefox%20Users" alt="Firefox Users" /></a>
-</p>
+**Send any video link from your browser or phone to Kodi, and watch it on the big screen.**<br>
+SendToKodi is a Kodi add-on that turns links from YouTube, Twitch, Vimeo, SoundCloud, Dailymotion and
+[1000+ other websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) into playable streams,
+powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
-Send video or audio links from your browser or phone directly to [Kodi](https://kodi.tv).
-SendToKodi resolves supported websites to playable streams using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+[![Build](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml/badge.svg)](https://github.com/firsttris/plugin.video.sendtokodi/actions/workflows/build-master.yml)
+[![Coverage](https://codecov.io/gh/firsttris/plugin.video.sendtokodi/graph/badge.svg)](https://app.codecov.io/gh/firsttris/plugin.video.sendtokodi)
+[![Release](https://img.shields.io/github/v/release/firsttris/plugin.video.sendtokodi?label=Release&color=17b2e7)](https://github.com/firsttris/plugin.video.sendtokodi/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE.md)
+<br>
+[![Kodi 19+](https://img.shields.io/badge/Kodi-19%20%7C%2020%20%7C%2021-17B2E7?logo=kodi&logoColor=white)](https://kodi.tv)
+[![Powered by yt-dlp](https://img.shields.io/badge/Powered%20by-yt--dlp-ff0000)](https://github.com/yt-dlp/yt-dlp)
+[![Chrome Extension](https://img.shields.io/chrome-web-store/v/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Extension&logo=googlechrome&logoColor=white)](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
+[![Chrome Users](https://img.shields.io/chrome-web-store/users/gbcpfpcacakaadapjcdchbdmdnfbnbaf?label=Chrome%20Users)](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
+[![Firefox Add-on](https://img.shields.io/amo/v/sendtokodi?label=Firefox%20Add-on&logo=firefox&logoColor=white)](https://addons.mozilla.org/firefox/addon/sendtokodi/)
+[![Firefox Users](https://img.shields.io/amo/users/sendtokodi?label=Firefox%20Users)](https://addons.mozilla.org/firefox/addon/sendtokodi/)
+
+[Features](#-features) •
+[Install](#-install-in-kodi) •
+[Send links](#-send-links-to-kodi) •
+[Integration](#-integration) •
+[Documentation](https://firsttris.github.io/plugin.video.sendtokodi/) •
+[Troubleshooting](#-troubleshooting) •
+[FAQ](#-faq)
+
+<img src="https://raw.githubusercontent.com/firsttris/chrome.sendtokodi/master/store-assets/banner/1280x800.png" alt="SendToKodi: send a video from the browser to Kodi" width="800">
+
+</div>
+
+## 💡 Why SendToKodi?
+
+You find a video on your laptop or phone and want to watch it on the TV. With SendToKodi you share the link to
+[Kodi](https://kodi.tv) and it plays there, in the best quality the site offers, with Kodi's own player, subtitles
+and remote. No casting app, no screen mirroring, no server in between: Kodi fetches the video itself, so your phone
+can go to sleep.
+
+It works like a **"cast to Kodi" button for the whole web**: YouTube videos, playlists and channels, Twitch streams
+and VODs, Vimeo, SoundCloud, Bandcamp, Reddit, TikTok, the media libraries of public broadcasters, direct links to
+media files, and every other site [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports.
 
 ## ✨ Features
 
-- 🎬 Stream links from supported websites directly in Kodi
-- 🌐 Works with browser extensions and mobile share flows
-- 📋 Playlist support via `.m3u`
-- 🔧 JSON-RPC and plugin integration support
-- 💾 Optional auto-download before playback
-
-## 🚀 Quick Start
-
-1. Install the SendToKodi Kodi add-on (steps below).
-2. Install one of the companion apps/extensions.
-3. Share or send a video URL to Kodi and start playback.
+- 🎬 **Plays 1000+ websites on Kodi**: everything yt-dlp supports, resolved on the Kodi device itself.
+- 📺 **Best quality**: adaptive streaming (DASH and HLS) through InputStream Adaptive, up to 4K and 8K, with a built-in
+  DASH manifest builder for sites that serve video and audio separately, like YouTube.
+- 🔄 **Keeps itself current**: yt-dlp and the Deno JavaScript runtime are downloaded and updated automatically, with
+  a nightly channel for site fixes weeks before the next release and a version switcher to roll back.
+- 📋 **Playlists and queue**: send a whole playlist or channel, or queue videos one by one without interrupting
+  playback.
+- 🌐 **Send from anywhere**: browser extension for Chrome, Firefox and Edge, Kore on Android, an Apple Shortcut on
+  iPhone and Mac, or any JSON-RPC call from scripts and Home Assistant.
+- 💬 **Subtitles, title and artwork** from the website appear in Kodi's player.
+- 💾 **Optional download** before playback, for unstable connections or to keep a copy.
+- 🔐 **Logins and options**: a yt-dlp config file for cookies, proxies and extractor arguments, or per-request
+  options over JSON-RPC.
+- 🆓 **Free and open source** (MIT), no tracking, nothing in between you and the website.
 
 ## 📦 Install in Kodi
 
-This add-on is not in the official Kodi add-on repository.
-For automatic updates, first add the SendToKodi repo:
+Requires **Kodi 19 or newer** on any platform: Windows, Linux, macOS, Android, Android TV, Fire TV, LibreELEC,
+CoreELEC. The add-on is not in the official Kodi repository, so install the SendToKodi repository first; it keeps
+the add-on updated automatically.
 
-1. Download repository ZIP for Kodi 19+:
-   - [repository.sendtokodi-1.0.0.zip](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
-2. In Kodi, go to **Add-ons → Install from zip file** and install the ZIP.
-3. Then go to **Add-ons → Install from repository** and install `plugin.video.sendtokodi`.
+1. Download [repository.sendtokodi-1.0.0.zip](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
+   to a place your Kodi can reach.
+2. In Kodi, go to **Add-ons → Install from zip file** and install the ZIP (allow *Unknown sources* once if Kodi asks).
+3. Go to **Add-ons → Install from repository → SendToKodi Repository → Video add-ons** and install **SendToKodi**.
 
-Reference: [Kodi Add-on Manager](https://kodi.wiki/view/Add-on_manager)
+On the first playback, the add-on downloads yt-dlp and, for YouTube, the Deno JavaScript runtime. Details, including
+manual installation, updating and the first start:
+[Installation guide](https://firsttris.github.io/plugin.video.sendtokodi/installation.html).
 
-## ✅ Requirements
+## 📱 Send links to Kodi
 
-- Kodi 19+
-- `script.module.inputstreamhelper` (required for adaptive playback checks)
-- `script.module.requests`
+The add-on receives links; one of these sends them:
 
-Dependencies are installed automatically by Kodi when installing the add-on.
+| From | With | Get it |
+|---|---|---|
+| **Chrome, Edge, Brave, Vivaldi, Opera** | SendToKodi browser extension: one click, keyboard shortcut or right-click *Play on Kodi* | [Chrome Web Store](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf) · [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij) |
+| **Firefox** | SendToKodi browser extension | [Mozilla Add-ons](https://addons.mozilla.org/firefox/addon/sendtokodi/) |
+| **Android** | Kore, the official Kodi remote, via the share menu | [Google Play](https://play.google.com/store/apps/details?id=org.xbmc.kore) |
+| **iPhone, iPad, Mac** | Apple Shortcut via the share sheet | [SendToKodi-OSX.shortcut](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut) |
+| **Scripts, Home Assistant, playlists** | Kodi's JSON-RPC API or a `plugin://` URL | [Integration](#-integration) |
 
-## 📱 Companion Apps
-
-### Browser extensions
-
-- [Chrome Web Store](https://chrome.google.com/webstore/detail/sendtokodi/gbcpfpcacakaadapjcdchbdmdnfbnbaf)
-- [Mozilla Add-ons](https://addons.mozilla.org/firefox/addon/sendtokodi/)
-- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/sendtokodi/cfaaejdnkempodfadjkjfblimmakeaij)
-
-Extension source & issues: [firsttris/chrome.sendtokodi](https://github.com/firsttris/chrome.sendtokodi)
-
-### Mobile
-
-- [Kore (official Kodi Android remote)](https://play.google.com/store/apps/details?id=org.xbmc.kore&hl=de&gl=US)
-  - If prompted, set SendToKodi as the preferred add-on in Kore settings.
-- The official iOS SendToKodi app is currently retired.
-- [Apple Shortcut (iOS + macOS)](https://raw.githubusercontent.com/firsttris/plugin.video.sendtokodi/refs/heads/master/SendToKodi-OSX.shortcut)
+The browser extension has its own repository and documentation:
+[firsttris/chrome.sendtokodi](https://github.com/firsttris/chrome.sendtokodi) ·
+[firsttris.github.io/chrome.sendtokodi](https://firsttris.github.io/chrome.sendtokodi/).
 
 ## ⚙️ Settings
 
-<details>
-  <summary><strong>Settings Details (click to expand)</strong></summary>
+Open them in Kodi via **Add-ons → My add-ons → Video add-ons → SendToKodi → Configure**. The important ones:
 
-Open in Kodi via:
+- **yt-dlp release channel** (*Stable*, *Nightly*, *System*) and **Update yt-dlp now**: a site that stopped working is
+  usually fixed by a newer yt-dlp, and *Nightly* gets fixes first.
+- **JavaScript runtime mode**: YouTube needs a JavaScript runtime; the add-on manages Deno, with QuickJS as the option
+  for 32-bit ARM devices.
+- **yt-dlp config file**: cookies for logins, proxies, extractor arguments, in yt-dlp's own format.
+- **Maximum resolution**, **Ask which stream to play** and the **DASH manifest builder** under *Adaptive*.
+- **Auto-download resolved media before playback** and the download path.
 
-**Add-ons → My add-ons → Video add-ons → SendToKodi → Configure**
-
-### General
-
-- **Enable legacy Python embed workarounds (advanced)**  
-  Compatibility toggle for older/edge Python embedding behavior. Keep disabled unless you are troubleshooting runtime issues.
-- **Auto-download resolved media before playback**  
-  Downloads media to disk first instead of immediate streaming playback.
-- **Media download path**  
-  Folder used for auto-downloaded files. Default:
-  `special://profile/addon_data/plugin.video.sendtokodi/downloads`
-
-### JavaScript Runtime
-
-- **JavaScript runtime mode (auto|deno|quickjs)**  
-  Select how JavaScript extraction/runtime tasks are handled:
-  - `auto`: prefer best available runtime automatically
-  - `deno`: force Deno
-  - `quickjs`: force QuickJS
-  - `disabled`: disable JavaScript runtime usage
-- **QuickJS binary path**  
-  Path to your QuickJS executable if you use QuickJS mode.
-- **Auto-update Deno JavaScript runtime**  
-  Automatically keeps the managed Deno runtime current.
-- **Installed Deno version**  
-  Read-only display of currently installed Deno.
-- **Manage Deno version / Update Deno now**  
-  Manual version selection and immediate update actions.
-- **Deno version override (advanced)**  
-  Pin/override Deno version manually (for advanced troubleshooting).
-
-### yt-dlp
-
-- **yt-dlp release channel**  
-  `Stable` (default) uses official yt-dlp releases. `Nightly` uses the [nightly builds](https://github.com/yt-dlp/yt-dlp-nightly-builds) of yt-dlp master, which often contain site fixes (e.g. for YouTube) weeks before the next stable release. A channel switch takes effect with the next download; until then, **Installed yt-dlp version** keeps showing the build currently in use. `System` uses a yt-dlp that is already importable by Kodi's Python and downloads nothing — useful when the platform ships it (e.g. a distribution package). For that mode the package **and its dependencies** must be importable, otherwise the addon reports that yt-dlp is unavailable.
-- **Auto-update yt-dlp**  
-  Keeps yt-dlp updated automatically (recommended).
-- **Installed yt-dlp version**  
-  Read-only display of installed yt-dlp.
-- **Manage yt-dlp version / Update yt-dlp now**  
-  Manually select a version or trigger an immediate update.
-- **yt-dlp config file**  
-  Optional path to a [yt-dlp configuration file](https://github.com/yt-dlp/yt-dlp#configuration), in yt-dlp's own format (one command line option per line, e.g. `--cookies`, `--extractor-args` or `--socket-timeout`). If left empty, no config file is loaded. Only the options set in this file are applied; yt-dlp's default config locations are not read. Files on network sources (e.g. `smb://`) are copied locally before loading.
-- **yt-dlp version override (advanced)**  
-  Pin/override yt-dlp version manually.
-
-### Adaptive
-
-- **Check if my kodi supports adaptive streaming**  
-  Runs InputStream Adaptive capability check.
-- **Use original manifest (experimental)**  
-  Uses the source manifest path instead of generated alternatives.
-- **Use DASH manifest builder (kodi 19+ only) (experimental)**  
-  Enables internal DASH MPD builder for compatible playback flows.
-- **DASH MPD server idle timeout (seconds)**  
-  Refresh interval for the generated DASH manifest: after this many idle seconds, the next manifest request triggers a regeneration.
-- **Ask which stream to play**  
-  Prompts for stream selection when multiple variants are available.
-- **Audio-only HLS: disable Opus for native m3u streams**  
-  Improves compatibility for some native audio-only HLS playback cases.
-- **Maximum resolution**  
-  Caps playback stream width (or set Adaptive for automatic quality).
-
-</details>
+Every setting is explained in the [settings reference](https://firsttris.github.io/plugin.video.sendtokodi/settings.html).
 
 ## 🔌 Integration
 
-- Supported sites: [yt-dlp supported websites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-- Call from playlists: [playlist-example.m3u](./playlist-example.m3u)
-- Send URLs via JSON-RPC: [Example JSON-RPC request](#example-json-rpc-request)
-- Call from another Kodi plugin: [Plugin call example](#call-sendtokodi-from-another-kodi-plugin)
-- Add item to Kodi queue: [Queue integration example](#add-item-to-kodi-queue)
-
-<details>
-  <summary><strong>Developer Integration Examples (click to expand)</strong></summary>
-
-### Example JSON-RPC request
+Anything that can make Kodi play a `plugin://` URL can use SendToKodi: JSON-RPC, M3U playlists, STRM files, other
+add-ons, Home Assistant.
 
 ```json
 {
@@ -159,157 +115,90 @@ Open in Kodi via:
   "method": "Player.Open",
   "params": {
     "item": {
-      "file": "plugin://plugin.video.sendtokodi/?url=https%3A%2F%2Fsoundcloud.com%2Fspinnin-deep%2Fsam-feldt-show-me-love-edxs-indian-summer-remix-available-june-1"
+      "file": "plugin://plugin.video.sendtokodi/?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DTLNdBIRTNM4"
     }
   },
   "id": 1
 }
 ```
 
-### Example JSON-RPC request with yt-dlp authentication
+Send it as a `POST` to `http://<kodi-ip>:8080/jsonrpc` with Kodi's web server credentials. Add `action=queue` to
+queue instead of play, and `yt-dlp-options` with a JSON object for per-request yt-dlp options such as a login. The
+full URL format, `curl` and Python examples, playlists, STRM files and Home Assistant are in the
+[integration guide](https://firsttris.github.io/plugin.video.sendtokodi/integration.html).
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "Player.Open",
-  "params": {
-    "item": {
-      "file": "plugin://plugin.video.sendtokodi/?url=https%3A%2F%2Fvk.com%2Fvideo-124136901_456239025&yt-dlp-options=%7B%22username%22%3A%22user%40email.com%22%2C%22password%22%3A%22password%20with%20spaces%22%7D"
-    }
-  },
-  "id": 1
-}
-```
+## 🧰 Troubleshooting
 
-`yt-dlp-options` is passed directly to yt-dlp as a JSON object, so you can provide any supported [yt-dlp options](https://github.com/yt-dlp/yt-dlp#usage-and-options).
-For backward compatibility, the legacy `ydlOpts` option key is still supported.
+- **A video doesn't play:** update yt-dlp (*Settings → yt-dlp → Update yt-dlp now*), try the *Nightly* channel, and
+  check the URL with `yt-dlp --simulate "<url>"` outside Kodi. If yt-dlp fails there too, the fix has to come from
+  yt-dlp; the add-on picks it up automatically.
+- **YouTube doesn't play:** make sure *Installed Deno version* shows a version and the runtime mode is not *disabled*.
+  On a 32-bit Raspberry Pi 2 or 3, use QuickJS.
+- **Only 720p on YouTube:** turn on the DASH manifest builder and raise *Maximum resolution*.
+- **The extension or app can't reach Kodi:** enable *Allow remote control via HTTP* in Kodi's
+  *Settings → Services → Control*.
 
-### Call SendToKodi from another Kodi plugin
+More in the [troubleshooting guide](https://firsttris.github.io/plugin.video.sendtokodi/troubleshooting.html), with
+the log location and the common yt-dlp error messages.
 
-```python
-# Preferred (explicit query param, URL-encoded):
-xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?url=<urlencoded_stream_or_playlist_url>',return)")
+## ❓ FAQ
 
-# Legacy format (still supported):
-xbmc.executebuiltin("ActivateWindow(10025,'plugin://plugin.video.sendtokodi/?<stream_or_playlist_url>',return)")
-```
+**Which sites work?** Everything on [yt-dlp's list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md),
+plus direct links to media files. DRM-protected services (Netflix, Disney+, Prime Video) do not work.
 
-### Add item to Kodi queue
+**Is this like Chromecast?** Similar in effect: the link goes to Kodi and Kodi fetches the video itself. Your phone or
+laptop is not involved in the playback.
 
-```python
-# Adds a playable item to Kodi's video playlist without starting playback immediately.
-xbmc.executebuiltin("RunPlugin(plugin://plugin.video.sendtokodi/?action=queue&url=<urlencoded_stream_url>&title=<urlencoded_title>)")
-```
+**Why isn't it in the official Kodi repository?** The official repository doesn't allow add-ons that download code
+at runtime, and SendToKodi has to update yt-dlp on its own to keep up with the websites.
 
-### Test with Postman
+**Does it work on Android TV, Fire TV, Raspberry Pi?** Yes, on every platform Kodi 19+ runs on. Only the YouTube
+JavaScript runtime needs a 64-bit system or QuickJS.
 
-- Create a new HTTP `POST` request.
-- Use your Kodi endpoint, e.g. `http://kodi:kodi@192.168.0.138:8080/jsonrpc`.
-- Set body type to raw `application/json`.
-- Paste one of the JSON-RPC examples and send.
+More answers in the [FAQ](https://firsttris.github.io/plugin.video.sendtokodi/faq.html).
 
-Note: in plugin URLs, query values must be URL-encoded (for example `url=...` and optional `title=...`).
+## 📖 Documentation
 
-</details>
+The full documentation is at **[firsttris.github.io/plugin.video.sendtokodi](https://firsttris.github.io/plugin.video.sendtokodi/)**:
+[installation](https://firsttris.github.io/plugin.video.sendtokodi/installation.html),
+[usage](https://firsttris.github.io/plugin.video.sendtokodi/usage.html),
+[settings](https://firsttris.github.io/plugin.video.sendtokodi/settings.html),
+[integration](https://firsttris.github.io/plugin.video.sendtokodi/integration.html),
+[how it works](https://firsttris.github.io/plugin.video.sendtokodi/how-it-works.html),
+[troubleshooting](https://firsttris.github.io/plugin.video.sendtokodi/troubleshooting.html) and
+[development](https://firsttris.github.io/plugin.video.sendtokodi/development.html). The source is in
+[docs/](docs/README.md).
 
 ## 💻 Development
 
-<details>
-  <summary><strong>Development Setup (click to expand)</strong></summary>
-
-Run unit tests locally (recommended: inside a virtual environment):
-
-1. Install venv support (Ubuntu/Debian):
-
 ```bash
-sudo apt install python3-venv
-```
-
-2. Create a virtual environment in the project root:
-
-```bash
-python3 -m venv .venv
-```
-
-3. Activate it (choose your shell):
-
-- fish:
-
-  ```bash
-  source .venv/bin/activate.fish
-  ```
-
-- bash/zsh:
-
-  ```bash
-  source .venv/bin/activate
-  ```
-
-4. Install test dependencies and run tests:
-
-```bash
-python -m pip install --upgrade pip
+git clone https://github.com/firsttris/plugin.video.sendtokodi.git
+cd plugin.video.sendtokodi
+python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 pytest
 ```
 
-Coverage reports are generated automatically:
-
-- Console report with missing lines
-- `coverage.xml` for CI integrations
-- `htmlcov/index.html` as a human-readable report
-
-### Local add-on installation for development
-
-1. **Symlink (recommended)**
-
-```bash
-# Standard Kodi install
-rm -rf ~/.kodi/addons/plugin.video.sendtokodi
-ln -s /home/tristan/Projects/plugin.video.sendtokodi ~/.kodi/addons/plugin.video.sendtokodi
-
-# Flatpak Kodi install
-rm -rf /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
-ln -s /home/tristan/Projects/plugin.video.sendtokodi /home/tristan/.var/app/tv.kodi.Kodi/data/addons/plugin.video.sendtokodi
-```
-
-Restart Kodi (or disable/enable the add-on) after changes.
-
-2. **Install local ZIP**
-
-```bash
-zip -r plugin.video.sendtokodi-local.zip . -x "*.git*" "__pycache__/*" ".pytest_cache/*"
-```
-
-Then install via **Add-ons → Install from zip file**.
-
-</details>
-
-## 🧰 Troubleshooting
-
-- Stream does not play:
-  verify the URL works with yt-dlp and confirm the site is supported.
-- Adaptive playback issues:
-  run **Check if my Kodi supports adaptive streaming** in Settings → Adaptive.
-- Runtime/extractor issues:
-  update Deno and yt-dlp from Settings (**Update ... now** actions).
-- QuickJS mode does not work:
-  check that **QuickJS binary path** points to an existing executable.
-
-Useful checks outside Kodi:
-
-```bash
-# Verify a URL can be resolved/playlisted by yt-dlp
-yt-dlp --simulate "<url>"
-
-# Show final direct media URL selected by yt-dlp
-yt-dlp -g "<url>"
-```
+The logic lives in `core/` and is unit-tested without Kodi; `service.py` is the entry point Kodi runs. Symlink the
+checkout into Kodi's `addons` folder to run it. Setup, project structure, CI and the release process:
+[Development](https://firsttris.github.io/plugin.video.sendtokodi/development.html).
 
 ## 🤝 Contributing
 
-Contributions are welcome. Please open an issue or submit a pull request.
+Bug reports, ideas and pull requests are welcome. Before reporting a site that doesn't play, check it with yt-dlp
+outside Kodi; if it fails there, [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues) are the right place.
 
-## License
+## 📄 License
 
-This project is licensed under MIT. See [LICENSE.md](LICENSE.md).
+[MIT](LICENSE.md). Kodi is a trademark of the XBMC Foundation; this project is not affiliated with the XBMC
+Foundation or yt-dlp.
+
+---
+
+<div align="center">
+
+⭐ Like SendToKodi? [Star it on GitHub](https://github.com/firsttris/plugin.video.sendtokodi) •
+🐛 [Report a bug](https://github.com/firsttris/plugin.video.sendtokodi/issues) •
+💡 [Request a feature](https://github.com/firsttris/plugin.video.sendtokodi/issues)
+
+</div>
