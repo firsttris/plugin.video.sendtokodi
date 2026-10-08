@@ -276,7 +276,7 @@ def test_get_runtime_status_reports_the_active_source(monkeypatch):
         ytdlp_manager, "_resolve_latest_version", lambda **kwargs: "2026.09.27.232945"
     )
 
-    status = ytdlp_manager.get_runtime_status("latest", source="nightly")
+    status = ytdlp_manager.get_runtime_status("latest", source="nightly", include_latest=True)
 
     assert status["source"] == "nightly"
     assert status["latest_version"] == "2026.09.27.232945"

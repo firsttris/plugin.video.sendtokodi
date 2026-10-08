@@ -216,7 +216,7 @@ def test_get_runtime_status_reports_versions(monkeypatch):
         lambda: ["2026.03.10", "2026.03.01"],
     )
 
-    status = ytdlp_manager.get_runtime_status("latest")
+    status = ytdlp_manager.get_runtime_status("latest", include_latest=True)
 
     assert status["requested_version"] == "latest"
     assert status["installed_version"] == "2026.03.10"
@@ -264,7 +264,7 @@ def test_get_runtime_status_handles_latest_lookup_error(monkeypatch):
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("network error")),
     )
 
-    status = ytdlp_manager.get_runtime_status("2026.03.01")
+    status = ytdlp_manager.get_runtime_status("2026.03.01", include_latest=True)
 
     assert status["requested_version"] == "2026.03.01"
     assert status["latest_version"] is None
@@ -441,3 +441,17 @@ def test_install_prompt_snooze_expires(monkeypatch, tmp_path):
     assert ytdlp_manager.is_install_prompt_snoozed(now=1001) is True
     later = 1000 + ytdlp_manager.INSTALL_PROMPT_SNOOZE_SECONDS
     assert ytdlp_manager.is_install_prompt_snoozed(now=later) is False
+
+
+def test_get_runtime_status_does_not_look_up_latest_by_default(monkeypatch):
+    monkeypatch.setattr(ytdlp_manager, "_find_installed_runtime", lambda: ("2026.03.26", "/addon/ytdlp/versions/2026.03.26"))
+
+    def fail(**_kwargs):
+        raise AssertionError("showing the status must not query GitHub")
+
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", fail)
+
+    status = ytdlp_manager.get_runtime_status("latest")
+
+    assert status["installed_version"] == "2026.03.26"
+    assert status["latest_version"] is None

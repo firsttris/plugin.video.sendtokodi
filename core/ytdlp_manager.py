@@ -347,8 +347,13 @@ def get_runtime_status(
     requested_version=YTDLP_LATEST_SENTINEL,
     force_refresh_latest=False,
     source=DEFAULT_YTDLP_SOURCE,
+    include_latest=False,
 ):
-    """Return yt-dlp status information for UI/diagnostics."""
+    """Return yt-dlp status information for UI/diagnostics.
+
+    The latest release is only looked up (possibly over the network) with
+    include_latest=True, so showing the installed version never waits on GitHub.
+    """
     source = normalize_source(source)
 
     if not is_managed_source(source):
@@ -371,13 +376,14 @@ def get_runtime_status(
 
     latest_version = None
     latest_error = None
-    try:
-        if force_refresh_latest:
-            latest_version = _resolve_latest_version(force_refresh=True, source=source)
-        else:
-            latest_version = _resolve_latest_version(source=source)
-    except Exception as exc:
-        latest_error = str(exc)
+    if include_latest:
+        try:
+            if force_refresh_latest:
+                latest_version = _resolve_latest_version(force_refresh=True, source=source)
+            else:
+                latest_version = _resolve_latest_version(source=source)
+        except Exception as exc:
+            latest_error = str(exc)
 
     is_latest_installed = None
     if installed_version is not None and latest_version is not None:
