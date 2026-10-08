@@ -23,6 +23,7 @@ import os
 import platform
 import shutil
 import stat
+import sys
 import zipfile
 import io
 from core import managed_runtime
@@ -79,8 +80,54 @@ def _deno_binary_name():
     return "deno.exe" if platform.system().lower() == "windows" else "deno"
 
 
+_ANDROID_UNSUPPORTED_MESSAGE = "Deno has no Android build"
+
+
+def _is_android():
+    """True on Android, where Python reports system "Linux" (before Python 3.13)."""
+    if hasattr(sys, "getandroidapilevel"):
+        return True
+    if platform.system().lower() == "android":
+        return True
+    try:
+        import xbmc
+        return bool(xbmc.getCondVisibility("System.Platform.Android"))
+    except Exception:
+        return False
+
+
+def unsupported_platform_reason():
+    """Return why Deno cannot run on this device, or None when it can.
+
+    Android reports itself as Linux/aarch64, so without this check the glibc
+    Linux build is downloaded, which cannot run there.
+    """
+    if _is_android():
+        return _ANDROID_UNSUPPORTED_MESSAGE
+    return None
+
+
+def _remove_unusable_android_install():
+    # Earlier versions downloaded the Linux build on Android (100+ MB that can never run).
+    for path in (_versions_dir(), os.path.join(_addon_data_dir(), _deno_binary_name())):
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
+            else:
+                continue
+            _log("Removed unusable Deno download {}".format(path))
+        except Exception as exc:
+            _warn("Could not remove unusable Deno download {}: {}".format(path, exc))
+    _clear_installed_version()
+
+
 def _detect_platform():
     """Return (system_lower, machine) or raise RuntimeError for unsupported platforms."""
+    reason = unsupported_platform_reason()
+    if reason is not None:
+        raise RuntimeError(reason)
     system = platform.system().lower()
     machine = platform.machine()
     key = (system, machine)
@@ -355,6 +402,12 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
         already present.  When False, only use a pre-existing installation.
     """
     try:
+        reason = unsupported_platform_reason()
+        if reason is not None:
+            _warn("{}; YouTube needs another JavaScript runtime (QuickJS)".format(reason))
+            _remove_unusable_android_install()
+            return {}
+
         requested = _normalize_requested_version(requested_version)
         installed_version, deno_path = _find_installed_runtime()
 

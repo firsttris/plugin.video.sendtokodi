@@ -100,8 +100,9 @@ runtime to yt-dlp as `js_runtimes` together with `remote_components: {'ejs:githu
 | `quickjs` | The QuickJS binary from *QuickJS binary path*, if it exists and is executable |
 | `disabled` | None; sites with JavaScript challenges fail |
 
-Deno has no ARMv7 build, which is why QuickJS exists as an option; see
-[ARMv7 devices](troubleshooting.md#armv7-devices-raspberry-pi-2-and-3-32-bit).
+Deno has no ARMv7 and no Android build, which is why QuickJS exists as an option; see
+[ARMv7 devices](troubleshooting.md#armv7-devices-raspberry-pi-2-and-3-32-bit) and
+[Android](troubleshooting.md#android-android-tv-fire-tv).
 
 ## Stream selection
 

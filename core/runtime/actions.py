@@ -233,9 +233,21 @@ def _is_system_source(runtime_name, manager_module, settings):
     return runtime_name == "ytdlp" and not manager_module.is_managed_source(settings.get("source"))
 
 
+def _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+    reason_getter = getattr(manager_module, "unsupported_platform_reason", None)
+    reason = reason_getter() if reason_getter is not None else None
+    if reason is None:
+        return False
+    _set_installed_version_display(runtime_name, None)
+    show_error_notification(reason)
+    return True
+
+
 def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification, log):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    if _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+        return
     source = settings.get("source")
     if _is_system_source(runtime_name, manager_module, settings):
         _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
@@ -290,6 +302,8 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
 def _update_runtime_now(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    if _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+        return
     if _is_system_source(runtime_name, manager_module, settings):
         _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
         return
