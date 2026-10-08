@@ -321,3 +321,48 @@ def test_install_does_not_fall_back_for_nightly_or_other_errors(monkeypatch, tmp
         ytdlp_manager._download_and_install("2026.09.27.232945", source="nightly")
     with pytest.raises(urllib.error.HTTPError):
         ytdlp_manager._download_and_install("2026.08.19", source="stable")
+
+
+def test_download_with_progress_streams_to_file_and_cleans_up_on_error(monkeypatch, tmp_path):
+    payload = b"x" * (3 * 65536 + 10)
+
+    class FakeResponse:
+        headers = {"Content-Length": str(len(payload))}
+
+        def __init__(self):
+            self.offset = 0
+
+        def read(self, size):
+            chunk = payload[self.offset:self.offset + size]
+            self.offset += len(chunk)
+            return chunk
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_a, **_k: FakeResponse())
+    destination = tmp_path / "sub" / "archive.tar.gz"
+
+    result = managed_runtime.download_with_progress(
+        "https://example.invalid/a", str(destination), "yt-dlp", "1", show_progress=False
+    )
+
+    assert result == str(destination)
+    assert destination.read_bytes() == payload
+    assert not (tmp_path / "sub" / "archive.tar.gz.part").exists()
+
+    class BrokenResponse(FakeResponse):
+        def read(self, size):
+            if self.offset:
+                raise OSError("connection reset")
+            return super().read(size)
+
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_a, **_k: BrokenResponse())
+    with pytest.raises(OSError):
+        managed_runtime.download_with_progress(
+            "https://example.invalid/a", str(tmp_path / "broken.zip"), "Deno", "1", show_progress=False
+        )
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["sub"]

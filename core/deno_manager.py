@@ -25,7 +25,6 @@ import shutil
 import stat
 import sys
 import zipfile
-import io
 from core import managed_runtime
 from core.runtime_update_state import (
     default_update_state,
@@ -305,34 +304,44 @@ def _download_deno(show_progress=True, version=None):
 
     _log("Downloading Deno {} from {}".format(target_version, url))
 
-    data = managed_runtime.download_with_progress(
-        url,
-        _RUNTIME_LABEL,
-        target_version,
-        show_progress=show_progress,
-    )
-
-    # Extract the zip — it contains a single "deno" (or "deno.exe") binary
     runtime_dir = _runtime_dir_for_version(target_version)
     tmp_runtime_dir = runtime_dir + ".tmp"
-    if os.path.isdir(tmp_runtime_dir):
-        shutil.rmtree(tmp_runtime_dir)
-    os.makedirs(tmp_runtime_dir, exist_ok=True)
+    archive_path = runtime_dir + ".zip"
+    try:
+        managed_runtime.download_with_progress(
+            url,
+            archive_path,
+            _RUNTIME_LABEL,
+            target_version,
+            show_progress=show_progress,
+        )
 
-    with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        binary_name = _deno_binary_name()
-        # The zip may contain the binary at the root or in a subdirectory
-        candidates = [n for n in zf.namelist()
-                      if os.path.basename(n) == binary_name]
-        if not candidates:
-            raise RuntimeError(
-                "Could not find {} inside the downloaded zip".format(binary_name)
-            )
-        # Use the first (usually only) match
-        member = candidates[0]
-        dest = os.path.join(tmp_runtime_dir, binary_name)
-        with zf.open(member) as src, open(dest, "wb") as dst:
-            dst.write(src.read())
+        # Extract the zip — it contains a single "deno" (or "deno.exe") binary
+        if os.path.isdir(tmp_runtime_dir):
+            shutil.rmtree(tmp_runtime_dir)
+        os.makedirs(tmp_runtime_dir, exist_ok=True)
+
+        with zipfile.ZipFile(archive_path) as zf:
+            binary_name = _deno_binary_name()
+            # The zip may contain the binary at the root or in a subdirectory
+            candidates = [n for n in zf.namelist()
+                          if os.path.basename(n) == binary_name]
+            if not candidates:
+                raise RuntimeError(
+                    "Could not find {} inside the downloaded zip".format(binary_name)
+                )
+            # Use the first (usually only) match
+            member = candidates[0]
+            dest = os.path.join(tmp_runtime_dir, binary_name)
+            # Copy in chunks: the unpacked binary is over 100 MB.
+            with zf.open(member) as src, open(dest, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+    except BaseException:
+        if os.path.isdir(tmp_runtime_dir):
+            shutil.rmtree(tmp_runtime_dir, ignore_errors=True)
+        raise
+    finally:
+        managed_runtime.remove_download(archive_path)
 
     # Ensure the binary is executable on POSIX systems
     if platform.system().lower() != "windows":

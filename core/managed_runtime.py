@@ -261,8 +261,19 @@ def list_available_versions(releases_api, limit, warn, runtime_label, skip_prere
     return versions
 
 
-def download_with_progress(url, runtime_label, version, show_progress=True):
-    """Download url into memory, showing a Kodi background progress dialog when possible."""
+def _remove_file(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def download_with_progress(url, destination, runtime_label, version, show_progress=True):
+    """Stream url into the file destination, showing a Kodi background progress dialog when possible.
+
+    The download goes to disk chunk by chunk, so a large archive (Deno: ~40 MB)
+    never has to fit into memory, which matters on low-memory devices.
+    """
     progress = None
     if show_progress:
         try:
@@ -273,16 +284,19 @@ def download_with_progress(url, runtime_label, version, show_progress=True):
         except Exception:
             progress = None
 
+    part_path = destination + ".part"
     try:
-        with urllib.request.urlopen(url, timeout=60) as response:
+        directory = os.path.dirname(destination)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=60) as response, open(part_path, "wb") as target:
             total = int(response.headers.get("Content-Length", 0))
             downloaded = 0
-            chunks = []
             while True:
                 chunk = response.read(_DOWNLOAD_CHUNK_SIZE)
                 if not chunk:
                     break
-                chunks.append(chunk)
+                target.write(chunk)
                 downloaded += len(chunk)
                 if progress is not None and total > 0:
                     progress.update(
@@ -294,7 +308,16 @@ def download_with_progress(url, runtime_label, version, show_progress=True):
                             total // (1024 * 1024),
                         ),
                     )
-            return b"".join(chunks)
+        os.replace(part_path, destination)
+        return destination
+    except BaseException:
+        _remove_file(part_path)
+        raise
     finally:
         if progress is not None:
             progress.close()
+
+
+def remove_download(path):
+    """Delete a downloaded archive after it was extracted (or failed)."""
+    _remove_file(path)

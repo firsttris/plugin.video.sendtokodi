@@ -122,10 +122,11 @@ def test_find_installed_runtime_from_version_file(monkeypatch, tmp_path):
 
 
 def test_extract_yt_dlp_from_tarball(monkeypatch, tmp_path):
-    tarball = _build_tarball_with_package("yt-dlp-2026.03.26")
+    archive = tmp_path / "yt-dlp.tar.gz"
+    archive.write_bytes(_build_tarball_with_package("yt-dlp-2026.03.26"))
     destination = tmp_path / "versions" / "2026.03.26"
 
-    ytdlp_manager._extract_yt_dlp_from_tarball(tarball, str(destination))
+    ytdlp_manager._extract_yt_dlp_from_tarball(str(archive), str(destination))
 
     assert os.path.isfile(destination / "yt_dlp" / "__init__.py")
     assert os.path.isfile(destination / "yt_dlp" / "version.py")
@@ -139,10 +140,12 @@ def test_extract_yt_dlp_from_tarball_cleans_tmp_dir_on_invalid_archive(tmp_path)
         info.size = len(data)
         tf.addfile(info, io.BytesIO(data))
 
+    archive = tmp_path / "yt-dlp.tar.gz"
+    archive.write_bytes(buff.getvalue())
     destination = tmp_path / "versions" / "2026.03.26"
 
     with pytest.raises(RuntimeError, match="valid yt_dlp package"):
-        ytdlp_manager._extract_yt_dlp_from_tarball(buff.getvalue(), str(destination))
+        ytdlp_manager._extract_yt_dlp_from_tarball(str(archive), str(destination))
 
     assert not os.path.exists(str(destination) + ".tmp")
 

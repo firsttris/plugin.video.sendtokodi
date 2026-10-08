@@ -8,7 +8,6 @@ between versions based on addon settings.
 """
 
 import importlib
-import io
 import logging
 import os
 import time
@@ -271,14 +270,14 @@ def _safe_join(base_dir, relative_path):
     return joined
 
 
-def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
+def _extract_yt_dlp_from_tarball(archive_path, destination_runtime_path):
     tmp_path = destination_runtime_path + ".tmp"
     if os.path.isdir(tmp_path):
         shutil.rmtree(tmp_path)
     os.makedirs(tmp_path, exist_ok=True)
 
     try:
-        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tf:
+        with tarfile.open(name=archive_path, mode="r:gz") as tf:
             for member in tf.getmembers():
                 name = member.name.replace("\\", "/")
                 if "/" not in name:
@@ -298,8 +297,8 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
                     continue
 
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                with open(target_path, "wb") as dst:
-                    dst.write(src.read())
+                with src, open(target_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
 
         expected_init = os.path.join(tmp_path, "yt_dlp", "__init__.py")
         if not os.path.isfile(expected_init):
@@ -315,21 +314,29 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
         raise
 
 
-def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE):
+def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE, show_progress=True):
     url = _tarball_url(source, version)
     _log("Downloading yt-dlp {} ({}) from {}".format(version, source, url))
 
-    try:
-        data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
-    except urllib.error.HTTPError as exc:
-        fallback_url = _fallback_tarball_url(source, version)
-        if exc.code != 404 or fallback_url is None:
-            raise
-        _log("No yt-dlp.tar.gz asset for {}, using the tag archive {}".format(version, fallback_url))
-        data = managed_runtime.download_with_progress(fallback_url, _RUNTIME_LABEL, version)
-
     runtime_path = _runtime_path_for_version(version)
-    _extract_yt_dlp_from_tarball(data, runtime_path)
+    archive_path = runtime_path + ".tar.gz"
+    try:
+        try:
+            managed_runtime.download_with_progress(
+                url, archive_path, _RUNTIME_LABEL, version, show_progress=show_progress
+            )
+        except urllib.error.HTTPError as exc:
+            fallback_url = _fallback_tarball_url(source, version)
+            if exc.code != 404 or fallback_url is None:
+                raise
+            _log("No yt-dlp.tar.gz asset for {}, using the tag archive {}".format(version, fallback_url))
+            managed_runtime.download_with_progress(
+                fallback_url, archive_path, _RUNTIME_LABEL, version, show_progress=show_progress
+            )
+
+        _extract_yt_dlp_from_tarball(archive_path, runtime_path)
+    finally:
+        managed_runtime.remove_download(archive_path)
     _write_installed_version(version)
     _log("yt-dlp {} ({}) installed at {}".format(version, source, runtime_path))
     _prune_old_versions(version)

@@ -367,6 +367,8 @@ def test_download_deno_extracts_binary_and_sets_executable(monkeypatch, tmp_path
     assert "/versions/v-test/" in dest
     assert set_version == ["v-test"]
     assert any("Downloading Deno" in msg for msg, _ in logs)
+    # The archive is only a temporary file next to the versions.
+    assert sorted(os.listdir(tmp_path / "versions")) == ["v-test"]
 
 
 def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
@@ -400,6 +402,8 @@ def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError):
         deno_manager._download_deno(show_progress=False, version="v-test")
+
+    assert os.listdir(tmp_path / "versions") == []
 
 
 def test_get_ydl_opts_downloads_when_missing(monkeypatch):
