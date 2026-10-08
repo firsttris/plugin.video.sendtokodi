@@ -33,6 +33,7 @@ from core.runtime.actions import (
     configure_managed_ytdlp,
     handle_runtime_action,
     refresh_runtime_displays,
+    update_runtimes_after_playback,
 )
 from core.service_runtime import install_stderr_workaround, patch_strptime
 
@@ -40,10 +41,11 @@ def debug(content):
     log(content, xbmc.LOGDEBUG)
 
 
+ADDON_ID = 'plugin.video.sendtokodi'
+
+
 def log(msg, level=xbmc.LOGINFO):
-    addon = xbmcaddon.Addon()
-    addonID = addon.getAddonInfo('id')
-    xbmc.log('%s: %s' % (addonID, msg), level)
+    xbmc.log('%s: %s' % (ADDON_ID, msg), level)
 
 
 def showInfoNotification(message):
@@ -81,13 +83,7 @@ def run_with_progress(title, message, operation):
             progress.close()
 
 
-invocation = resolve_plugin_invocation(sys.argv)
-
-# Get the plugin url in plugin:// notation.
-__url__ = invocation['url']
-# Get the plugin handle as an integer number.
-__handle__ = invocation['handle']
-paramstring = invocation['paramstring']
+YTDLP_CONFIG_LOCAL_COPY_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-config-copy.conf'
 
 
 def _legacy_python_workarounds_enabled(handle):
@@ -95,15 +91,6 @@ def _legacy_python_workarounds_enabled(handle):
         return xbmcplugin.getSetting(handle, "enable_legacy_python_workarounds") == 'true'
     except Exception:
         return False
-
-
-legacy_python_workarounds_enabled = _legacy_python_workarounds_enabled(__handle__)
-if legacy_python_workarounds_enabled:
-    install_stderr_workaround()
-
-# Kodi's sub-interpreters break datetime.strptime up to Python 3.12 (see
-# core/service_runtime.py, #177), so always patch it, before yt-dlp is used.
-patch_strptime()
 
 
 _isa_support_cache = {}
@@ -123,13 +110,12 @@ except ImportError:
         return False
 
 
-def handle_resolve_failure(set_resolved_false=False):
+def handle_resolve_failure(handle, set_resolved_false=False):
     showErrorNotification("Could not resolve the url, check the log for more info")
     import traceback
     log(msg=traceback.format_exc(), level=xbmc.LOGERROR)
     if set_resolved_false:
-        xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
-    exit()
+        xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
 
 
 def resolve_action_param(paramstring):
@@ -140,14 +126,14 @@ def resolve_action_param(paramstring):
     return values[0]
 
 
-def handle_queue_action(paramstring):
+def handle_queue_action(plugin_url, paramstring):
     request = resolve_queue_request(paramstring)
     if request is None:
         return False
 
     playlist = xbmc.PlayList(1)
 
-    queue_url = __url__ + "?" + request["url"]
+    queue_url = plugin_url + "?" + request["url"]
     queue_title = request["title"] or request["url"]
     list_item = xbmcgui.ListItem(path=queue_url, label=queue_title)
     list_item.getVideoInfoTag().setTitle(queue_title)
@@ -158,56 +144,28 @@ def handle_queue_action(paramstring):
 
     return True
 
-# Open the settings if no parameters have been passed. Prevents crash.
-# This happens when the addon is launched from within the Kodi OSD.
-if not paramstring:
-    refresh_runtime_displays(__handle__, log)
-    xbmcaddon.Addon().openSettings()
-    exit()
 
-if handle_queue_action(paramstring):
-    exit()
-
-action = resolve_action_param(paramstring)
-if action is not None and handle_runtime_action(
-    action,
-    __handle__,
-    run_with_progress,
-    showInfoNotification,
-    showErrorNotification,
-    log,
-):
-    exit()
-
-configure_managed_ytdlp(__handle__, log)
-
-# yt-dlp is the only supported resolver
-try:
-    yt_dlp_module = importlib.import_module("yt_dlp")
-    YoutubeDL = yt_dlp_module.YoutubeDL
-except Exception as exc:
-    showErrorNotification("yt-dlp is unavailable")
-    log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
-    xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
-    exit()
-
-params = parse_cli_paramstring(paramstring)
-url = str(params['url'])
-
-js_runtime_opts = {}
-try:
-    from core.deno_manager import get_ydl_opts
-    js_runtime_opts = resolve_js_runtime_opts(__handle__, xbmcplugin.getSetting, get_ydl_opts)
-except Exception as e:
-    log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
-
-YTDLP_CONFIG_LOCAL_COPY_PATH = 'special://profile/addon_data/plugin.video.sendtokodi/yt-dlp-config-copy.conf'
-
-config_ytdlp_opts = {}
-ytdlp_config_location = resolve_ytdlp_config_location(__handle__, xbmcplugin.getSetting)
-if ytdlp_config_location:
+def _resolve_js_runtime_opts(handle):
     try:
-        config_ytdlp_opts = load_ytdlp_config_options(
+        from core.deno_manager import get_ydl_opts
+
+        def get_deno_ydl_opts(**kwargs):
+            # An installed Deno is used right away; updates run after playback started.
+            return get_ydl_opts(prefer_installed=True, **kwargs)
+
+        return resolve_js_runtime_opts(handle, xbmcplugin.getSetting, get_deno_ydl_opts)
+    except Exception as e:
+        log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
+        return {}
+
+
+def _load_config_ytdlp_opts(handle, yt_dlp_module):
+    """Return the options of the configured yt-dlp config file, or None if it cannot be loaded."""
+    ytdlp_config_location = resolve_ytdlp_config_location(handle, xbmcplugin.getSetting)
+    if not ytdlp_config_location:
+        return {}
+    try:
+        return load_ytdlp_config_options(
             resolve_local_ytdlp_config_path(
                 ytdlp_config_location,
                 xbmcvfs.translatePath,
@@ -220,17 +178,15 @@ if ytdlp_config_location:
     except (Exception, SystemExit) as exc:
         showErrorNotification("Could not load yt-dlp config")
         log("Could not load yt-dlp config: {}".format(exc), xbmc.LOGERROR)
-        xbmcplugin.setResolvedUrl(__handle__, False, listitem=xbmcgui.ListItem())
-        exit()
+        return None
 
-ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
 
-media_download_settings = resolve_media_download_settings(__handle__, xbmcplugin.getSetting)
-media_download_enabled = media_download_settings['enabled']
-media_download_path = media_download_settings['path']
+def _apply_media_download_settings(handle, ydl_opts):
+    media_download_settings = resolve_media_download_settings(handle, xbmcplugin.getSetting)
+    if not media_download_settings['enabled']:
+        return False
 
-if media_download_enabled:
-    translated_media_download_path = xbmcvfs.translatePath(media_download_path)
+    translated_media_download_path = xbmcvfs.translatePath(media_download_settings['path'])
     if not xbmcvfs.exists(translated_media_download_path):
         if not xbmcvfs.mkdirs(translated_media_download_path):
             log(
@@ -239,68 +195,144 @@ if media_download_enabled:
             )
     ydl_opts['paths'] = {'home': translated_media_download_path}
     log("Media auto-download enabled. Target path: {}".format(translated_media_download_path))
+    return True
 
-usemanifest = xbmcplugin.getSetting(__handle__,"usemanifest") == 'true'
-usedashbuilder = xbmcplugin.getSetting(__handle__,"usedashbuilder") == 'true'
-askstream = xbmcplugin.getSetting(__handle__,"askstream") == 'true'
-disable_opus_for_audio_only_hls_native = (
-    xbmcplugin.getSetting(__handle__, "audio_only_hls_disable_opus_native") == 'true'
-)
-dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(__handle__, xbmcplugin.getSetting)
-dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
-log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
-maxwidth, strict_max_resolution = resolve_max_resolution(__handle__, xbmcplugin.getSetting)
 
-ydl = YoutubeDL(ydl_opts)
-ydl.add_default_info_extractors()
+def play(plugin_url, handle, paramstring):
+    """Resolve the sent url with yt-dlp and hand the result to Kodi."""
+    configure_managed_ytdlp(handle, log)
 
-with ydl:
+    # yt-dlp is the only supported resolver
     try:
-        result = extract_result_with_progress(ydl, url)
-        if media_download_enabled and 'entries' not in result:
-            result = download_result_with_progress(ydl, result)
-    except Exception:
-        handle_resolve_failure(set_resolved_false=True)
+        yt_dlp_module = importlib.import_module("yt_dlp")
+        YoutubeDL = yt_dlp_module.YoutubeDL
+    except Exception as exc:
+        showErrorNotification("yt-dlp is unavailable")
+        log("yt-dlp import failed: {}".format(exc), xbmc.LOGERROR)
+        xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
+        return
 
-if 'entries' in result:
+    params = parse_cli_paramstring(paramstring)
+    url = str(params['url'])
+
+    js_runtime_opts = _resolve_js_runtime_opts(handle)
+
+    config_ytdlp_opts = _load_config_ytdlp_opts(handle, yt_dlp_module)
+    if config_ytdlp_opts is None:
+        xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
+        return
+
+    ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
+    media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
+
+    usemanifest = xbmcplugin.getSetting(handle, "usemanifest") == 'true'
+    usedashbuilder = xbmcplugin.getSetting(handle, "usedashbuilder") == 'true'
+    askstream = xbmcplugin.getSetting(handle, "askstream") == 'true'
+    disable_opus_for_audio_only_hls_native = (
+        xbmcplugin.getSetting(handle, "audio_only_hls_disable_opus_native") == 'true'
+    )
+    dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(handle, xbmcplugin.getSetting)
+    dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
+    log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
+    maxwidth, strict_max_resolution = resolve_max_resolution(handle, xbmcplugin.getSetting)
+
+    ydl = YoutubeDL(ydl_opts)
+    ydl.add_default_info_extractors()
+
+    with ydl:
+        try:
+            result = extract_result_with_progress(ydl, url)
+            if media_download_enabled and 'entries' not in result:
+                result = download_result_with_progress(ydl, result)
+        except Exception:
+            handle_resolve_failure(handle, set_resolved_false=True)
+            return
+
+    if 'entries' in result:
+        try:
+            play_playlist_result(
+                result,
+                url,
+                ydl,
+                plugin_url,
+                paramstring,
+                media_download_enabled,
+                ydl_opts,
+                usemanifest,
+                usedashbuilder,
+                maxwidth,
+                strict_max_resolution,
+                askstream,
+                disable_opus_for_audio_only_hls_native,
+                isa_supports,
+                YoutubeDL,
+                log,
+                showErrorNotification,
+            )
+        except Exception:
+            handle_resolve_failure(handle)
+    else:
+        try:
+            list_item = create_list_item_from_video(
+                result,
+                ydl_opts,
+                usemanifest,
+                usedashbuilder,
+                maxwidth,
+                strict_max_resolution,
+                askstream,
+                disable_opus_for_audio_only_hls_native,
+                isa_supports,
+                YoutubeDL,
+                log,
+                showErrorNotification,
+            )
+            xbmcplugin.setResolvedUrl(handle, True, listitem=list_item)
+        except Exception:
+            handle_resolve_failure(handle, set_resolved_false=True)
+
+
+def main(argv):
+    invocation = resolve_plugin_invocation(argv)
+    # The plugin url in plugin:// notation, the plugin handle and the query.
+    plugin_url = invocation['url']
+    handle = invocation['handle']
+    paramstring = invocation['paramstring']
+
+    if _legacy_python_workarounds_enabled(handle):
+        install_stderr_workaround()
+
+    # Kodi's sub-interpreters break datetime.strptime up to Python 3.12 (see
+    # core/service_runtime.py, #177), so always patch it, before yt-dlp is used.
+    patch_strptime()
+
+    # Open the settings if no parameters have been passed. Prevents crash.
+    # This happens when the addon is launched from within the Kodi OSD.
+    if not paramstring:
+        refresh_runtime_displays(handle, log)
+        xbmcaddon.Addon().openSettings()
+        return
+
+    if handle_queue_action(plugin_url, paramstring):
+        return
+
+    action = resolve_action_param(paramstring)
+    if action is not None and handle_runtime_action(
+        action,
+        handle,
+        run_with_progress,
+        showInfoNotification,
+        showErrorNotification,
+        log,
+    ):
+        return
+
     try:
-        play_playlist_result(
-            result,
-            url,
-            ydl,
-            __url__,
-            paramstring,
-            media_download_enabled,
-            ydl_opts,
-            usemanifest,
-            usedashbuilder,
-            maxwidth,
-            strict_max_resolution,
-            askstream,
-            disable_opus_for_audio_only_hls_native,
-            isa_supports,
-            YoutubeDL,
-            log,
-            showErrorNotification,
-        )
-    except Exception:
-        handle_resolve_failure()
-else:
-    try:
-        list_item = create_list_item_from_video(
-            result,
-            ydl_opts,
-            usemanifest,
-            usedashbuilder,
-            maxwidth,
-            strict_max_resolution,
-            askstream,
-            disable_opus_for_audio_only_hls_native,
-            isa_supports,
-            YoutubeDL,
-            log,
-            showErrorNotification,
-        )
-        xbmcplugin.setResolvedUrl(__handle__, True, listitem=list_item)
-    except Exception:
-        handle_resolve_failure(set_resolved_false=True)
+        play(plugin_url, handle, paramstring)
+    finally:
+        # Kodi already plays (or has given up on) the stream at this point, so
+        # checking for runtime updates no longer delays playback.
+        update_runtimes_after_playback(handle, log)
+
+
+main(sys.argv)

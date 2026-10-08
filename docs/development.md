@@ -48,7 +48,7 @@ Add a test for every change in `core`; CI refuses pull requests whose tests fail
 | `core/playback_selection.py` | Chooses the stream to play from yt-dlp's formats: manifest, DASH builder or progressive, resolution cap, headers. |
 | `core/dash_builder.py` | Builds DASH manifests from separate video and audio formats and serves them from a local HTTP server. |
 | `core/runtime/playback.py` | Turns a yt-dlp result into Kodi `ListItem`s: single videos, playlists, subtitles, InputStream Adaptive properties. |
-| `core/runtime/actions.py` | The settings actions: update now, manage versions, and preparing the managed yt-dlp before a playback. |
+| `core/runtime/actions.py` | The settings actions: update now, manage versions, preparing the managed yt-dlp before a playback and the runtime update check after it. |
 | `core/managed_runtime.py` | Shared logic of the managed runtimes: version folders, pruning, update state. |
 | `core/ytdlp_manager.py`, `core/deno_manager.py` | Download, install, activate and list yt-dlp and Deno versions. |
 | `core/update_policy.py`, `core/runtime_update_state.py` | Check intervals, backoff and the persisted update state. |

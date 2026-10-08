@@ -393,7 +393,20 @@ def get_runtime_status(
     }
 
 
-def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_latest=False):
+def _ydl_opts_for(deno_path):
+    return {
+        "js_runtimes": {"deno": {"path": deno_path}},
+        "remote_components": {"ejs:github"},
+    }
+
+
+def get_ydl_opts(
+    auto_download=True,
+    requested_version=None,
+    force_refresh_latest=False,
+    prefer_installed=False,
+    show_progress=True,
+):
     """
     Return a yt-dlp options dict that configures Deno as the JS runtime.
 
@@ -409,6 +422,11 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
     auto_download : bool
         When True (the default), download Deno automatically if it is not
         already present.  When False, only use a pre-existing installation.
+    prefer_installed : bool
+        Use an installed (or system) Deno right away instead of first checking
+        GitHub for a newer release; see update_installed_runtime().
+    show_progress : bool
+        Show the Kodi progress dialog while downloading.
     """
     try:
         reason = unsupported_platform_reason()
@@ -419,6 +437,11 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
 
         requested = _normalize_requested_version(requested_version)
         installed_version, deno_path = _find_installed_runtime()
+
+        if prefer_installed and requested == DENO_LATEST_SENTINEL and not force_refresh_latest:
+            available_path = deno_path or _find_in_path()
+            if available_path is not None:
+                return _ydl_opts_for(available_path)
 
         target_version = requested
         if requested == DENO_LATEST_SENTINEL:
@@ -450,7 +473,7 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
                         "Deno version mismatch (installed={}, expected={});"
                         " updating…".format(installed_version, target_version)
                     )
-                    deno_path = _download_deno(show_progress=True, version=target_version)
+                    deno_path = _download_deno(show_progress=show_progress, version=target_version)
 
         # An explicit version or forced update must install a managed Deno, not
         # silently fall back to a system binary.
@@ -469,13 +492,32 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
                     "YouTube extraction may fail"
                 )
                 return {}
-            deno_path = _download_deno(show_progress=True, version=target_version)
+            deno_path = _download_deno(show_progress=show_progress, version=target_version)
 
-        return {
-            "js_runtimes": {"deno": {"path": deno_path}},
-            "remote_components": {"ejs:github"},
-        }
+        return _ydl_opts_for(deno_path)
 
     except Exception as exc:
         _warn("Could not configure Deno: {}".format(exc))
         return {}
+
+
+def update_installed_runtime(show_progress=False):
+    """Bring a managed Deno up to the latest release.
+
+    Meant to run after playback has started: the check honours the cached
+    update interval, and a newer release is used from the next invocation.
+    Returns the newly installed version, or None when nothing changed. A
+    system Deno or no Deno at all is left alone.
+    """
+    if unsupported_platform_reason() is not None:
+        return None
+
+    installed_version = _get_installed_version()
+    if installed_version is None or _find_runtime_for_version(installed_version) is None:
+        return None
+
+    get_ydl_opts(auto_download=True, show_progress=show_progress)
+    current_version = _get_installed_version()
+    if current_version != installed_version:
+        return current_version
+    return None

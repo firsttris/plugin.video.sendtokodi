@@ -258,7 +258,7 @@ def test_ensure_ready_passes_source_to_download(monkeypatch):
     monkeypatch.setattr(
         ytdlp_manager,
         "_download_and_install",
-        lambda version, source=None: calls.append((version, source))
+        lambda version, source=None, **_kwargs: calls.append((version, source))
         or "/addon/ytdlp/versions/{}".format(version),
     )
 

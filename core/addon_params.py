@@ -201,6 +201,10 @@ def _is_armv7_machine(get_machine):
     return machine.startswith('armv7')
 
 
+def resolve_js_runtime_mode(handle, get_setting):
+    return _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
+
+
 def resolve_quickjs_opts(
     handle,
     get_setting,
@@ -231,7 +235,7 @@ def resolve_js_runtime_opts(
     is_executable=os.access,
     access_flag=os.X_OK,
 ):
-    runtime_mode = _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
+    runtime_mode = resolve_js_runtime_mode(handle, get_setting)
 
     if runtime_mode == 'disabled':
         return {}

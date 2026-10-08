@@ -406,9 +406,13 @@ def ensure_ytdlp_ready(
     requested_version=YTDLP_LATEST_SENTINEL,
     force_refresh_latest=False,
     source=DEFAULT_YTDLP_SOURCE,
+    show_progress=True,
 ):
     """
     Ensure a yt-dlp runtime is available.
+
+    With allow_install=False and the default "latest", an installed version is
+    returned right away without any network access.
 
     Returns a status dict with:
       - ready (bool)
@@ -475,7 +479,7 @@ def ensure_ytdlp_ready(
                 return _ready(target_version, existing_runtime)
 
             if allow_install:
-                runtime_path = _download_and_install(target_version, source=source)
+                runtime_path = _download_and_install(target_version, source=source, show_progress=show_progress)
                 return _ready(target_version, runtime_path)
 
             return _not_ready(
@@ -496,7 +500,7 @@ def ensure_ytdlp_ready(
                 target_version = _resolve_latest_version(force_refresh=True, source=source)
             else:
                 target_version = _resolve_latest_version(source=source)
-        runtime_path = _download_and_install(target_version, source=source)
+        runtime_path = _download_and_install(target_version, source=source, show_progress=show_progress)
         return _ready(target_version, runtime_path)
     except Exception as exc:
         _warn("Could not ensure yt-dlp runtime: {}".format(exc))
