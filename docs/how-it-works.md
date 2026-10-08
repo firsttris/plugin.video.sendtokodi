@@ -45,9 +45,10 @@ holds the logic, split into modules that are tested without Kodi (see [Developme
 1. **Parse the request.** `core.addon_params` reads the plugin URL: the `url=` form, the legacy raw form, the
    `yt-dlp-options` JSON and the `action=queue` request. Queue requests are handled right away: the item is appended
    to Kodi's video playlist with the plugin URL as its path and the add-on exits.
-2. **Make sure yt-dlp is there.** `core.runtime.actions.configure_managed_ytdlp` puts the managed yt-dlp on
-   `sys.path` (or checks the system package for the `System` channel), downloads it when missing and, every six hours,
-   checks for a new release. The [managed runtimes](#managed-runtimes) section has the details.
+2. **Make sure yt-dlp is there.** `core.runtime.actions.configure_managed_ytdlp` puts the installed managed yt-dlp
+   on `sys.path` without any network access (or checks the system package for the `System` channel) and downloads it
+   only when none is installed. The check for a new release runs at the end, see step 7. The
+   [managed runtimes](#managed-runtimes) section has the details.
 3. **Build the yt-dlp options.** Defaults (`extract_flat` for playlists), then the options from the
    [config file](settings.md#using-a-yt-dlp-config-file), then the per-request options, then the JavaScript runtime
    options. The config file is parsed with yt-dlp's own option parser and only the options the file changes are taken
@@ -58,6 +59,8 @@ holds the logic, split into modules that are tested without Kodi (see [Developme
    is again a SendToKodi plugin URL, so it resolves when played. A single item goes through stream selection.
 6. **Select the stream** and build the `ListItem` for Kodi: path, InputStream Adaptive properties, HTTP headers,
    title, description, thumbnail and subtitles. `xbmcplugin.setResolvedUrl` hands it to the player.
+7. **Check for runtime updates.** With auto-update on, `update_runtimes_after_playback` checks for new yt-dlp and
+   Deno releases while Kodi already plays, and installs them for the next playback.
 
 ## Managed runtimes
 
@@ -76,6 +79,9 @@ runtimes.
   [denoland/deno](https://github.com/denoland/deno/releases) releases, with builds for Linux and macOS on x86_64 and
   ARM64 and for Windows on x86_64. Archives are extracted with path checks, so a crafted archive cannot write outside
   the version folder.
+- **Update timing.** An installed yt-dlp or Deno is used right away. The update check runs after the stream has been
+  handed to Kodi (also after a failed resolve, since an outdated yt-dlp is the usual cause), so it never delays
+  playback; a newer release is used from the next playback on.
 - **Update cadence.** With auto-update on, the add-on asks GitHub for the latest release at most every six hours;
   when GitHub answers *not modified*, the next check waits four times as long. Failures back off in steps from five
   minutes to a day, so a device without internet does not hammer GitHub or delay playback. The state lives in a small
@@ -100,8 +106,9 @@ runtime to yt-dlp as `js_runtimes` together with `remote_components: {'ejs:githu
 | `quickjs` | The QuickJS binary from *QuickJS binary path*, if it exists and is executable |
 | `disabled` | None; sites with JavaScript challenges fail |
 
-Deno has no ARMv7 build, which is why QuickJS exists as an option; see
-[ARMv7 devices](troubleshooting.md#armv7-devices-raspberry-pi-2-and-3-32-bit).
+Deno has no ARMv7 and no Android build, which is why QuickJS exists as an option; see
+[ARMv7 devices](troubleshooting.md#armv7-devices-raspberry-pi-2-and-3-32-bit) and
+[Android](troubleshooting.md#android-android-tv-fire-tv).
 
 ## Stream selection
 

@@ -17,6 +17,50 @@ def test_detect_platform_supported(monkeypatch):
     assert deno_manager._detect_platform() == ("linux", "x86_64")
 
 
+def test_detect_platform_rejects_android(monkeypatch):
+    monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(deno_manager.platform, "machine", lambda: "aarch64")
+    monkeypatch.setattr(deno_manager.sys, "getandroidapilevel", lambda: 33, raising=False)
+
+    with pytest.raises(RuntimeError, match="Android"):
+        deno_manager._detect_platform()
+
+
+def test_is_android_uses_kodi_platform_condition(monkeypatch):
+    monkeypatch.delattr(deno_manager.sys, "getandroidapilevel", raising=False)
+    monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
+    fake_xbmc = SimpleNamespace(getCondVisibility=lambda condition: condition == "System.Platform.Android")
+    monkeypatch.setitem(sys.modules, "xbmc", fake_xbmc)
+
+    assert deno_manager._is_android() is True
+
+
+def test_is_android_false_on_desktop_linux(monkeypatch):
+    monkeypatch.delattr(deno_manager.sys, "getandroidapilevel", raising=False)
+    monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
+    monkeypatch.setitem(sys.modules, "xbmc", None)
+
+    assert deno_manager._is_android() is False
+
+
+def test_get_ydl_opts_on_android_skips_download_and_removes_unusable_install(monkeypatch, tmp_path):
+    monkeypatch.setattr(deno_manager, "_is_android", lambda: True)
+    versions_dir = tmp_path / "deno" / "versions" / "v2.7.5"
+    versions_dir.mkdir(parents=True)
+    (versions_dir / "deno").write_bytes(b"glibc build")
+    deno_manager._set_installed_version("v2.7.5")
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("must not download or resolve on Android")
+
+    monkeypatch.setattr(deno_manager, "_download_deno", fail)
+    monkeypatch.setattr(deno_manager, "_resolve_latest_version", fail)
+
+    assert deno_manager.get_ydl_opts(auto_download=True) == {}
+    assert not (tmp_path / "deno" / "versions").exists()
+    assert deno_manager._get_installed_version() is None
+
+
 def test_detect_platform_unsupported(monkeypatch):
     monkeypatch.setattr(deno_manager.platform, "system", lambda: "Plan9")
     monkeypatch.setattr(deno_manager.platform, "machine", lambda: "mips")
@@ -323,6 +367,8 @@ def test_download_deno_extracts_binary_and_sets_executable(monkeypatch, tmp_path
     assert "/versions/v-test/" in dest
     assert set_version == ["v-test"]
     assert any("Downloading Deno" in msg for msg, _ in logs)
+    # The archive is only a temporary file next to the versions.
+    assert sorted(os.listdir(tmp_path / "versions")) == ["v-test"]
 
 
 def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
@@ -356,6 +402,8 @@ def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError):
         deno_manager._download_deno(show_progress=False, version="v-test")
+
+    assert os.listdir(tmp_path / "versions") == []
 
 
 def test_get_ydl_opts_downloads_when_missing(monkeypatch):

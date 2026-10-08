@@ -11,6 +11,10 @@ DEFAULT_YTDLP_VERSION = 'latest'
 DEFAULT_DENO_VERSION = 'latest'
 DEFAULT_JS_RUNTIME_MODE = 'auto'
 DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
+DEFAULT_MAX_RESOLUTION = 1920
+# -1 lifts the strict limit; the width is then only a preference.
+UNLIMITED_MAX_RESOLUTION = -1
+UNLIMITED_MAX_WIDTH = 7680
 MIN_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 10
 MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 600
 YT_DLP_OPTIONS_QUERY_PARAM = 'yt-dlp-options'
@@ -197,6 +201,10 @@ def _is_armv7_machine(get_machine):
     return machine.startswith('armv7')
 
 
+def resolve_js_runtime_mode(handle, get_setting):
+    return _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
+
+
 def resolve_quickjs_opts(
     handle,
     get_setting,
@@ -227,7 +235,7 @@ def resolve_js_runtime_opts(
     is_executable=os.access,
     access_flag=os.X_OK,
 ):
-    runtime_mode = _normalize_js_runtime_mode(get_setting(handle, 'js_runtime_mode'))
+    runtime_mode = resolve_js_runtime_mode(handle, get_setting)
 
     if runtime_mode == 'disabled':
         return {}
@@ -256,10 +264,8 @@ def resolve_js_runtime_opts(
 
 
 def resolve_deno_settings(handle, get_setting):
-    enabled = get_setting(handle, "deno_enabled") == 'true'
     auto_update = get_setting(handle, "deno_autodownload") == 'true'
     return {
-        'enabled': enabled,
         'auto_update': auto_update,
         'version': DEFAULT_DENO_VERSION,
     }
@@ -302,3 +308,16 @@ def resolve_dash_httpd_idle_timeout(handle, get_setting):
     if timeout_seconds > MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
         return MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
     return timeout_seconds
+
+
+def resolve_max_resolution(handle, get_setting):
+    """Return (maxwidth, strict_max_resolution) from the maxresolution setting."""
+    raw_value = (get_setting(handle, "maxresolution") or '').strip()
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        value = DEFAULT_MAX_RESOLUTION
+
+    if value < 0:
+        return UNLIMITED_MAX_WIDTH, False
+    return value, True

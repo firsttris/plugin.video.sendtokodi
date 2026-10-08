@@ -2,6 +2,8 @@ import importlib
 import sys
 import types
 
+import pytest
+
 
 class DummyInfoTag:
     def __init__(self):
@@ -260,3 +262,131 @@ def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'mpd'
     assert list_item.mime_type == 'application/dash+xml'
+
+def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatch, tmp_path):
+    import threading
+
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+
+    started = []
+    all_started = threading.Event()
+
+    def fake_download(url, destination_path, _headers):
+        started.append(url)
+        if len(started) == 3:
+            all_started.set()
+        # Only returns when all three downloads run at the same time.
+        assert all_started.wait(timeout=5), "downloads ran one after another"
+        if url.endswith('/fr.vtt'):
+            raise OSError('404')
+        with open(destination_path, 'w') as subtitle_file:
+            subtitle_file.write(url)
+
+    monkeypatch.setattr(playback, '_download_subtitle_file', fake_download)
+    subtitles = {
+        'de': [{'url': 'https://example.invalid/de.vtt', 'ext': 'vtt'}],
+        'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}],
+        'local': [{'url': '/storage/local.srt', 'ext': 'srt'}],
+        'fr': [{'url': 'https://example.invalid/fr.vtt', 'ext': 'vtt'}],
+    }
+    logs = []
+
+    paths = playback._resolve_subtitle_paths(subtitles, {}, lambda msg, *_a: logs.append(msg))
+
+    assert paths == [
+        str(tmp_path / 'de.vtt'),
+        str(tmp_path / 'en.vtt'),
+        '/storage/local.srt',
+        'https://example.invalid/fr.vtt',
+    ]
+    assert any('Failed to download subtitle https://example.invalid/fr.vtt' in msg for msg in logs)
+
+
+class _FakePlaylist:
+    def __init__(self):
+        self.items = []
+
+    def clear(self):
+        self.items = []
+
+    def add(self, path, _item, index=None):
+        if index is None:
+            self.items.append(path)
+        else:
+            self.items.insert(index, path)
+
+
+class _FakeProgress:
+    def __init__(self, events):
+        self.events = events
+
+    def create(self, heading, *_args):
+        self.events.append(('progress', heading))
+
+    def close(self):
+        pass
+
+
+@pytest.mark.parametrize('media_download_enabled', [False, True])
+def test_play_playlist_resolves_starting_entry_with_progress(monkeypatch, media_download_enabled):
+    playback = _load_playback_module(monkeypatch)
+    events = []
+    playlist = _FakePlaylist()
+    monkeypatch.setattr(playback.xbmc, 'PlayList', lambda _kind: playlist, raising=False)
+    monkeypatch.setattr(playback.xbmc, 'executebuiltin', lambda command: events.append(('builtin', command)), raising=False)
+    monkeypatch.setattr(playback.xbmcgui, 'DialogProgressBG', lambda: _FakeProgress(events))
+    monkeypatch.setattr(
+        playback,
+        'create_list_item_from_video',
+        lambda result, *_args: DummyListItem(path='resolved:' + result['url']),
+    )
+
+    class FakeYdl:
+        def extract_info(self, url, download=False):
+            events.append(('extract', url, download))
+            return {'url': url, 'title': 'Second'}
+
+        def process_ie_result(self, result, download=False):
+            events.append(('download', result['url'], download))
+            return dict(result, downloaded=True)
+
+    result = {
+        'entries': [
+            {'id': 'a', 'url': 'https://example.invalid/a', 'title': 'First'},
+            {'id': 'b', 'url': 'https://example.invalid/b', 'title': 'Second'},
+        ]
+    }
+
+    playback.play_playlist_result(
+        result,
+        'https://example.invalid/list?v=b',
+        FakeYdl(),
+        'plugin://plugin.video.sendtokodi/',
+        '?https://example.invalid/list?v=b',
+        media_download_enabled,
+        {},
+        True,
+        True,
+        1920,
+        True,
+        False,
+        True,
+        lambda _stream: False,
+        None,
+        lambda *_a: None,
+        lambda *_a: None,
+    )
+
+    expected = [
+        ('progress', 'Resolving https://example.invalid/b'),
+        ('extract', 'https://example.invalid/b', False),
+    ]
+    if media_download_enabled:
+        expected += [
+            ('progress', 'Downloading Second'),
+            ('download', 'https://example.invalid/b', True),
+        ]
+    expected.append(('builtin', 'Playlist.PlayOffset(video,1)'))
+    assert events == expected
+    assert playlist.items[1] == 'resolved:https://example.invalid/b'

@@ -122,10 +122,11 @@ def test_find_installed_runtime_from_version_file(monkeypatch, tmp_path):
 
 
 def test_extract_yt_dlp_from_tarball(monkeypatch, tmp_path):
-    tarball = _build_tarball_with_package("yt-dlp-2026.03.26")
+    archive = tmp_path / "yt-dlp.tar.gz"
+    archive.write_bytes(_build_tarball_with_package("yt-dlp-2026.03.26"))
     destination = tmp_path / "versions" / "2026.03.26"
 
-    ytdlp_manager._extract_yt_dlp_from_tarball(tarball, str(destination))
+    ytdlp_manager._extract_yt_dlp_from_tarball(str(archive), str(destination))
 
     assert os.path.isfile(destination / "yt_dlp" / "__init__.py")
     assert os.path.isfile(destination / "yt_dlp" / "version.py")
@@ -139,10 +140,12 @@ def test_extract_yt_dlp_from_tarball_cleans_tmp_dir_on_invalid_archive(tmp_path)
         info.size = len(data)
         tf.addfile(info, io.BytesIO(data))
 
+    archive = tmp_path / "yt-dlp.tar.gz"
+    archive.write_bytes(buff.getvalue())
     destination = tmp_path / "versions" / "2026.03.26"
 
     with pytest.raises(RuntimeError, match="valid yt_dlp package"):
-        ytdlp_manager._extract_yt_dlp_from_tarball(buff.getvalue(), str(destination))
+        ytdlp_manager._extract_yt_dlp_from_tarball(str(archive), str(destination))
 
     assert not os.path.exists(str(destination) + ".tmp")
 
@@ -213,7 +216,7 @@ def test_get_runtime_status_reports_versions(monkeypatch):
         lambda: ["2026.03.10", "2026.03.01"],
     )
 
-    status = ytdlp_manager.get_runtime_status("latest")
+    status = ytdlp_manager.get_runtime_status("latest", include_latest=True)
 
     assert status["requested_version"] == "latest"
     assert status["installed_version"] == "2026.03.10"
@@ -261,7 +264,7 @@ def test_get_runtime_status_handles_latest_lookup_error(monkeypatch):
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("network error")),
     )
 
-    status = ytdlp_manager.get_runtime_status("2026.03.01")
+    status = ytdlp_manager.get_runtime_status("2026.03.01", include_latest=True)
 
     assert status["requested_version"] == "2026.03.01"
     assert status["latest_version"] is None
@@ -438,3 +441,74 @@ def test_install_prompt_snooze_expires(monkeypatch, tmp_path):
     assert ytdlp_manager.is_install_prompt_snoozed(now=1001) is True
     later = 1000 + ytdlp_manager.INSTALL_PROMPT_SNOOZE_SECONDS
     assert ytdlp_manager.is_install_prompt_snoozed(now=later) is False
+
+
+def test_get_runtime_status_does_not_look_up_latest_by_default(monkeypatch):
+    monkeypatch.setattr(ytdlp_manager, "_find_installed_runtime", lambda: ("2026.03.26", "/addon/ytdlp/versions/2026.03.26"))
+
+    def fail(**_kwargs):
+        raise AssertionError("showing the status must not query GitHub")
+
+    monkeypatch.setattr(ytdlp_manager, "_resolve_latest_version", fail)
+
+    status = ytdlp_manager.get_runtime_status("latest")
+
+    assert status["installed_version"] == "2026.03.26"
+    assert status["latest_version"] is None
+
+
+def _fake_module(name, file_path):
+    import types
+
+    module = types.ModuleType(name)
+    module.__file__ = file_path
+    return module
+
+
+def test_activate_runtime_switches_versions_in_a_reused_interpreter(monkeypatch, tmp_path):
+    versions = tmp_path / "ytdlp" / "versions"
+    old_path = str(versions / "2026.08.19")
+    new_path = str(versions / "2026.09.30")
+    monkeypatch.setattr(sys, "path", [old_path, "/usr/lib/python3/site-packages"])
+    monkeypatch.setitem(sys.modules, "yt_dlp", _fake_module("yt_dlp", old_path + "/yt_dlp/__init__.py"))
+    monkeypatch.setitem(
+        sys.modules, "yt_dlp.extractor", _fake_module("yt_dlp.extractor", old_path + "/yt_dlp/extractor/__init__.py")
+    )
+
+    ytdlp_manager.activate_runtime(new_path)
+
+    assert sys.path == [new_path, "/usr/lib/python3/site-packages"]
+    assert "yt_dlp" not in sys.modules
+    assert "yt_dlp.extractor" not in sys.modules
+
+
+def test_activate_runtime_keeps_yt_dlp_loaded_from_the_same_version(monkeypatch, tmp_path):
+    path = str(tmp_path / "ytdlp" / "versions" / "2026.09.30")
+    loaded = _fake_module("yt_dlp", path + "/yt_dlp/__init__.py")
+    monkeypatch.setattr(sys, "path", [path])
+    monkeypatch.setitem(sys.modules, "yt_dlp", loaded)
+
+    ytdlp_manager.activate_runtime(path)
+
+    assert sys.path == [path]
+    assert sys.modules["yt_dlp"] is loaded
+
+
+def test_activate_runtime_none_removes_managed_versions(monkeypatch, tmp_path):
+    managed = str(tmp_path / "ytdlp" / "versions" / "2026.09.30")
+    monkeypatch.setattr(sys, "path", [managed, "/usr/lib/python3/site-packages"])
+    monkeypatch.setitem(sys.modules, "yt_dlp", _fake_module("yt_dlp", managed + "/yt_dlp/__init__.py"))
+
+    ytdlp_manager.activate_runtime(None)
+
+    assert sys.path == ["/usr/lib/python3/site-packages"]
+    assert "yt_dlp" not in sys.modules
+
+
+def test_activate_runtime_none_keeps_system_yt_dlp(monkeypatch):
+    system = _fake_module("yt_dlp", "/usr/lib/python3/site-packages/yt_dlp/__init__.py")
+    monkeypatch.setitem(sys.modules, "yt_dlp", system)
+
+    ytdlp_manager.activate_runtime(None)
+
+    assert sys.modules["yt_dlp"] is system

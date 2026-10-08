@@ -101,6 +101,16 @@ Deno has no 32-bit ARM build, so YouTube does not play with the default runtime 
   [QuickJS](https://bellard.org/quickjs/)), set **JavaScript runtime mode** to `quickjs` and enter the path under
   **QuickJS binary path**. In `auto` mode the add-on also prefers QuickJS on ARMv7 as soon as a path is set.
 
+## Android (Android TV, Fire TV)
+
+Deno has no Android build, so the add-on does not download it on Android. YouTube needs a JavaScript runtime for
+its challenges, so YouTube plays on Android only with a QuickJS binary that Kodi is allowed to execute: set
+**JavaScript runtime mode** to `quickjs` and enter the path under **QuickJS binary path**. Newer Android versions
+may block running binaries from app storage. Other sites without JavaScript challenges are not affected.
+
+Earlier versions of the add-on downloaded the Linux build of Deno on Android, which cannot run there. That
+download is removed automatically.
+
 ## The client cannot reach Kodi
 
 If the browser extension, the Shortcut or Kore cannot connect, the problem is in Kodi's web server, not in the add-on:

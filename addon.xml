@@ -7,6 +7,8 @@
   </requires>
   <extension point="xbmc.python.pluginsource" library="service.py">
       <provides>video</provides>
+      <!-- Keep the Python interpreter between calls, so yt-dlp is imported only once. -->
+      <reuselanguageinvoker>true</reuselanguageinvoker>
   </extension>
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SendToKodi</summary>

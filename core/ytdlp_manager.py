@@ -8,13 +8,13 @@ between versions based on addon settings.
 """
 
 import importlib
-import io
 import logging
 import os
 import time
 import shutil
 import sys
 import tarfile
+import urllib.error
 from core import managed_runtime
 from core.runtime_update_state import (
     default_update_state,
@@ -35,17 +35,24 @@ DEFAULT_YTDLP_SOURCE = YTDLP_SOURCE_STABLE
 YTDLP_SOURCES = (YTDLP_SOURCE_STABLE, YTDLP_SOURCE_NIGHTLY, YTDLP_SOURCE_SYSTEM)
 
 # Per-source release endpoints. "nightly" tracks yt-dlp/yt-dlp-nightly-builds
-# (builds of master); its releases carry a yt-dlp.tar.gz asset whose layout
-# matches the tag archive (<top>/yt_dlp/...), so the existing extractor is
-# reused unchanged. The nightly *repository* archive is only a README stub —
-# the source has to come from the release asset.
+# (builds of master). Both channels publish a yt-dlp.tar.gz release asset whose
+# layout matches the tag archive (<top>/yt_dlp/...), so one extractor serves both.
+# The asset is built with "make all" and therefore ships
+# yt_dlp/extractor/lazy_extractors.py; the plain tag archive does not, and
+# without it every start imports all ~1800 extractor modules (several times
+# slower). The nightly *repository* archive is only a README stub, so nightly
+# has no fallback.
 _SOURCE_REPOS = {
     YTDLP_SOURCE_STABLE: "yt-dlp/yt-dlp",
     YTDLP_SOURCE_NIGHTLY: "yt-dlp/yt-dlp-nightly-builds",
 }
 _SOURCE_TARBALL_URLS = {
-    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz",
+    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/releases/download/{version}/yt-dlp.tar.gz",
     YTDLP_SOURCE_NIGHTLY: "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/{version}/yt-dlp.tar.gz",
+}
+# Used when a (very old) release has no yt-dlp.tar.gz asset.
+_SOURCE_FALLBACK_TARBALL_URLS = {
+    YTDLP_SOURCE_STABLE: "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/{version}.tar.gz",
 }
 
 
@@ -72,6 +79,8 @@ def resolve_system_ytdlp():
     Where the package lives is a packaging concern: the addon only asks whether
     it can be imported. Nothing is added to sys.path here.
     """
+    # A managed version from an earlier invocation must not shadow the system package.
+    activate_runtime(None)
     try:
         module = importlib.import_module("yt_dlp")
     except Exception:
@@ -92,6 +101,13 @@ def _releases_api(source):
 
 def _tarball_url(source, version):
     return _SOURCE_TARBALL_URLS[source].format(version=version)
+
+
+def _fallback_tarball_url(source, version):
+    template = _SOURCE_FALLBACK_TARBALL_URLS.get(source)
+    if template is None:
+        return None
+    return template.format(version=version)
 
 
 def _log(msg, level=None):
@@ -256,14 +272,14 @@ def _safe_join(base_dir, relative_path):
     return joined
 
 
-def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
+def _extract_yt_dlp_from_tarball(archive_path, destination_runtime_path):
     tmp_path = destination_runtime_path + ".tmp"
     if os.path.isdir(tmp_path):
         shutil.rmtree(tmp_path)
     os.makedirs(tmp_path, exist_ok=True)
 
     try:
-        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tf:
+        with tarfile.open(name=archive_path, mode="r:gz") as tf:
             for member in tf.getmembers():
                 name = member.name.replace("\\", "/")
                 if "/" not in name:
@@ -283,8 +299,8 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
                     continue
 
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                with open(target_path, "wb") as dst:
-                    dst.write(src.read())
+                with src, open(target_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
 
         expected_init = os.path.join(tmp_path, "yt_dlp", "__init__.py")
         if not os.path.isfile(expected_init):
@@ -300,14 +316,29 @@ def _extract_yt_dlp_from_tarball(tar_bytes, destination_runtime_path):
         raise
 
 
-def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE):
+def _download_and_install(version, source=DEFAULT_YTDLP_SOURCE, show_progress=True):
     url = _tarball_url(source, version)
     _log("Downloading yt-dlp {} ({}) from {}".format(version, source, url))
 
-    data = managed_runtime.download_with_progress(url, _RUNTIME_LABEL, version)
-
     runtime_path = _runtime_path_for_version(version)
-    _extract_yt_dlp_from_tarball(data, runtime_path)
+    archive_path = runtime_path + ".tar.gz"
+    try:
+        try:
+            managed_runtime.download_with_progress(
+                url, archive_path, _RUNTIME_LABEL, version, show_progress=show_progress
+            )
+        except urllib.error.HTTPError as exc:
+            fallback_url = _fallback_tarball_url(source, version)
+            if exc.code != 404 or fallback_url is None:
+                raise
+            _log("No yt-dlp.tar.gz asset for {}, using the tag archive {}".format(version, fallback_url))
+            managed_runtime.download_with_progress(
+                fallback_url, archive_path, _RUNTIME_LABEL, version, show_progress=show_progress
+            )
+
+        _extract_yt_dlp_from_tarball(archive_path, runtime_path)
+    finally:
+        managed_runtime.remove_download(archive_path)
     _write_installed_version(version)
     _log("yt-dlp {} ({}) installed at {}".format(version, source, runtime_path))
     _prune_old_versions(version)
@@ -318,8 +349,13 @@ def get_runtime_status(
     requested_version=YTDLP_LATEST_SENTINEL,
     force_refresh_latest=False,
     source=DEFAULT_YTDLP_SOURCE,
+    include_latest=False,
 ):
-    """Return yt-dlp status information for UI/diagnostics."""
+    """Return yt-dlp status information for UI/diagnostics.
+
+    The latest release is only looked up (possibly over the network) with
+    include_latest=True, so showing the installed version never waits on GitHub.
+    """
     source = normalize_source(source)
 
     if not is_managed_source(source):
@@ -342,13 +378,14 @@ def get_runtime_status(
 
     latest_version = None
     latest_error = None
-    try:
-        if force_refresh_latest:
-            latest_version = _resolve_latest_version(force_refresh=True, source=source)
-        else:
-            latest_version = _resolve_latest_version(source=source)
-    except Exception as exc:
-        latest_error = str(exc)
+    if include_latest:
+        try:
+            if force_refresh_latest:
+                latest_version = _resolve_latest_version(force_refresh=True, source=source)
+            else:
+                latest_version = _resolve_latest_version(source=source)
+        except Exception as exc:
+            latest_error = str(exc)
 
     is_latest_installed = None
     if installed_version is not None and latest_version is not None:
@@ -371,9 +408,13 @@ def ensure_ytdlp_ready(
     requested_version=YTDLP_LATEST_SENTINEL,
     force_refresh_latest=False,
     source=DEFAULT_YTDLP_SOURCE,
+    show_progress=True,
 ):
     """
     Ensure a yt-dlp runtime is available.
+
+    With allow_install=False and the default "latest", an installed version is
+    returned right away without any network access.
 
     Returns a status dict with:
       - ready (bool)
@@ -440,7 +481,7 @@ def ensure_ytdlp_ready(
                 return _ready(target_version, existing_runtime)
 
             if allow_install:
-                runtime_path = _download_and_install(target_version, source=source)
+                runtime_path = _download_and_install(target_version, source=source, show_progress=show_progress)
                 return _ready(target_version, runtime_path)
 
             return _not_ready(
@@ -461,7 +502,7 @@ def ensure_ytdlp_ready(
                 target_version = _resolve_latest_version(force_refresh=True, source=source)
             else:
                 target_version = _resolve_latest_version(source=source)
-        runtime_path = _download_and_install(target_version, source=source)
+        runtime_path = _download_and_install(target_version, source=source, show_progress=show_progress)
         return _ready(target_version, runtime_path)
     except Exception as exc:
         _warn("Could not ensure yt-dlp runtime: {}".format(exc))
@@ -493,10 +534,50 @@ def snooze_install_prompt(now=None):
         _warn("Could not save yt-dlp prompt state: {}".format(exc))
 
 
+def _is_within(path, directory):
+    path = os.path.normpath(os.path.abspath(path))
+    directory = os.path.normpath(os.path.abspath(directory))
+    return path == directory or path.startswith(directory + os.sep)
+
+
+def _loaded_yt_dlp_file():
+    module = sys.modules.get("yt_dlp")
+    if module is None:
+        return None
+    return getattr(module, "__file__", None) or ""
+
+
+def _unload_yt_dlp():
+    for name in list(sys.modules):
+        if name == "yt_dlp" or name.startswith("yt_dlp."):
+            del sys.modules[name]
+    importlib.invalidate_caches()
+
+
 def activate_runtime(runtime_path):
-    """Prepend the managed runtime path to sys.path so yt_dlp imports from it."""
+    """Make "import yt_dlp" load the managed runtime at runtime_path.
+
+    With runtime_path None, managed runtimes are taken off sys.path so the
+    system package is used. Kodi may reuse the interpreter between
+    invocations (reuselanguageinvoker), so other managed versions are removed
+    from sys.path and an already imported yt_dlp from elsewhere is unloaded;
+    otherwise a version switch would only take effect after a Kodi restart.
+    """
+    versions_dir = _versions_dir()
+    for entry in list(sys.path):
+        if entry and entry != runtime_path and _is_within(entry, versions_dir):
+            sys.path.remove(entry)
+
+    if runtime_path is not None and runtime_path not in sys.path:
+        sys.path.insert(0, runtime_path)
+
+    loaded_file = _loaded_yt_dlp_file()
+    if loaded_file is None:
+        return
     if runtime_path is None:
-        return
-    if runtime_path in sys.path:
-        return
-    sys.path.insert(0, runtime_path)
+        stale = bool(loaded_file) and _is_within(loaded_file, versions_dir)
+    else:
+        stale = not loaded_file or not _is_within(loaded_file, runtime_path)
+    if stale:
+        _log("Unloading yt-dlp imported from {}".format(loaded_file or "an unknown location"))
+        _unload_yt_dlp()

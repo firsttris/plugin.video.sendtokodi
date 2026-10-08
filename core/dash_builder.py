@@ -120,25 +120,36 @@ class _Prefix():
         self.content = content
 
 
-def _fetch_prefix(url, size):
+def _fetch_range(url, start, end):
+    """Fetch bytes start..end of url; returns (data, offset of data in the file).
+
+    A server that ignores the Range header answers 200 with the file from byte 0,
+    so the offset is 0 then and the data covers 0..end.
+    """
     # stream=True so a server that ignores the Range header does not make us
     # download the whole media file.
     r = requests.get(
         url,
-        headers={'Range': 'bytes=0-' + str(size - 1)},
+        headers={'Range': 'bytes={}-{}'.format(start, end)},
         timeout=_RANGE_REQUEST_TIMEOUT_SECONDS,
         stream=True,
     )
     try:
         r.raise_for_status()
+        offset = start if start == 0 or getattr(r, 'status_code', None) == 206 else 0
+        size = end + 1 - offset
         data = bytearray()
         for chunk in r.iter_content(chunk_size=16384):
             data += chunk
             if len(data) >= size:
                 break
-        return bytes(data[:size])
+        return bytes(data[:size]), offset
     finally:
         r.close()
+
+
+def _fetch_prefix(url, size):
+    return _fetch_range(url, 0, size - 1)[0]
 
 
 def find_init_and_index_ranges(url, container):
@@ -147,9 +158,12 @@ def find_init_and_index_ranges(url, container):
     else:
         find_ranges = _mp4_find_init_and_index_ranges
 
+    data = b''
     size = _RANGE_PROBE_INITIAL_BYTES
     while True:
-        data = _fetch_prefix(url, size)
+        # Only fetch what is missing; the bytes already probed are kept.
+        chunk, offset = _fetch_range(url, len(data), size - 1)
+        data = data[:offset] + chunk
         init_range, index_range = find_ranges(_Prefix(data))
         if index_range != (0, 0):
             return init_range, index_range

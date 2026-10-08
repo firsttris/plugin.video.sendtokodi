@@ -6,7 +6,11 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
-from core.addon_params import resolve_deno_settings, resolve_ytdlp_settings
+from core.addon_params import (
+    resolve_deno_settings,
+    resolve_js_runtime_mode,
+    resolve_ytdlp_settings,
+)
 from core.runtime_management import (
     build_action_options,
     build_version_entries,
@@ -233,9 +237,21 @@ def _is_system_source(runtime_name, manager_module, settings):
     return runtime_name == "ytdlp" and not manager_module.is_managed_source(settings.get("source"))
 
 
+def _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+    reason_getter = getattr(manager_module, "unsupported_platform_reason", None)
+    reason = reason_getter() if reason_getter is not None else None
+    if reason is None:
+        return False
+    _set_installed_version_display(runtime_name, None)
+    show_error_notification(reason)
+    return True
+
+
 def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification, log):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    if _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+        return
     source = settings.get("source")
     if _is_system_source(runtime_name, manager_module, settings):
         _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
@@ -290,6 +306,8 @@ def _open_select_version_dialog(runtime_name, handle, run_with_progress, show_in
 def _update_runtime_now(runtime_name, handle, run_with_progress, show_info_notification, show_error_notification):
     settings = _runtime_settings(runtime_name, handle)
     manager_module = _runtime_module(runtime_name)
+    if _report_unsupported_platform(runtime_name, manager_module, show_error_notification):
+        return
     if _is_system_source(runtime_name, manager_module, settings):
         _show_system_ytdlp_status(manager_module, show_info_notification, show_error_notification)
         return
@@ -364,6 +382,24 @@ def configure_managed_ytdlp(handle, log):
     manager_module = _runtime_module("ytdlp")
     source = settings["source"]
 
+    if manager_module.is_managed_source(source):
+        # Use the installed version right away; checking GitHub for a newer
+        # release would delay playback. update_runtimes_after_playback() does
+        # that once the stream is handed to Kodi.
+        installed = manager_module.ensure_ytdlp_ready(
+            allow_install=False,
+            requested_version=settings["version"],
+            source=source,
+        )
+        if installed["ready"] and installed["runtime_path"] is not None:
+            _set_installed_version_display("ytdlp", installed.get("installed_version"))
+            manager_module.activate_runtime(installed["runtime_path"])
+            log(
+                "Using managed yt-dlp version {} (source={})".format(installed["version"], source),
+                xbmc.LOGINFO,
+            )
+            return
+
     status = manager_module.ensure_ytdlp_ready(
         allow_install=settings["auto_update"],
         requested_version=settings["version"],
@@ -432,3 +468,51 @@ def configure_managed_ytdlp(handle, log):
             "Managed yt-dlp unavailable, falling back to bundled/system yt-dlp",
             xbmc.LOGWARNING,
         )
+
+
+def _update_ytdlp_after_playback(handle, log):
+    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    manager_module = _runtime_module("ytdlp")
+    source = settings["source"]
+    if not settings["auto_update"] or not manager_module.is_managed_source(source):
+        return
+
+    before = manager_module.get_runtime_status(settings["version"], source=source).get("installed_version")
+    status = manager_module.ensure_ytdlp_ready(
+        allow_install=True,
+        requested_version=settings["version"],
+        source=source,
+        show_progress=False,
+    )
+    if status["ready"] and status["version"] != before:
+        _set_installed_version_display("ytdlp", status["version"])
+        log("Installed yt-dlp {} (source={}); it is used from the next playback".format(status["version"], source))
+
+
+def _update_deno_after_playback(handle, log):
+    if resolve_js_runtime_mode(handle, xbmcplugin.getSetting) in ("quickjs", "disabled"):
+        return
+    if not resolve_deno_settings(handle, xbmcplugin.getSetting)["auto_update"]:
+        return
+
+    new_version = _runtime_module("deno").update_installed_runtime(show_progress=False)
+    if new_version:
+        _set_installed_version_display("deno", new_version)
+        log("Installed Deno {}; it is used from the next playback".format(new_version))
+
+
+def update_runtimes_after_playback(handle, log):
+    """Check for yt-dlp and Deno updates once playback no longer waits on us.
+
+    The check honours the cached update interval (six hours), so most calls do
+    not touch the network. It also runs after a failed resolve, because an
+    outdated yt-dlp is the most common reason for one.
+    """
+    for runtime_name, update in (("ytdlp", _update_ytdlp_after_playback), ("deno", _update_deno_after_playback)):
+        try:
+            update(handle, log)
+        except Exception as exc:
+            log(
+                "Could not update {}: {}".format(_runtime_label(runtime_name), exc),
+                xbmc.LOGWARNING,
+            )

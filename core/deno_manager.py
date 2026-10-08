@@ -23,8 +23,8 @@ import os
 import platform
 import shutil
 import stat
+import sys
 import zipfile
-import io
 from core import managed_runtime
 from core.runtime_update_state import (
     default_update_state,
@@ -79,8 +79,54 @@ def _deno_binary_name():
     return "deno.exe" if platform.system().lower() == "windows" else "deno"
 
 
+_ANDROID_UNSUPPORTED_MESSAGE = "Deno has no Android build"
+
+
+def _is_android():
+    """True on Android, where Python reports system "Linux" (before Python 3.13)."""
+    if hasattr(sys, "getandroidapilevel"):
+        return True
+    if platform.system().lower() == "android":
+        return True
+    try:
+        import xbmc
+        return bool(xbmc.getCondVisibility("System.Platform.Android"))
+    except Exception:
+        return False
+
+
+def unsupported_platform_reason():
+    """Return why Deno cannot run on this device, or None when it can.
+
+    Android reports itself as Linux/aarch64, so without this check the glibc
+    Linux build is downloaded, which cannot run there.
+    """
+    if _is_android():
+        return _ANDROID_UNSUPPORTED_MESSAGE
+    return None
+
+
+def _remove_unusable_android_install():
+    # Earlier versions downloaded the Linux build on Android (100+ MB that can never run).
+    for path in (_versions_dir(), os.path.join(_addon_data_dir(), _deno_binary_name())):
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
+            else:
+                continue
+            _log("Removed unusable Deno download {}".format(path))
+        except Exception as exc:
+            _warn("Could not remove unusable Deno download {}: {}".format(path, exc))
+    _clear_installed_version()
+
+
 def _detect_platform():
     """Return (system_lower, machine) or raise RuntimeError for unsupported platforms."""
+    reason = unsupported_platform_reason()
+    if reason is not None:
+        raise RuntimeError(reason)
     system = platform.system().lower()
     machine = platform.machine()
     key = (system, machine)
@@ -258,34 +304,44 @@ def _download_deno(show_progress=True, version=None):
 
     _log("Downloading Deno {} from {}".format(target_version, url))
 
-    data = managed_runtime.download_with_progress(
-        url,
-        _RUNTIME_LABEL,
-        target_version,
-        show_progress=show_progress,
-    )
-
-    # Extract the zip — it contains a single "deno" (or "deno.exe") binary
     runtime_dir = _runtime_dir_for_version(target_version)
     tmp_runtime_dir = runtime_dir + ".tmp"
-    if os.path.isdir(tmp_runtime_dir):
-        shutil.rmtree(tmp_runtime_dir)
-    os.makedirs(tmp_runtime_dir, exist_ok=True)
+    archive_path = runtime_dir + ".zip"
+    try:
+        managed_runtime.download_with_progress(
+            url,
+            archive_path,
+            _RUNTIME_LABEL,
+            target_version,
+            show_progress=show_progress,
+        )
 
-    with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        binary_name = _deno_binary_name()
-        # The zip may contain the binary at the root or in a subdirectory
-        candidates = [n for n in zf.namelist()
-                      if os.path.basename(n) == binary_name]
-        if not candidates:
-            raise RuntimeError(
-                "Could not find {} inside the downloaded zip".format(binary_name)
-            )
-        # Use the first (usually only) match
-        member = candidates[0]
-        dest = os.path.join(tmp_runtime_dir, binary_name)
-        with zf.open(member) as src, open(dest, "wb") as dst:
-            dst.write(src.read())
+        # Extract the zip — it contains a single "deno" (or "deno.exe") binary
+        if os.path.isdir(tmp_runtime_dir):
+            shutil.rmtree(tmp_runtime_dir)
+        os.makedirs(tmp_runtime_dir, exist_ok=True)
+
+        with zipfile.ZipFile(archive_path) as zf:
+            binary_name = _deno_binary_name()
+            # The zip may contain the binary at the root or in a subdirectory
+            candidates = [n for n in zf.namelist()
+                          if os.path.basename(n) == binary_name]
+            if not candidates:
+                raise RuntimeError(
+                    "Could not find {} inside the downloaded zip".format(binary_name)
+                )
+            # Use the first (usually only) match
+            member = candidates[0]
+            dest = os.path.join(tmp_runtime_dir, binary_name)
+            # Copy in chunks: the unpacked binary is over 100 MB.
+            with zf.open(member) as src, open(dest, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+    except BaseException:
+        if os.path.isdir(tmp_runtime_dir):
+            shutil.rmtree(tmp_runtime_dir, ignore_errors=True)
+        raise
+    finally:
+        managed_runtime.remove_download(archive_path)
 
     # Ensure the binary is executable on POSIX systems
     if platform.system().lower() != "windows":
@@ -337,7 +393,20 @@ def get_runtime_status(
     }
 
 
-def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_latest=False):
+def _ydl_opts_for(deno_path):
+    return {
+        "js_runtimes": {"deno": {"path": deno_path}},
+        "remote_components": {"ejs:github"},
+    }
+
+
+def get_ydl_opts(
+    auto_download=True,
+    requested_version=None,
+    force_refresh_latest=False,
+    prefer_installed=False,
+    show_progress=True,
+):
     """
     Return a yt-dlp options dict that configures Deno as the JS runtime.
 
@@ -353,10 +422,26 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
     auto_download : bool
         When True (the default), download Deno automatically if it is not
         already present.  When False, only use a pre-existing installation.
+    prefer_installed : bool
+        Use an installed (or system) Deno right away instead of first checking
+        GitHub for a newer release; see update_installed_runtime().
+    show_progress : bool
+        Show the Kodi progress dialog while downloading.
     """
     try:
+        reason = unsupported_platform_reason()
+        if reason is not None:
+            _warn("{}; YouTube needs another JavaScript runtime (QuickJS)".format(reason))
+            _remove_unusable_android_install()
+            return {}
+
         requested = _normalize_requested_version(requested_version)
         installed_version, deno_path = _find_installed_runtime()
+
+        if prefer_installed and requested == DENO_LATEST_SENTINEL and not force_refresh_latest:
+            available_path = deno_path or _find_in_path()
+            if available_path is not None:
+                return _ydl_opts_for(available_path)
 
         target_version = requested
         if requested == DENO_LATEST_SENTINEL:
@@ -388,7 +473,7 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
                         "Deno version mismatch (installed={}, expected={});"
                         " updating…".format(installed_version, target_version)
                     )
-                    deno_path = _download_deno(show_progress=True, version=target_version)
+                    deno_path = _download_deno(show_progress=show_progress, version=target_version)
 
         # An explicit version or forced update must install a managed Deno, not
         # silently fall back to a system binary.
@@ -407,13 +492,34 @@ def get_ydl_opts(auto_download=True, requested_version=None, force_refresh_lates
                     "YouTube extraction may fail"
                 )
                 return {}
-            deno_path = _download_deno(show_progress=True, version=target_version)
+            deno_path = _download_deno(show_progress=show_progress, version=target_version)
 
-        return {
-            "js_runtimes": {"deno": {"path": deno_path}},
-            "remote_components": {"ejs:github"},
-        }
+        return _ydl_opts_for(deno_path)
 
     except Exception as exc:
         _warn("Could not configure Deno: {}".format(exc))
         return {}
+
+
+def update_installed_runtime(show_progress=False):
+    """Bring a managed Deno up to the latest release.
+
+    Meant to run after playback has started: the check honours the cached
+    update interval, and a newer release is used from the next invocation.
+    Returns the newly installed version, or None when nothing changed. A
+    system Deno or no Deno at all is left alone.
+    """
+    if unsupported_platform_reason() is not None:
+        return None
+
+    # Only Deno in addon_data is ours to update (versioned, or the old flat
+    # layout, which the update migrates); a system Deno is never touched.
+    installed_version, installed_path = _find_installed_runtime()
+    if installed_path is None:
+        return None
+
+    get_ydl_opts(auto_download=True, show_progress=show_progress)
+    current_version, current_path = _find_installed_runtime()
+    if (current_version, current_path) != (installed_version, installed_path):
+        return current_version
+    return None

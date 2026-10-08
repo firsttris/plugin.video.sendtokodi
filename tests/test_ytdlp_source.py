@@ -1,4 +1,5 @@
 import json
+import urllib.error
 
 import pytest
 
@@ -51,12 +52,16 @@ def test_source_endpoints_point_at_the_right_repositories():
     )
 
 
-def test_tarball_url_uses_release_asset_for_nightly():
-    # The nightly *repository* archive is a README stub; only the release asset
-    # carries the yt_dlp package.
+def test_tarball_url_uses_release_asset_for_both_channels():
+    # The release asset ships lazy_extractors.py; the nightly *repository*
+    # archive is a README stub.
     assert ytdlp_manager._tarball_url("stable", "2026.08.19") == (
+        "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.tar.gz"
+    )
+    assert ytdlp_manager._fallback_tarball_url("stable", "2026.08.19") == (
         "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/2026.08.19.tar.gz"
     )
+    assert ytdlp_manager._fallback_tarball_url("nightly", "2026.09.27.232945") is None
     assert ytdlp_manager._tarball_url("nightly", "2026.09.27.232945") == (
         "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/"
         "2026.09.27.232945/yt-dlp.tar.gz"
@@ -253,7 +258,7 @@ def test_ensure_ready_passes_source_to_download(monkeypatch):
     monkeypatch.setattr(
         ytdlp_manager,
         "_download_and_install",
-        lambda version, source=None: calls.append((version, source))
+        lambda version, source=None, **_kwargs: calls.append((version, source))
         or "/addon/ytdlp/versions/{}".format(version),
     )
 
@@ -271,7 +276,93 @@ def test_get_runtime_status_reports_the_active_source(monkeypatch):
         ytdlp_manager, "_resolve_latest_version", lambda **kwargs: "2026.09.27.232945"
     )
 
-    status = ytdlp_manager.get_runtime_status("latest", source="nightly")
+    status = ytdlp_manager.get_runtime_status("latest", source="nightly", include_latest=True)
 
     assert status["source"] == "nightly"
     assert status["latest_version"] == "2026.09.27.232945"
+
+
+def _http_error(url, code):
+    return urllib.error.HTTPError(url, code, "error", {}, None)
+
+
+def test_install_falls_back_to_tag_archive_when_asset_is_missing(monkeypatch, tmp_path):
+    downloaded = []
+
+    def fake_download(url, *_a, **_k):
+        downloaded.append(url)
+        if url.endswith("/yt-dlp.tar.gz"):
+            raise _http_error(url, 404)
+        return b""
+
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(managed_runtime, "download_with_progress", fake_download)
+    monkeypatch.setattr(
+        ytdlp_manager, "_extract_yt_dlp_from_tarball", lambda data, destination: None
+    )
+
+    ytdlp_manager._download_and_install("2021.01.08", source="stable")
+
+    assert downloaded == [
+        "https://github.com/yt-dlp/yt-dlp/releases/download/2021.01.08/yt-dlp.tar.gz",
+        "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/2021.01.08.tar.gz",
+    ]
+
+
+def test_install_does_not_fall_back_for_nightly_or_other_errors(monkeypatch, tmp_path):
+    monkeypatch.setattr(ytdlp_manager, "_addon_data_dir", lambda: str(tmp_path))
+
+    def fail(url, *_a, **_k):
+        raise _http_error(url, 404 if "nightly" in url else 503)
+
+    monkeypatch.setattr(managed_runtime, "download_with_progress", fail)
+
+    with pytest.raises(urllib.error.HTTPError):
+        ytdlp_manager._download_and_install("2026.09.27.232945", source="nightly")
+    with pytest.raises(urllib.error.HTTPError):
+        ytdlp_manager._download_and_install("2026.08.19", source="stable")
+
+
+def test_download_with_progress_streams_to_file_and_cleans_up_on_error(monkeypatch, tmp_path):
+    payload = b"x" * (3 * 65536 + 10)
+
+    class FakeResponse:
+        headers = {"Content-Length": str(len(payload))}
+
+        def __init__(self):
+            self.offset = 0
+
+        def read(self, size):
+            chunk = payload[self.offset:self.offset + size]
+            self.offset += len(chunk)
+            return chunk
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_a, **_k: FakeResponse())
+    destination = tmp_path / "sub" / "archive.tar.gz"
+
+    result = managed_runtime.download_with_progress(
+        "https://example.invalid/a", str(destination), "yt-dlp", "1", show_progress=False
+    )
+
+    assert result == str(destination)
+    assert destination.read_bytes() == payload
+    assert not (tmp_path / "sub" / "archive.tar.gz.part").exists()
+
+    class BrokenResponse(FakeResponse):
+        def read(self, size):
+            if self.offset:
+                raise OSError("connection reset")
+            return super().read(size)
+
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_a, **_k: BrokenResponse())
+    with pytest.raises(OSError):
+        managed_runtime.download_with_progress(
+            "https://example.invalid/a", str(tmp_path / "broken.zip"), "Deno", "1", show_progress=False
+        )
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["sub"]
