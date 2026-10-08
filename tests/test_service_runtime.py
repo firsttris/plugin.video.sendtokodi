@@ -33,3 +33,16 @@ def test_patch_strptime_produces_datetime_instances():
         assert parsed.second == 45
     finally:
         datetime.datetime = original_datetime_class
+
+
+def test_patch_strptime_is_idempotent():
+    original_datetime_class = datetime.datetime
+    try:
+        service_runtime.patch_strptime()
+        patched_class = datetime.datetime
+        service_runtime.patch_strptime()
+
+        assert datetime.datetime is patched_class
+        assert patched_class.__mro__[1] is original_datetime_class
+    finally:
+        datetime.datetime = original_datetime_class

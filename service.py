@@ -20,6 +20,7 @@ from core.addon_params import (
     resolve_local_ytdlp_config_path,
     resolve_media_download_settings,
     resolve_dash_httpd_idle_timeout,
+    resolve_max_resolution,
     resolve_ytdlp_config_location,
 )
 from core.runtime.playback import (
@@ -248,9 +249,7 @@ disable_opus_for_audio_only_hls_native = (
 dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(__handle__, xbmcplugin.getSetting)
 dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
 log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
-maxresolution_setting = int(xbmcplugin.getSetting(__handle__, "maxresolution"))
-strict_max_resolution = maxresolution_setting >= 0
-maxwidth = maxresolution_setting if strict_max_resolution else 7680
+maxwidth, strict_max_resolution = resolve_max_resolution(__handle__, xbmcplugin.getSetting)
 
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()

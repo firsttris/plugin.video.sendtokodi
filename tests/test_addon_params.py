@@ -21,6 +21,7 @@ from core.addon_params import (
     resolve_js_runtime_opts,
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
+    resolve_max_resolution,
     resolve_media_download_settings,
     resolve_local_ytdlp_config_path,
     resolve_ytdlp_config_location,
@@ -403,7 +404,6 @@ def test_resolve_deno_settings_reads_all_values():
     settings = resolve_deno_settings(1, get_setting)
 
     assert settings == {
-        "enabled": False,
         "auto_update": False,
         "version": DEFAULT_DENO_VERSION,
     }
@@ -753,3 +753,17 @@ def test_resolve_dash_httpd_idle_timeout_accepts_valid_integer():
     value = resolve_dash_httpd_idle_timeout(1, lambda _handle, _name: "180")
 
     assert value == 180
+
+
+def test_resolve_max_resolution_uses_strict_limit():
+    assert resolve_max_resolution(1, lambda _handle, _name: "1280") == (1280, True)
+
+
+def test_resolve_max_resolution_unlimited():
+    assert resolve_max_resolution(1, lambda _handle, _name: "-1") == (7680, False)
+
+
+def test_resolve_max_resolution_falls_back_to_default_when_invalid():
+    assert resolve_max_resolution(1, lambda _handle, _name: "") == (1920, True)
+    assert resolve_max_resolution(1, lambda _handle, _name: "abc") == (1920, True)
+    assert resolve_max_resolution(1, lambda _handle, _name: None) == (1920, True)
