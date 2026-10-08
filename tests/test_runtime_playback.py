@@ -260,3 +260,42 @@ def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'mpd'
     assert list_item.mime_type == 'application/dash+xml'
+
+def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatch, tmp_path):
+    import threading
+
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+
+    started = []
+    all_started = threading.Event()
+
+    def fake_download(url, destination_path, _headers):
+        started.append(url)
+        if len(started) == 3:
+            all_started.set()
+        # Only returns when all three downloads run at the same time.
+        assert all_started.wait(timeout=5), "downloads ran one after another"
+        if url.endswith('/fr.vtt'):
+            raise OSError('404')
+        with open(destination_path, 'w') as subtitle_file:
+            subtitle_file.write(url)
+
+    monkeypatch.setattr(playback, '_download_subtitle_file', fake_download)
+    subtitles = {
+        'de': [{'url': 'https://example.invalid/de.vtt', 'ext': 'vtt'}],
+        'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}],
+        'local': [{'url': '/storage/local.srt', 'ext': 'srt'}],
+        'fr': [{'url': 'https://example.invalid/fr.vtt', 'ext': 'vtt'}],
+    }
+    logs = []
+
+    paths = playback._resolve_subtitle_paths(subtitles, {}, lambda msg, *_a: logs.append(msg))
+
+    assert paths == [
+        str(tmp_path / 'de.vtt'),
+        str(tmp_path / 'en.vtt'),
+        '/storage/local.srt',
+        'https://example.invalid/fr.vtt',
+    ]
+    assert any('Failed to download subtitle https://example.invalid/fr.vtt' in msg for msg in logs)

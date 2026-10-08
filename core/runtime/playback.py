@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 import xbmc
@@ -27,6 +28,7 @@ from core.subtitle_support import build_subtitle_file_name
 
 
 _SUBTITLE_DOWNLOAD_TIMEOUT_SECONDS = 20
+_SUBTITLE_DOWNLOAD_MAX_WORKERS = 6
 
 _INPUTSTREAM_MIME_TYPES = {
     'hls': 'application/vnd.apple.mpegurl',
@@ -73,7 +75,8 @@ def _resolve_subtitle_paths(subtitles, http_headers, log):
         log('Failed to create subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
         return collect_subtitle_urls(subtitles)
 
-    subtitle_paths = []
+    # (url, local path or None); file names are assigned up front so they stay unique and stable.
+    planned = []
     used_file_names = set()
     for subtitle_entry in subtitle_entries:
         subtitle_url = subtitle_entry.get('url')
@@ -81,21 +84,33 @@ def _resolve_subtitle_paths(subtitles, http_headers, log):
             continue
 
         if not subtitle_url.startswith(('http://', 'https://')):
-            subtitle_paths.append(subtitle_url)
+            planned.append((subtitle_url, None))
             continue
 
         destination_path = os.path.join(
             subtitle_directory,
             build_subtitle_file_name(subtitle_entry, used_file_names=used_file_names),
         )
+        planned.append((subtitle_url, destination_path))
+
+    def resolve(item):
+        subtitle_url, destination_path = item
+        if destination_path is None:
+            return subtitle_url
         try:
             _download_subtitle_file(subtitle_url, destination_path, http_headers)
-            subtitle_paths.append(destination_path)
+            return destination_path
         except Exception as exc:
             log('Failed to download subtitle {}: {}'.format(subtitle_url, exc), xbmc.LOGWARNING)
-            subtitle_paths.append(subtitle_url)
+            return subtitle_url
 
-    return subtitle_paths
+    downloads = sum(1 for _url, destination_path in planned if destination_path is not None)
+    if downloads <= 1:
+        return [resolve(item) for item in planned]
+
+    # Playback waits for the subtitles; with many languages one-by-one adds up.
+    with ThreadPoolExecutor(max_workers=min(downloads, _SUBTITLE_DOWNLOAD_MAX_WORKERS)) as executor:
+        return list(executor.map(resolve, planned))
 
 
 def _format_stream_option(format_info):
