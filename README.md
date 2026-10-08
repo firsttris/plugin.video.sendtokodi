@@ -11,6 +11,7 @@ powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 [![Coverage](https://codecov.io/gh/firsttris/plugin.video.sendtokodi/graph/badge.svg)](https://app.codecov.io/gh/firsttris/plugin.video.sendtokodi)
 [![Release](https://img.shields.io/github/v/release/firsttris/plugin.video.sendtokodi?label=Release&color=17b2e7)](https://github.com/firsttris/plugin.video.sendtokodi/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE.md)
+[![Documentation](https://img.shields.io/badge/Docs-firsttris.github.io-17b2e7?logo=materialformkdocs&logoColor=white)](https://firsttris.github.io/plugin.video.sendtokodi/)
 <br>
 [![Kodi 19+](https://img.shields.io/badge/Kodi-19%20%7C%2020%20%7C%2021-17B2E7?logo=kodi&logoColor=white)](https://kodi.tv)
 [![Powered by yt-dlp](https://img.shields.io/badge/Powered%20by-yt--dlp-ff0000)](https://github.com/yt-dlp/yt-dlp)
@@ -26,6 +27,8 @@ powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 [Documentation](https://firsttris.github.io/plugin.video.sendtokodi/) •
 [Troubleshooting](#-troubleshooting) •
 [FAQ](#-faq)
+
+📖 **Documentation: <https://firsttris.github.io/plugin.video.sendtokodi/>**
 
 <img src="https://raw.githubusercontent.com/firsttris/chrome.sendtokodi/master/store-assets/banner/1280x800.png" alt="SendToKodi: send a video from the browser to Kodi" width="800">
 
