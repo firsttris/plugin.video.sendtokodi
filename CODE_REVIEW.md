@@ -1,10 +1,47 @@
 # Code-Review plugin.video.sendtokodi
 
-Stand: 2026-10-08, Commit `d138832` (master)
+Stand: 2026-10-08, Review von Commit `d138832` (master), Umsetzung auf `claude/gracious-brahmagupta-go1e1y`
 
 Gesamteindruck: Das Projekt ist in gutem Zustand. Reine Logik liegt in `core/`, Kodi-spezifischer Glue in
-`service.py` und `core/runtime/`. 353 Tests laufen grün, der Netzwerkzugriff ist in den Tests geblockt.
+`service.py` und `core/runtime/`. 301 Tests laufen grün, der Netzwerkzugriff ist in den Tests geblockt.
 Echte Fehler gibt es wenige, dafür einige klare Beschleuniger.
+
+## Status nach Prüfung und Umsetzung
+
+Jeder Punkt wurde am Code geprüft, wo möglich gemessen oder reproduziert, und dann umgesetzt oder begründet verworfen.
+
+| Punkt | Ergebnis | Commit |
+|---|---|---|
+| 1.1 Deno auf Android | Bestätigt. Android wird erkannt, kein Download mehr, alter unbrauchbarer Download wird entfernt. | `edf560d` |
+| 1.2 `patch_strptime` | Bestätigt und idempotent gemacht. Die Ursache ist kein Thread-Race wie in #177 vermutet, sondern ein CPython-Bug mit Sub-Interpretern (siehe 1.2). | `8b562fb`, `fb9c9a0` |
+| 1.3 `maxresolution` | Bestätigt, robuste Auswertung mit Fallback 1920. | `8b562fb` |
+| 1.4 Update-Check vor dem Abspielen | Bestätigt. Installierte Versionen werden ohne Netz benutzt, die Update-Prüfung läuft nach `setResolvedUrl`. | `2769aa8`, `7680de3` |
+| 1.5 Downloads im RAM | Bestätigt, sogar schlimmer als beschrieben: die entpackte Deno-Binary (100+ MB) wurde auch komplett gelesen. Jetzt Streaming auf die Platte. | `1be1b5f` |
+| 1.6 `deno_enabled` | Bestätigt, entfernt. | `8b562fb` |
+| 2.1 `reuselanguageinvoker` | Umgesetzt, inklusive sauberem yt-dlp-Versionswechsel im wiederverwendeten Interpreter. Braucht einen Test auf einem echten Kodi-Gerät. | `dedee63` |
+| 2.2 Lazy Extractors | Bestätigt. Statt sie zu generieren, wird das Release-Asset `yt-dlp.tar.gz` geladen, das sie bereits enthält. Rückfall auf das Tag-Archiv bei HTTP 404. | `3f43785` |
+| 2.3 Untertitel parallel | Umgesetzt, Reihenfolge und Dateinamen unverändert. | `daba6cb` |
+| 2.4 Range-Probe | Bestätigt, lädt jetzt nur fehlende Bytes. Gewinn klein, weil der Index meist in den ersten 4 KB liegt. | `6e19f8e` |
+| 2.5 Optionsparser doppelt | **Verworfen.** Gemessen 2 ms pro Aufruf, ein Cache lohnt nicht. | – |
+| 2.6 `xbmcaddon.Addon()` pro Logzeile | Umgesetzt (Konstante), zusammen mit dem Umbau von `service.py`. | `2769aa8` |
+| 3.1 Zip enthält Tests und Doku | Bestätigt. Zip jetzt 70 KB. | `0c36d1a` |
+| 3.2 Konstante mit zwei Bedeutungen | **Verworfen.** Eine Trennung ändert das Verhalten und braucht eine fachliche Entscheidung über die Manifest-Lebensdauer; reine Umbenennung bringt nichts. | – |
+| 3.3 `get_runtime_status` uneinheitlich | Bestätigt. yt-dlp fragt GitHub nur noch mit `include_latest=True`; Einstellungen öffnen hängt nicht mehr am Netz. | `636d020` |
+| 3.4 `select_playback_source` | Wiederholte Blöcke in Helfer ausgelagert, Reihenfolge unverändert. Zwei bisher ungetestete Zweige haben Tests bekommen. | `719fd89` |
+| 3.5 `requests` und `urllib` gemischt | **Verworfen.** Kein Nutzen, nur Umbau. | – |
+| 3.5 `exit()` | `service.py` ist jetzt eine `main()`-Funktion mit `return`. | `2769aa8` |
+| 3.5 Coverage bei jedem Testlauf | **Verworfen.** Kostet lokal etwa eine Sekunde. | – |
+| 3.5 Playlist-Startvideo | Fortschrittsanzeige ergänzt, irreführender Parameter entfernt. Dabei gefunden: die Doku behauptete, Playlists würden nie heruntergeladen; korrigiert. | `7c16599` |
+| 3.5 `_prompt_preferred_stream_url` | Umbenannt. | `7c16599` |
+
+Messwerte, die die Umsetzung gestützt haben:
+
+| Messung | Vorher | Nachher |
+|---|---|---|
+| yt-dlp Start, kalter Cache (x86) | 1,8 s | 0,6 s |
+| yt-dlp Start, warmer Cache (x86) | 0,45 s | 0,22 s |
+| Release-Zip | über 1 MB | 70 KB |
+| Tests | 301 | 341 |
 
 ## 1. Fehler und Risiken
 
@@ -32,6 +69,19 @@ def _is_android():
 ### 1.2 `patch_strptime` ist nicht idempotent
 
 `core/service_runtime.py:16`
+
+**Warum der Patch überhaupt nötig ist** (Issues #8 und #177): Kodi führt jeden Aufruf eines Add-ons in einem
+eigenen Python-Sub-Interpreter aus und zerstört ihn danach. Bis Python 3.12 speichert das C-Modul `datetime` das
+Modul `_strptime` in einer statischen Variable, die sich alle Interpreter teilen. Der erste Interpreter, der
+`datetime.datetime.strptime()` aufruft, legt dort *sein* Modul ab. Ist dieser Interpreter weg, sind dessen
+Funktionen `None`, und jeder spätere Aufruf in irgendeinem Add-on scheitert mit
+`TypeError: 'NoneType' object is not callable` (bpo-27400, behoben in Python 3.13). Kodi 21 nutzt Python 3.11.
+
+Reproduziert mit `_testcapi.run_in_subinterp` unter Python 3.11 und 3.12: Der erste Aufruf klappt, jeder weitere
+scheitert. Der in #177 vorgeschlagene einmalige „Warmup“ hilft nicht, im Gegenteil: Er füllt den Cache mit dem
+Modul des aktuellen Aufrufs und macht damit den nächsten kaputt. `time.strptime()` importiert `_strptime` bei jedem
+Aufruf neu und umgeht den Cache, genau das macht der Patch. Ein neuer Test spielt zwei Kodi-artige Aufrufe in einem
+Kindprozess durch.
 
 Jeder Aufruf setzt eine neue Subklasse der vorherigen Subklasse auf `datetime.datetime`. Heute harmlos,
 weil pro Aufruf ein frischer Interpreter läuft. Sobald `reuselanguageinvoker` aktiviert wird (siehe 2.1),
