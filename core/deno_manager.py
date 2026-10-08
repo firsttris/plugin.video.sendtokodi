@@ -512,12 +512,14 @@ def update_installed_runtime(show_progress=False):
     if unsupported_platform_reason() is not None:
         return None
 
-    installed_version = _get_installed_version()
-    if installed_version is None or _find_runtime_for_version(installed_version) is None:
+    # Only Deno in addon_data is ours to update (versioned, or the old flat
+    # layout, which the update migrates); a system Deno is never touched.
+    installed_version, installed_path = _find_installed_runtime()
+    if installed_path is None:
         return None
 
     get_ydl_opts(auto_download=True, show_progress=show_progress)
-    current_version = _get_installed_version()
-    if current_version != installed_version:
+    current_version, current_path = _find_installed_runtime()
+    if (current_version, current_path) != (installed_version, installed_path):
         return current_version
     return None

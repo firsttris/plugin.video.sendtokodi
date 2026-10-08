@@ -198,8 +198,12 @@ def test_deno_update_installed_runtime(monkeypatch, tmp_path):
 
     def fake_download(show_progress, version):
         downloads.append((show_progress, version))
+        binary = tmp_path / "deno" / "versions" / version / "deno"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"")
+        binary.chmod(0o755)
         deno_manager._set_installed_version(version)
-        return "/addon/deno/{}/deno".format(version)
+        return str(binary)
 
     monkeypatch.setattr(deno_manager, "_download_deno", fake_download)
 
@@ -213,3 +217,24 @@ def test_deno_update_installed_runtime_ignores_system_or_missing_deno(monkeypatc
     monkeypatch.setattr(deno_manager, "_download_deno", _explode)
 
     assert deno_manager.update_installed_runtime() is None
+
+
+def test_deno_update_migrates_legacy_flat_install(monkeypatch, tmp_path):
+    legacy_binary = tmp_path / "deno" / "deno"
+    legacy_binary.parent.mkdir(parents=True)
+    legacy_binary.write_bytes(b"")
+    legacy_binary.chmod(0o755)
+    monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
+    monkeypatch.setattr(deno_manager, "_resolve_latest_version", lambda **_k: "v2.8.0")
+
+    def fake_download(show_progress, version):
+        binary = tmp_path / "deno" / "versions" / version / "deno"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"")
+        binary.chmod(0o755)
+        deno_manager._set_installed_version(version)
+        return str(binary)
+
+    monkeypatch.setattr(deno_manager, "_download_deno", fake_download)
+
+    assert deno_manager.update_installed_runtime() == "v2.8.0"
