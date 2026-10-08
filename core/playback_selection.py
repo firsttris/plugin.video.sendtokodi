@@ -618,6 +618,41 @@ def resolve_starting_entry(starting_entry, extract_info):
     return starting_entry
 
 
+def _original_manifest_candidate(result, usemanifest, isa_supports):
+    manifest_url = result.get('manifest_url') if usemanifest else None
+    manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
+    candidate = resolve_manifest_candidate(
+        manifest_url,
+        manifest_type,
+        isa_supports,
+        result.get('http_headers'),
+        is_live=result.get('is_live', False),
+    )
+    if candidate is not None:
+        candidate['source'] = 'original_manifest'
+    return candidate
+
+
+def _with_format_source(candidate, source, format_info):
+    candidate['source'] = source
+    candidate['format_label'] = format_info.get('format', "")
+    return candidate
+
+
+def _dash_manifest_source(dash_result, format_info):
+    dash_url = dash_result.get('url') if dash_result is not None else None
+    if dash_url is None:
+        return None
+    return {
+        'url': dash_url,
+        'isa': True,
+        'headers': format_info.get('http_headers'),
+        'manifest_type': 'mpd',
+        'source': 'dash_manifest',
+        'events': dash_result.get('events', []),
+    }
+
+
 def select_playback_source(
     result,
     usemanifest,
@@ -639,17 +674,8 @@ def select_playback_source(
     has_manual_stream_preference = preferred_format_id is not None or preferred_format_url is not None
 
     if not strict_max_resolution and preferred_format_url is None:
-        manifest_url = result.get('manifest_url') if usemanifest else None
-        manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
-        original_manifest_candidate = resolve_manifest_candidate(
-            manifest_url,
-            manifest_type,
-            isa_supports,
-            result.get('http_headers'),
-            is_live=result.get('is_live', False),
-        )
+        original_manifest_candidate = _original_manifest_candidate(result, usemanifest, isa_supports)
         if original_manifest_candidate is not None:
-            original_manifest_candidate['source'] = 'original_manifest'
             return original_manifest_candidate
 
     format_manifest_fallback = None
@@ -694,16 +720,9 @@ def select_playback_source(
                     preferred_video_format_id=format_info.get('format_id'),
                     preferred_video_url=format_info.get('url'),
                 )
-            dash_url = dash_result.get('url') if dash_result is not None else None
-            if dash_url is not None:
-                return {
-                    'url': dash_url,
-                    'isa': True,
-                    'headers': format_info.get('http_headers'),
-                    'manifest_type': 'mpd',
-                    'source': 'dash_manifest',
-                    'events': dash_result.get('events', []),
-                }
+            dash_source = _dash_manifest_source(dash_result, format_info)
+            if dash_source is not None:
+                return dash_source
 
         if preferred_format_url is None:
             manifest_url = format_info.get('manifest_url') if usemanifest else None
@@ -716,9 +735,7 @@ def select_playback_source(
                 is_live=result.get('is_live', False),
             )
             if format_manifest_candidate is not None and not strict_max_resolution:
-                format_manifest_candidate['source'] = 'format_manifest'
-                format_manifest_candidate['format_label'] = format_info.get('format', "")
-                return format_manifest_candidate
+                return _with_format_source(format_manifest_candidate, 'format_manifest', format_info)
             if should_prefer_manifest_over_raw_hls(
                 result,
                 format_info,
@@ -726,13 +743,11 @@ def select_playback_source(
                 maxwidth,
                 strict_max_resolution,
             ):
-                format_manifest_candidate['source'] = 'format_manifest'
-                format_manifest_candidate['format_label'] = format_info.get('format', "")
-                return format_manifest_candidate
+                return _with_format_source(format_manifest_candidate, 'format_manifest', format_info)
             if format_manifest_candidate is not None and format_manifest_fallback is None:
-                format_manifest_candidate['source'] = 'format_manifest'
-                format_manifest_candidate['format_label'] = format_info.get('format', "")
-                format_manifest_fallback = format_manifest_candidate
+                format_manifest_fallback = _with_format_source(
+                    format_manifest_candidate, 'format_manifest', format_info
+                )
 
         if should_try_dash_builder(
             usedashbuilder,
@@ -762,16 +777,9 @@ def select_playback_source(
                     preferred_video_format_id=preferred_dash_video.get('format_id') if preferred_dash_video is not None else None,
                     preferred_video_url=preferred_dash_video.get('url') if preferred_dash_video is not None else None,
                 )
-            dash_url = dash_result.get('url') if dash_result is not None else None
-            if dash_url is not None:
-                return {
-                    'url': dash_url,
-                    'isa': True,
-                    'headers': format_info.get('http_headers'),
-                    'manifest_type': 'mpd',
-                    'source': 'dash_manifest',
-                    'events': dash_result.get('events', []),
-                }
+            dash_source = _dash_manifest_source(dash_result, format_info)
+            if dash_source is not None:
+                return dash_source
 
         manifest_type = guess_manifest_type(format_info, format_info['url']) if 'url' in format_info else None
         raw_candidate = evaluate_raw_format_candidate(
@@ -791,14 +799,10 @@ def select_playback_source(
             continue
 
         if not strict_max_resolution:
-            raw_candidate['source'] = 'raw_format'
-            raw_candidate['format_label'] = format_info.get('format', "")
-            return raw_candidate
+            return _with_format_source(raw_candidate, 'raw_format', format_info)
 
         if should_replace_raw_candidate(best_raw_format, format_info):
-            raw_candidate['source'] = 'raw_format'
-            raw_candidate['format_label'] = format_info.get('format', "")
-            best_raw_candidate = raw_candidate
+            best_raw_candidate = _with_format_source(raw_candidate, 'raw_format', format_info)
             best_raw_format = format_info
 
     if best_raw_candidate is not None:
@@ -807,18 +811,10 @@ def select_playback_source(
     if format_manifest_fallback is not None:
         return format_manifest_fallback
 
-    manifest_url = result.get('manifest_url') if usemanifest else None
-    manifest_type = guess_manifest_type(result, manifest_url) if manifest_url is not None else None
-    original_manifest_candidate = resolve_manifest_candidate(
-        manifest_url,
-        manifest_type,
-        isa_supports,
-        result.get('http_headers'),
-        is_live=result.get('is_live', False),
-    )
-    if original_manifest_candidate is not None and preferred_format_url is None:
-        original_manifest_candidate['source'] = 'original_manifest'
-        return original_manifest_candidate
+    if preferred_format_url is None:
+        original_manifest_candidate = _original_manifest_candidate(result, usemanifest, isa_supports)
+        if original_manifest_candidate is not None:
+            return original_manifest_candidate
 
     filtered_manifest_type = (
         guess_manifest_type(filtered_format, filtered_format['url']) if filtered_format is not None else None

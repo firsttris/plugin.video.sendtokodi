@@ -1819,3 +1819,70 @@ def test_resolve_playlist_insert_position_skips_entries_without_url():
 
 def test_resolve_playlist_insert_position_at_start():
     assert resolve_playlist_insert_position([{"url": "b"}], 0) == 0
+
+
+def test_select_playback_source_without_strict_limit_takes_first_format_manifest():
+    result = {
+        'formats': [
+            {
+                'url': 'https://example.invalid/low.m3u8',
+                'manifest_url': 'https://example.invalid/master.m3u8',
+                'protocol': 'm3u8_native',
+                'vcodec': 'avc1',
+                'acodec': 'mp4a',
+                'width': 640,
+                'format': 'hls-360',
+            },
+            {
+                'url': 'https://example.invalid/high.m3u8',
+                'manifest_url': 'https://example.invalid/master.m3u8',
+                'protocol': 'm3u8_native',
+                'vcodec': 'avc1',
+                'acodec': 'mp4a',
+                'width': 3840,
+                'format': 'hls-2160',
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result,
+        True,
+        False,
+        1280,
+        lambda stream: stream == 'hls',
+        strict_max_resolution=False,
+    )
+
+    assert selected['url'] == 'https://example.invalid/master.m3u8'
+    assert selected['source'] == 'format_manifest'
+    assert selected['format_label'] == 'hls-2160'
+    assert selected['isa'] is True
+
+
+def test_select_playback_source_without_strict_limit_takes_best_raw_format_first():
+    result = {
+        'formats': [
+            {'url': 'https://example.invalid/360.mp4', 'vcodec': 'avc1', 'acodec': 'mp4a', 'width': 640, 'format': '18'},
+            {'url': 'https://example.invalid/720.mp4', 'vcodec': 'avc1', 'acodec': 'mp4a', 'width': 1280, 'format': '22'},
+        ],
+    }
+
+    selected = select_playback_source(
+        result,
+        False,
+        False,
+        7680,
+        lambda _stream: False,
+        strict_max_resolution=False,
+    )
+
+    assert selected == {
+        'decision': 'select',
+        'url': 'https://example.invalid/720.mp4',
+        'isa': False,
+        'headers': None,
+        'manifest_type': None,
+        'source': 'raw_format',
+        'format_label': '22',
+    }
