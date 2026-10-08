@@ -79,6 +79,8 @@ def resolve_system_ytdlp():
     Where the package lives is a packaging concern: the addon only asks whether
     it can be imported. Nothing is added to sys.path here.
     """
+    # A managed version from an earlier invocation must not shadow the system package.
+    activate_runtime(None)
     try:
         module = importlib.import_module("yt_dlp")
     except Exception:
@@ -532,10 +534,50 @@ def snooze_install_prompt(now=None):
         _warn("Could not save yt-dlp prompt state: {}".format(exc))
 
 
+def _is_within(path, directory):
+    path = os.path.normpath(os.path.abspath(path))
+    directory = os.path.normpath(os.path.abspath(directory))
+    return path == directory or path.startswith(directory + os.sep)
+
+
+def _loaded_yt_dlp_file():
+    module = sys.modules.get("yt_dlp")
+    if module is None:
+        return None
+    return getattr(module, "__file__", None) or ""
+
+
+def _unload_yt_dlp():
+    for name in list(sys.modules):
+        if name == "yt_dlp" or name.startswith("yt_dlp."):
+            del sys.modules[name]
+    importlib.invalidate_caches()
+
+
 def activate_runtime(runtime_path):
-    """Prepend the managed runtime path to sys.path so yt_dlp imports from it."""
+    """Make "import yt_dlp" load the managed runtime at runtime_path.
+
+    With runtime_path None, managed runtimes are taken off sys.path so the
+    system package is used. Kodi may reuse the interpreter between
+    invocations (reuselanguageinvoker), so other managed versions are removed
+    from sys.path and an already imported yt_dlp from elsewhere is unloaded;
+    otherwise a version switch would only take effect after a Kodi restart.
+    """
+    versions_dir = _versions_dir()
+    for entry in list(sys.path):
+        if entry and entry != runtime_path and _is_within(entry, versions_dir):
+            sys.path.remove(entry)
+
+    if runtime_path is not None and runtime_path not in sys.path:
+        sys.path.insert(0, runtime_path)
+
+    loaded_file = _loaded_yt_dlp_file()
+    if loaded_file is None:
+        return
     if runtime_path is None:
-        return
-    if runtime_path in sys.path:
-        return
-    sys.path.insert(0, runtime_path)
+        stale = bool(loaded_file) and _is_within(loaded_file, versions_dir)
+    else:
+        stale = not loaded_file or not _is_within(loaded_file, runtime_path)
+    if stale:
+        _log("Unloading yt-dlp imported from {}".format(loaded_file or "an unknown location"))
+        _unload_yt_dlp()

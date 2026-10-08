@@ -455,3 +455,60 @@ def test_get_runtime_status_does_not_look_up_latest_by_default(monkeypatch):
 
     assert status["installed_version"] == "2026.03.26"
     assert status["latest_version"] is None
+
+
+def _fake_module(name, file_path):
+    import types
+
+    module = types.ModuleType(name)
+    module.__file__ = file_path
+    return module
+
+
+def test_activate_runtime_switches_versions_in_a_reused_interpreter(monkeypatch, tmp_path):
+    versions = tmp_path / "ytdlp" / "versions"
+    old_path = str(versions / "2026.08.19")
+    new_path = str(versions / "2026.09.30")
+    monkeypatch.setattr(sys, "path", [old_path, "/usr/lib/python3/site-packages"])
+    monkeypatch.setitem(sys.modules, "yt_dlp", _fake_module("yt_dlp", old_path + "/yt_dlp/__init__.py"))
+    monkeypatch.setitem(
+        sys.modules, "yt_dlp.extractor", _fake_module("yt_dlp.extractor", old_path + "/yt_dlp/extractor/__init__.py")
+    )
+
+    ytdlp_manager.activate_runtime(new_path)
+
+    assert sys.path == [new_path, "/usr/lib/python3/site-packages"]
+    assert "yt_dlp" not in sys.modules
+    assert "yt_dlp.extractor" not in sys.modules
+
+
+def test_activate_runtime_keeps_yt_dlp_loaded_from_the_same_version(monkeypatch, tmp_path):
+    path = str(tmp_path / "ytdlp" / "versions" / "2026.09.30")
+    loaded = _fake_module("yt_dlp", path + "/yt_dlp/__init__.py")
+    monkeypatch.setattr(sys, "path", [path])
+    monkeypatch.setitem(sys.modules, "yt_dlp", loaded)
+
+    ytdlp_manager.activate_runtime(path)
+
+    assert sys.path == [path]
+    assert sys.modules["yt_dlp"] is loaded
+
+
+def test_activate_runtime_none_removes_managed_versions(monkeypatch, tmp_path):
+    managed = str(tmp_path / "ytdlp" / "versions" / "2026.09.30")
+    monkeypatch.setattr(sys, "path", [managed, "/usr/lib/python3/site-packages"])
+    monkeypatch.setitem(sys.modules, "yt_dlp", _fake_module("yt_dlp", managed + "/yt_dlp/__init__.py"))
+
+    ytdlp_manager.activate_runtime(None)
+
+    assert sys.path == ["/usr/lib/python3/site-packages"]
+    assert "yt_dlp" not in sys.modules
+
+
+def test_activate_runtime_none_keeps_system_yt_dlp(monkeypatch):
+    system = _fake_module("yt_dlp", "/usr/lib/python3/site-packages/yt_dlp/__init__.py")
+    monkeypatch.setitem(sys.modules, "yt_dlp", system)
+
+    ytdlp_manager.activate_runtime(None)
+
+    assert sys.modules["yt_dlp"] is system

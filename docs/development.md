@@ -58,6 +58,11 @@ Add a test for every change in `core`; CI refuses pull requests whose tests fail
 | `docs/`, `mkdocs.yml` | This documentation. |
 | `.github/` | Workflows and the build and publish scripts. |
 
+`addon.xml` sets `reuselanguageinvoker`, so Kodi keeps the Python interpreter between calls of the add-on: imported
+modules (yt-dlp above all) and module-level state in `core/` survive from one call to the next, while `service.py`
+itself runs again each time. Keep code in `core/` safe to run repeatedly in the same interpreter, for example patches
+that apply only once, and remember that the `xbmc*` modules belong to the current call.
+
 ## Running the add-on from a checkout
 
 Kodi loads add-ons from its `addons` folder, so the simplest way is a symlink to the checkout:
