@@ -546,3 +546,39 @@ def test_handle_request_returns_when_server_goes_idle(monkeypatch):
     dash_builder._handle_request(DummyHttpd())
 
     assert len(calls) == 3
+
+
+class FakeRangeResponse(FakeStreamResponse):
+    status_code = 206
+
+
+def test_find_init_and_index_ranges_fetches_only_missing_bytes(monkeypatch):
+    moov_box = (20000).to_bytes(4, "big") + b"moov" + (b"\x00" * 19992)
+    sidx_box = b"\x00\x00\x00\x18" + b"sidx" + (b"\x00" * 16)
+    media = moov_box + sidx_box + (b"\x00" * 100000)
+    requested = []
+
+    def fake_get(_url, headers, timeout, stream):
+        requested.append(headers["Range"])
+        start, end = (int(value) for value in headers["Range"][len("bytes="):].split("-"))
+        return FakeRangeResponse(media[start:end + 1])
+
+    monkeypatch.setattr(dash_builder.requests, "get", fake_get)
+
+    init_range, index_range = dash_builder.find_init_and_index_ranges("https://x", "mp4_dash")
+
+    assert requested == ["bytes=0-4095", "bytes=4096-16383", "bytes=16384-65535"]
+    assert init_range == (0, 19999)
+    assert index_range == (20000, 20023)
+
+
+def test_fetch_range_handles_server_ignoring_range(monkeypatch):
+    media = bytes(range(256)) * 100
+    response = FakeStreamResponse(media)
+    response.status_code = 200
+    monkeypatch.setattr(dash_builder.requests, "get", lambda *_a, **_k: response)
+
+    data, offset = dash_builder._fetch_range("https://x", 4096, 16383)
+
+    assert offset == 0
+    assert data == media[:16384]
