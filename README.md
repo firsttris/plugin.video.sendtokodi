@@ -170,7 +170,7 @@ The full documentation is at **[firsttris.github.io/plugin.video.sendtokodi](htt
 [how it works](https://firsttris.github.io/plugin.video.sendtokodi/how-it-works.html),
 [troubleshooting](https://firsttris.github.io/plugin.video.sendtokodi/troubleshooting.html) and
 [development](https://firsttris.github.io/plugin.video.sendtokodi/development.html). The source is in
-[docs/](docs/README.md).
+[docs/](docs/).
 
 ## 💻 Development
 
