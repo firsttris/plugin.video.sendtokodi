@@ -1886,3 +1886,25 @@ def test_select_playback_source_without_strict_limit_takes_best_raw_format_first
         'source': 'raw_format',
         'format_label': '22',
     }
+
+
+def test_evaluate_raw_format_candidate_skips_progressive_when_dash_available():
+    fmt = {"url": "https://example.com/360.mp4", "format_id": "18", "vcodec": "avc1", "acodec": "mp4a"}
+    result = evaluate_raw_format_candidate(
+        fmt, False, False, 1920, None, False, dash_available=True
+    )
+    assert result["decision"] == "skip"
+
+    fmt22 = {"url": "https://example.com/720.mp4", "format_id": "22", "vcodec": "avc1", "acodec": "mp4a"}
+    result22 = evaluate_raw_format_candidate(
+        fmt22, False, False, 1920, None, False, dash_available=True
+    )
+    assert result22["decision"] == "skip"
+
+
+def test_evaluate_raw_format_candidate_keeps_progressive_without_dash():
+    fmt = {"url": "https://example.com/360.mp4", "format_id": "18", "vcodec": "avc1", "acodec": "mp4a"}
+    result = evaluate_raw_format_candidate(
+        fmt, False, False, 1920, None, False, dash_available=False
+    )
+    assert result["decision"] == "select"
