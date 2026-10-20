@@ -20,12 +20,14 @@ can go to sleep, playback continues, and Kodi's own player handles it, with its 
 
 ## Does it play YouTube without ads?
 
-Kodi plays the streams yt-dlp picks, which contain no ad breaks. SponsorBlock and similar are not integrated.
+Kodi plays the streams yt-dlp picks, which contain no ad breaks. Sponsor segments the creators put into the video
+itself can be skipped with [SponsorBlock](settings.md#sponsorblock), which is off by default.
 
 ## Is it free? Is there tracking?
 
 SendToKodi is free and open source under the MIT license. The add-on talks to the website you send, to GitHub for
-yt-dlp and Deno updates, and to nothing else. The browser extension has its own
+yt-dlp and Deno updates, only if you turn it on to SponsorBlock (which gets the first four characters of a hash of the
+YouTube video ID), and to nothing else. The browser extension has its own
 [privacy policy](https://github.com/firsttris/chrome.sendtokodi/blob/master/PRIVACY.md): no tracking, no server in
 between.
 

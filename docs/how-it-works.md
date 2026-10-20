@@ -158,6 +158,15 @@ Subtitles yt-dlp lists are downloaded to `addon_data/plugin.video.sendtokodi/sub
 20-second timeout per file, and attached to the list item, so they show up in Kodi's subtitle dialog. Title, description
 and thumbnail come from the yt-dlp result and fill Kodi's player info.
 
+## SponsorBlock
+
+A plugin call ends as soon as Kodi has the stream, so it cannot watch the playback. For a YouTube video the plugin
+therefore stores the video ID as a ListItem property and, for Kodi versions that do not pass it on to the playing item,
+together with the stream path in a property of Kodi's home window. `sponsorblock_service.py`, a service extension of the
+add-on, picks it up when playback starts, asks the [SponsorBlock API](https://wiki.sponsor.ajay.app/w/API_Docs) for the
+segments (by hash prefix, so the server does not learn the video), and seeks over each segment once while the video
+plays. A failing API only costs the skipping, never the playback.
+
 ## Files on disk
 
 Everything the add-on writes lives in Kodi's profile folder, so it survives add-on updates and goes away with

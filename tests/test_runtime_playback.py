@@ -390,3 +390,57 @@ def test_play_playlist_resolves_starting_entry_with_progress(monkeypatch, media_
     expected.append(('builtin', 'Playlist.PlayOffset(video,1)'))
     assert events == expected
     assert playlist.items[1] == 'resolved:https://example.invalid/b'
+
+
+def _create_list_item_for_sponsorblock(playback, result):
+    return playback.create_list_item_from_video(
+        result=result,
+        ydl_opts={},
+        usemanifest=False,
+        usedashbuilder=False,
+        maxwidth=1920,
+        strict_max_resolution=True,
+        askstream=False,
+        disable_opus_for_audio_only_hls_native=False,
+        isa_supports=lambda _stream: False,
+        youtube_dl_cls=None,
+        log=lambda *_args, **_kwargs: None,
+        show_error_notification=lambda *_args, **_kwargs: None,
+    )
+
+
+def test_create_list_item_from_video_publishes_youtube_videos_for_sponsorblock(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    window_properties = {}
+    playback.xbmcgui.Window = lambda _id: types.SimpleNamespace(setProperty=window_properties.__setitem__)
+    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        playback,
+        'select_playback_source',
+        lambda *_args, **_kwargs: {'url': 'https://example.com/v.mp4', 'isa': False, 'headers': {'User-Agent': 'UA'}},
+    )
+
+    list_item = _create_list_item_for_sponsorblock(
+        playback, {'title': 'yt', 'formats': [], 'extractor_key': 'Youtube', 'id': 'abc'}
+    )
+
+    assert list_item.path == 'https://example.com/v.mp4|User-Agent=UA'
+    assert list_item.properties[playback.sponsorblock.VIDEO_ID_PROPERTY] == 'abc'
+    published = window_properties[playback.sponsorblock.PLAYBACK_PROPERTY]
+    assert playback.sponsorblock.resolve_playing_video_id('', list_item.path, published) == 'abc'
+
+
+def test_create_list_item_from_video_does_not_publish_other_sites(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        playback,
+        'select_playback_source',
+        lambda *_args, **_kwargs: {'url': 'https://example.com/v.mp4', 'isa': False, 'headers': None},
+    )
+
+    list_item = _create_list_item_for_sponsorblock(
+        playback, {'title': 'vimeo', 'formats': [], 'extractor_key': 'Vimeo', 'id': '1'}
+    )
+
+    assert playback.sponsorblock.VIDEO_ID_PROPERTY not in list_item.properties

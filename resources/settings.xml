@@ -163,5 +163,102 @@
                 </setting>
             </group>
         </category>
+        <category id="sponsorblock" label="34000">
+            <group id="5">
+                <setting type="boolean" id="sponsorblock_enabled" label="34001">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_sponsor" label="34003" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>true</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_selfpromo" label="34004" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>true</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_interaction" label="34005" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>true</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_intro" label="34006" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_outro" label="34007" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_preview" label="34008" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_hook" label="34009" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_filler" label="34010" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_category_music_offtopic" label="34011" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="boolean" id="sponsorblock_notify" label="34002" parent="sponsorblock_enabled">
+                    <level>0</level>
+                    <default>true</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
+                <setting type="string" id="sponsorblock_api_url" label="34012" parent="sponsorblock_enabled">
+                    <level>2</level>
+                    <default>https://sponsor.ajay.app</default>
+                    <dependencies>
+                        <dependency type="enable" setting="sponsorblock_enabled">true</dependency>
+                    </dependencies>
+                    <control type="edit" format="string"/>
+                </setting>
+            </group>
+        </category>
     </section>
 </settings>
