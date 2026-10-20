@@ -338,3 +338,50 @@ def test_service_player_resets_when_playback_stops(service):
 
     assert player.started is False
     assert player.skipper is None
+
+
+def test_service_drops_segments_when_the_next_item_starts_during_the_fetch(service, monkeypatch):
+    player = service.module.SponsorBlockPlayer()
+    player.item_video_id = 'videoA'
+    player.onAVStarted()
+
+    def slow_fetch(*_args):
+        # The next item, not resolved by SendToKodi, starts while the segments of A are fetched.
+        player.item_video_id = ''
+        player.playing_file = 'https://other/videoB'
+        player.time = 2.0
+        player.onAVStarted()
+        return [(0.0, 60.0)]
+
+    monkeypatch.setattr(sponsorblock, 'fetch_skip_segments', slow_fetch)
+
+    service.module.tick(player)
+    service.module.tick(player)
+
+    assert player.seeks == []
+    assert player.skipper is None
+
+
+def test_service_loop_survives_a_failing_player_call(service, monkeypatch):
+    players = []
+    original_player = service.module.SponsorBlockPlayer
+
+    def make_player():
+        player = original_player()
+        player.item_video_id = 'abc'
+        player.time = 15.0
+
+        def stopped(_target):
+            raise RuntimeError('Kodi is not playing any media file')
+
+        player.seekTime = stopped
+        player.onAVStarted()
+        players.append(player)
+        return player
+
+    monkeypatch.setattr(service.module, 'SponsorBlockPlayer', make_player)
+    service.state['aborts'] = [False, False]
+
+    service.module.run()
+
+    assert service.state['aborts'] == []

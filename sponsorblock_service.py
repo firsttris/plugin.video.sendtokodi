@@ -88,11 +88,23 @@ def run():
     monitor = xbmc.Monitor()
     player = SponsorBlockPlayer()
     while not monitor.waitForAbort(POLL_INTERVAL_SECONDS):
+        try:
+            tick(player)
+        except Exception as exc:
+            # Kodi's player calls fail when playback stops in between; keep the service alive.
+            log("Check failed: {}".format(exc), xbmc.LOGWARNING)
+
+
+def tick(player):
+    if player.started:
+        player.started = False
+        skipper = load_skipper(player)
+        # Another item may have started while the segments were fetched; it is loaded next time.
         if player.started:
-            player.started = False
-            player.skipper = load_skipper(player)
-        if player.skipper is not None and player.isPlayingVideo():
-            skip_if_needed(player)
+            return
+        player.skipper = skipper
+    if player.skipper is not None and player.isPlayingVideo():
+        skip_if_needed(player)
 
 
 if __name__ == '__main__':
