@@ -69,7 +69,9 @@ CoreELEC. The add-on is not in the official Kodi repository, so install the Send
 the add-on updated automatically.
 
 1. Download [repository.sendtokodi-1.0.0.zip](https://github.com/firsttris/repository.sendtokodi/raw/refs/heads/master/repository.sendtokodi-1.0.0.zip)
-   to a place your Kodi can reach.
+   to a place your Kodi can reach. On a TV without a USB stick or network share, add
+   `https://firsttris.github.io/plugin.video.sendtokodi/repo/` as a source in Kodi's **File manager** instead and
+   pick the ZIP from there in step 2.
 2. In Kodi, go to **Add-ons → Install from zip file** and install the ZIP (allow *Unknown sources* once if Kodi asks).
 3. Go to **Add-ons → Install from repository → SendToKodi Repository → Video add-ons** and install **SendToKodi**.
 
