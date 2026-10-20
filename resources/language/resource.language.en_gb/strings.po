@@ -196,3 +196,59 @@ msgstr ""
 msgctxt "#32072"
 msgid "System (already importable, not downloaded)"
 msgstr ""
+
+msgctxt "#34000"
+msgid "SponsorBlock"
+msgstr ""
+
+msgctxt "#34001"
+msgid "Skip SponsorBlock segments in YouTube videos"
+msgstr ""
+
+msgctxt "#34002"
+msgid "Show a notification when a segment is skipped"
+msgstr ""
+
+msgctxt "#34003"
+msgid "Skip sponsors"
+msgstr ""
+
+msgctxt "#34004"
+msgid "Skip unpaid/self promotion"
+msgstr ""
+
+msgctxt "#34005"
+msgid "Skip interaction reminders (subscribe)"
+msgstr ""
+
+msgctxt "#34006"
+msgid "Skip intermissions/intro animations"
+msgstr ""
+
+msgctxt "#34007"
+msgid "Skip endcards/credits"
+msgstr ""
+
+msgctxt "#34008"
+msgid "Skip previews/recaps"
+msgstr ""
+
+msgctxt "#34009"
+msgid "Skip hooks/greetings"
+msgstr ""
+
+msgctxt "#34010"
+msgid "Skip filler tangents"
+msgstr ""
+
+msgctxt "#34011"
+msgid "Skip non-music sections in music videos"
+msgstr ""
+
+msgctxt "#34012"
+msgid "SponsorBlock server"
+msgstr ""
+
+msgctxt "#34020"
+msgid "Skipped SponsorBlock segment"
+msgstr ""

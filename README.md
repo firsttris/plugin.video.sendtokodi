@@ -58,6 +58,8 @@ media files, and every other site [yt-dlp](https://github.com/yt-dlp/yt-dlp) sup
   iPhone and Mac, or any JSON-RPC call from scripts and Home Assistant.
 - 💬 **Subtitles, title and artwork** from the website appear in Kodi's player.
 - 💾 **Optional download** before playback, for unstable connections or to keep a copy.
+- ⏭️ **SponsorBlock** (optional): skips sponsor segments, self promotion and other parts of YouTube videos you
+  choose, using the SponsorBlock community database.
 - 🔐 **Logins and options**: a yt-dlp config file for cookies, proxies and extractor arguments, or per-request
   options over JSON-RPC.
 - 🆓 **Free and open source** (MIT), no tracking, nothing in between you and the website.

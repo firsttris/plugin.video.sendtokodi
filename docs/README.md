@@ -19,7 +19,7 @@ it from playlists, other add-ons or any JSON-RPC client, and how it works inside
 |---|---|
 | [Installation](installation.md) | Requirements, the SendToKodi repository for automatic updates, manual installation, first start, updating, uninstalling |
 | [Usage](usage.md) | Sending links from the browser extension, from Android (Kore), from iPhone and Mac (Shortcut), playlists, the queue, choosing a stream, subtitles, downloads |
-| [Settings](settings.md) | Every setting explained: General, JavaScript runtime, yt-dlp, Adaptive |
+| [Settings](settings.md) | Every setting explained: General, JavaScript runtime, yt-dlp, Adaptive, SponsorBlock |
 | [Troubleshooting](troubleshooting.md) | What to do when a video doesn't play, where the log is, YouTube and bot checks, cookies, ARMv7 devices |
 | [FAQ](faq.md) | Short answers to the most common questions |
 
@@ -33,7 +33,7 @@ it from playlists, other add-ons or any JSON-RPC client, and how it works inside
 
 | | |
 |---|---|
-| [How it works](how-it-works.md) | Architecture, the resolve-and-play flow, managed yt-dlp and Deno runtimes, the DASH manifest builder, stream selection, files on disk |
+| [How it works](how-it-works.md) | Architecture, the resolve-and-play flow, managed yt-dlp and Deno runtimes, the DASH manifest builder, stream selection, SponsorBlock, files on disk |
 | [Development](development.md) | Local setup, unit tests and coverage, project structure, running the add-on from a checkout, releases, writing documentation |
 
 ## The companion apps

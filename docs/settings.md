@@ -1,5 +1,5 @@
 ---
-description: Reference for every SendToKodi setting in Kodi: auto-download, JavaScript runtime (Deno, QuickJS), yt-dlp release channel and updates, yt-dlp config file, adaptive streaming, DASH builder, stream selection and maximum resolution.
+description: Reference for every SendToKodi setting in Kodi: auto-download, JavaScript runtime (Deno, QuickJS), yt-dlp release channel and updates, yt-dlp config file, adaptive streaming, DASH builder, stream selection, maximum resolution and SponsorBlock.
 ---
 
 # Settings
@@ -88,3 +88,18 @@ Settings for adaptive streaming through [InputStream Adaptive](https://kodi.wiki
 | **Ask which stream to play** | off | Shows a list of all formats yt-dlp found before every playback and plays the one you choose. See [Stream selection](usage.md#stream-selection). |
 | **Audio-only HLS: disable Opus for native m3u streams** | on | Skips Opus audio in audio-only HLS streams that Kodi plays natively (without ISA), which Kodi's HLS demuxer cannot handle. Turn off only if an audio stream has no other codec. |
 | **Maximum resolution** | 1920x1080 (FHD) | Caps the width of the video stream the add-on selects or puts into its DASH manifest: 8K, 4K, 2K, Full HD, HD or SD. *Adaptive (auto quality)* removes the cap and leaves the choice to ISA, which adapts to the bandwidth. |
+
+## SponsorBlock
+
+Skips sponsor segments and similar parts of YouTube videos, using the community database of
+[SponsorBlock](https://sponsor.ajay.app). Kodi plays the stream unchanged; a background service of the add-on watches the
+playback and seeks over each segment once, so seeking back into a skipped segment plays it. Other sites are not
+affected, the database only knows YouTube.
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Skip SponsorBlock segments in YouTube videos** | off | Turns SponsorBlock on. The segments are fetched when playback starts, so starting a video takes no longer. If the server cannot be reached, the video plays without skipping. |
+| **Skip sponsors**, **unpaid/self promotion**, **interaction reminders** | on | The [segment categories](https://wiki.sponsor.ajay.app/w/Types) to skip. |
+| **Skip intermissions/intro animations**, **endcards/credits**, **previews/recaps**, **hooks/greetings**, **filler tangents**, **non-music sections** | off | Further categories to skip. |
+| **Show a notification when a segment is skipped** | on | Shows a short notification on every skip. |
+| **SponsorBlock server** (Expert) | `https://sponsor.ajay.app` | The SponsorBlock API to ask, for a mirror or a self-hosted instance. |

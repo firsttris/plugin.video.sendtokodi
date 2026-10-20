@@ -7,7 +7,7 @@ import xbmc
 import xbmcgui
 import xbmcvfs
 
-from core import dash_builder
+from core import dash_builder, sponsorblock
 from core.addon_params import build_flat_playlist_item_url, resolve_playlist_item_title
 from core.playback_selection import (
     append_headers_to_url,
@@ -292,7 +292,24 @@ def create_list_item_from_video(
         url = append_headers_to_url(url, effective_headers)
         list_item.setPath(url)
 
+    _publish_sponsorblock_video(result, list_item, log)
     return list_item
+
+
+def _publish_sponsorblock_video(result, list_item, log):
+    """Tell sponsorblock_service.py which YouTube video the item plays."""
+    video_id = sponsorblock.resolve_youtube_video_id(result)
+    if video_id is None:
+        return
+    list_item.setProperty(sponsorblock.VIDEO_ID_PROPERTY, video_id)
+    # Not every Kodi version hands ListItem properties to the playing item, so the path is published too.
+    try:
+        xbmcgui.Window(10000).setProperty(
+            sponsorblock.PLAYBACK_PROPERTY,
+            sponsorblock.encode_playback(list_item.getPath(), video_id),
+        )
+    except Exception as exc:
+        log("Could not publish the video for SponsorBlock: {}".format(exc), xbmc.LOGWARNING)
 
 
 def _create_list_item_from_flat_playlist_item(video, plugin_url, paramstring):

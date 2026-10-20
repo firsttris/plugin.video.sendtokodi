@@ -1,5 +1,5 @@
 ---
-description: Architecture of the SendToKodi Kodi add-on. How a link becomes a stream with yt-dlp, the managed yt-dlp and Deno runtimes and their updates, the DASH manifest builder for InputStream Adaptive, stream selection, headers, subtitles and the files in addon_data.
+description: Architecture of the SendToKodi Kodi add-on. How a link becomes a stream with yt-dlp, the managed yt-dlp and Deno runtimes and their updates, the DASH manifest builder for InputStream Adaptive, stream selection, headers, subtitles, SponsorBlock and the files in addon_data.
 ---
 
 # How it works
@@ -157,6 +157,15 @@ player, which is Kodi's convention for HTTP headers.
 Subtitles yt-dlp lists are downloaded to `addon_data/plugin.video.sendtokodi/subtitles/` with safe file names, with a
 20-second timeout per file, and attached to the list item, so they show up in Kodi's subtitle dialog. Title, description
 and thumbnail come from the yt-dlp result and fill Kodi's player info.
+
+## SponsorBlock
+
+A plugin call ends as soon as Kodi has the stream, so it cannot watch the playback. For a YouTube video the plugin
+therefore stores the video ID as a ListItem property and, for Kodi versions that do not pass it on to the playing item,
+together with the stream path in a property of Kodi's home window. `sponsorblock_service.py`, a service extension of the
+add-on, picks it up when playback starts, asks the [SponsorBlock API](https://wiki.sponsor.ajay.app/w/API_Docs) for the
+segments (by hash prefix, so the server does not learn the video), and seeks over each segment once while the video
+plays. A failing API only costs the skipping, never the playback.
 
 ## Files on disk
 
