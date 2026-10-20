@@ -5,6 +5,7 @@ from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from threading import Thread, Lock
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import time
 from time import monotonic
 from uuid import uuid4
 
@@ -17,6 +18,9 @@ _HTTPD_THREAD = None
 _MANIFESTS = {}
 _LATEST_MANIFEST_ID = None
 _RANGE_REQUEST_TIMEOUT_SECONDS = 20
+# YouTube answers freshly generated googlevideo URLs with a short soft block
+# (HTTP 403); the range probe waits these seconds before each retry.
+_RANGE_FETCH_RETRY_DELAYS = (3, 6)
 # The init/index boxes usually sit in the first few KiB; grow the probe until found.
 _RANGE_PROBE_INITIAL_BYTES = 4096
 _RANGE_PROBE_MAX_BYTES = 256 * 1024
@@ -125,27 +129,35 @@ def _fetch_range(url, start, end):
 
     A server that ignores the Range header answers 200 with the file from byte 0,
     so the offset is 0 then and the data covers 0..end.
+
+    A 403 is retried after the _RANGE_FETCH_RETRY_DELAYS backoff, so YouTube's
+    short soft block on fresh URLs does not fail the whole manifest build.
     """
-    # stream=True so a server that ignores the Range header does not make us
-    # download the whole media file.
-    r = requests.get(
-        url,
-        headers={'Range': 'bytes={}-{}'.format(start, end)},
-        timeout=_RANGE_REQUEST_TIMEOUT_SECONDS,
-        stream=True,
-    )
-    try:
-        r.raise_for_status()
-        offset = start if start == 0 or getattr(r, 'status_code', None) == 206 else 0
-        size = end + 1 - offset
-        data = bytearray()
-        for chunk in r.iter_content(chunk_size=16384):
-            data += chunk
-            if len(data) >= size:
-                break
-        return bytes(data[:size]), offset
-    finally:
-        r.close()
+    retry_delays = list(_RANGE_FETCH_RETRY_DELAYS)
+    while True:
+        # stream=True so a server that ignores the Range header does not make us
+        # download the whole media file.
+        r = requests.get(
+            url,
+            headers={'Range': 'bytes={}-{}'.format(start, end)},
+            timeout=_RANGE_REQUEST_TIMEOUT_SECONDS,
+            stream=True,
+        )
+        try:
+            status = getattr(r, 'status_code', None)
+            if status != 403 or not retry_delays:
+                r.raise_for_status()
+                offset = start if start == 0 or status == 206 else 0
+                size = end + 1 - offset
+                data = bytearray()
+                for chunk in r.iter_content(chunk_size=16384):
+                    data += chunk
+                    if len(data) >= size:
+                        break
+                return bytes(data[:size]), offset
+        finally:
+            r.close()
+        time.sleep(retry_delays.pop(0))
 
 
 def _fetch_prefix(url, size):
