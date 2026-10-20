@@ -36,6 +36,16 @@ it up to date automatically.
 4. Go to *Add-ons → Install from repository → SendToKodi Repository → Video add-ons → SendToKodi* and choose
    *Install*. Kodi installs the dependencies with it.
 
+!!! tip "No USB stick or network share? Install straight from the web"
+    On TVs and streaming boxes (webOS, Android TV, Fire TV) copying a file to the device is often awkward. Kodi
+    can fetch the repository ZIP itself instead; this replaces step 1 and step 3:
+
+    1. Go to *Settings → File manager → Add source*, select *&lt;None&gt;*, enter
+       `https://firsttris.github.io/plugin.video.sendtokodi/repo/`, name the source *SendToKodi* and confirm.
+    2. Go to *Add-ons → Install from zip file → SendToKodi* and pick `repository.sendtokodi-1.0.0.zip`.
+
+    Then continue with step 4.
+
 From now on Kodi updates SendToKodi together with its other add-ons. If you turned off automatic add-on updates, new
 versions appear under *Add-ons → My add-ons → Video add-ons → SendToKodi → Update*.
 

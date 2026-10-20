@@ -43,6 +43,18 @@ jobs:
           cache-dependency-path: requirements-docs.txt
       - run: pip install -r requirements-docs.txt
       - run: mkdocs build --strict
+      # site/repo/ is a directory listing Kodi can add as an HTTP source, so the
+      # repository ZIP installs without copying it to the device first.
+      # Kodi only lists links whose text equals the href, next to the page.
+      - name: Repository ZIP as Kodi HTTP source
+        env:
+          REPO_ZIP: repository.sendtokodi-1.0.0.zip
+        run: |
+          mkdir -p site/repo
+          curl -fsSL -o "site/repo/$REPO_ZIP" \
+            "https://raw.githubusercontent.com/firsttris/repository.sendtokodi/master/$REPO_ZIP"
+          printf '<!DOCTYPE html>\n<html><head><meta charset="utf-8"><title>SendToKodi repository</title></head><body>\n<a href="%s">%s</a> <br>\n</body></html>\n' \
+            "$REPO_ZIP" "$REPO_ZIP" > site/repo/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
