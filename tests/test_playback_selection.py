@@ -1888,23 +1888,85 @@ def test_select_playback_source_without_strict_limit_takes_best_raw_format_first
     }
 
 
-def test_evaluate_raw_format_candidate_skips_progressive_when_dash_available():
+def test_evaluate_raw_format_candidate_skips_youtube_progressive_when_requested():
+    for format_id in ("18", "22"):
+        fmt = {"url": "https://example.com/muxed.mp4", "format_id": format_id, "vcodec": "avc1", "acodec": "mp4a"}
+        result = evaluate_raw_format_candidate(
+            fmt, False, False, 1920, None, False, skip_youtube_progressive=True
+        )
+        assert result["decision"] == "skip"
+
+
+def test_evaluate_raw_format_candidate_keeps_progressive_by_default():
     fmt = {"url": "https://example.com/360.mp4", "format_id": "18", "vcodec": "avc1", "acodec": "mp4a"}
-    result = evaluate_raw_format_candidate(
-        fmt, False, False, 1920, None, False, dash_available=True
-    )
-    assert result["decision"] == "skip"
-
-    fmt22 = {"url": "https://example.com/720.mp4", "format_id": "22", "vcodec": "avc1", "acodec": "mp4a"}
-    result22 = evaluate_raw_format_candidate(
-        fmt22, False, False, 1920, None, False, dash_available=True
-    )
-    assert result22["decision"] == "skip"
-
-
-def test_evaluate_raw_format_candidate_keeps_progressive_without_dash():
-    fmt = {"url": "https://example.com/360.mp4", "format_id": "18", "vcodec": "avc1", "acodec": "mp4a"}
-    result = evaluate_raw_format_candidate(
-        fmt, False, False, 1920, None, False, dash_available=False
-    )
+    result = evaluate_raw_format_candidate(fmt, False, False, 1920, None, False)
     assert result["decision"] == "select"
+
+
+class _FailingDashModule:
+    class Manifest:
+        def __init__(self, _duration):
+            pass
+
+        def add_video_format(self, _format_info):
+            raise RuntimeError("HTTP 403")
+
+        def add_audio_format(self, _format_info):
+            raise RuntimeError("HTTP 403")
+
+        def emit(self):
+            return "unused"
+
+    @staticmethod
+    def start_httpd(manifest):
+        return "http://dummy.local/" + manifest
+
+
+def _youtube_result_with_progressive(extractor_key="Youtube"):
+    return {
+        "extractor_key": extractor_key,
+        "duration": "10",
+        "formats": [
+            {"format": "18", "format_id": "18", "url": "https://example.com/18.mp4", "vcodec": "avc1", "acodec": "mp4a"},
+            {"format": "140", "format_id": "140", "url": "https://example.com/140", "vcodec": "none", "acodec": "mp4a", "container": "m4a_dash"},
+            {"format": "137", "format_id": "137", "url": "https://example.com/137", "vcodec": "avc1", "acodec": "none", "container": "mp4_dash"},
+        ],
+    }
+
+
+def _select_with_dash_builder(result, usedashbuilder=True, isa_supports=lambda stream: stream == "mpd"):
+    return select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=usedashbuilder,
+        maxwidth=1920,
+        isa_supports=isa_supports,
+        dashbuilder=_FailingDashModule,
+    )
+
+
+def test_select_playback_source_skips_youtube_progressive_when_dash_builder_active():
+    selected = _select_with_dash_builder(_youtube_result_with_progressive())
+
+    assert selected is None or selected.get("format_label") != "18"
+
+
+def test_select_playback_source_keeps_youtube_progressive_without_dash_builder():
+    selected = _select_with_dash_builder(_youtube_result_with_progressive(), usedashbuilder=False)
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "18"
+
+
+def test_select_playback_source_keeps_youtube_progressive_without_isa_mpd():
+    selected = _select_with_dash_builder(_youtube_result_with_progressive(), isa_supports=lambda _stream: False)
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "18"
+
+
+def test_select_playback_source_keeps_progressive_id_for_other_extractors():
+    selected = _select_with_dash_builder(_youtube_result_with_progressive(extractor_key="Generic"))
+
+    assert selected["source"] == "raw_format"
+    assert selected["format_label"] == "18"
