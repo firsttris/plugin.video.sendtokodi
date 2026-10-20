@@ -370,8 +370,14 @@ def evaluate_raw_format_candidate(
     manifest_type,
     manifest_supported,
     disable_opus_for_audio_only_hls_native=False,
+    dash_available=False,
 ):
     if 'url' not in format_info:
+        return {'decision': 'skip'}
+
+    # YouTube has removed progressive (muxed) formats for many videos; skip them
+    # when DASH streams are available so we don't fall back to a dead URL.
+    if dash_available and format_info.get('format_id') in ('18', '22'):
         return {'decision': 'skip'}
 
     if should_skip_non_adaptive_candidate(
@@ -790,6 +796,7 @@ def select_playback_source(
             manifest_type,
             isa_supports(manifest_type),
             disable_opus_for_audio_only_hls_native,
+            dash_available=bool(dash_video or dash_audio),
         )
         if raw_candidate['decision'] == 'skip':
             continue
