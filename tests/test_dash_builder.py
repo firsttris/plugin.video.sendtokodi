@@ -152,8 +152,6 @@ def test_fetch_prefix_stops_reading_when_range_is_ignored(monkeypatch):
     assert response.closed is True
 
 
-
-
 class _Http403Response:
     """Response whose raise_for_status raises HTTPError(403)."""
     def __init__(self, payload):
@@ -222,6 +220,24 @@ def test_fetch_range_propagates_non_403_errors(monkeypatch):
         dash_builder._fetch_range("https://x", 0, 1023)
 
     assert calls["n"] == 1
+
+
+def test_fetch_range_gives_up_after_persistent_403(monkeypatch):
+    calls = {"n": 0}
+    sleeps = []
+
+    def fake_get(url, headers, timeout, stream):
+        calls["n"] += 1
+        return _Http403Response(b"")
+
+    monkeypatch.setattr(dash_builder.requests, "get", fake_get)
+    monkeypatch.setattr(dash_builder.time, "sleep", sleeps.append)
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        dash_builder._fetch_range("https://x", 0, 1023)
+
+    assert calls["n"] == len(dash_builder._RANGE_FETCH_RETRY_DELAYS) + 1
+    assert sleeps == list(dash_builder._RANGE_FETCH_RETRY_DELAYS)
 
 
 def test_mp4_find_ranges_handles_64bit_box_size():

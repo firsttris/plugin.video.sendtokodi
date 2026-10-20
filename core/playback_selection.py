@@ -370,14 +370,14 @@ def evaluate_raw_format_candidate(
     manifest_type,
     manifest_supported,
     disable_opus_for_audio_only_hls_native=False,
-    dash_available=False,
+    skip_youtube_progressive=False,
 ):
     if 'url' not in format_info:
         return {'decision': 'skip'}
 
-    # YouTube has removed progressive (muxed) formats for many videos; skip them
-    # when DASH streams are available so we don't fall back to a dead URL.
-    if dash_available and format_info.get('format_id') in ('18', '22'):
+    # YouTube's progressive (muxed) itags often answer 403 or are gone; when the
+    # DASH builder can play the video instead, do not fall back to them.
+    if skip_youtube_progressive and format_info.get('format_id') in ('18', '22'):
         return {'decision': 'skip'}
 
     if should_skip_non_adaptive_candidate(
@@ -691,6 +691,12 @@ def select_playback_source(
 
     all_formats = result.get('formats', [])
     have_video, have_audio, dash_video, dash_audio = analyze_formats(all_formats)
+    skip_youtube_progressive = (
+        result.get('extractor_key') == 'Youtube'
+        and dash_manifest_factory is not None
+        and isa_supports("mpd")
+        and bool(dash_video or dash_audio)
+    )
 
     for format_info in reversed(all_formats):
         vcodec = format_info.get('vcodec')
@@ -796,7 +802,7 @@ def select_playback_source(
             manifest_type,
             isa_supports(manifest_type),
             disable_opus_for_audio_only_hls_native,
-            dash_available=bool(dash_video or dash_audio),
+            skip_youtube_progressive=skip_youtube_progressive,
         )
         if raw_candidate['decision'] == 'skip':
             continue
