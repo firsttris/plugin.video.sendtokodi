@@ -1,5 +1,5 @@
 ---
-description: Architecture of the SendToKodi Kodi add-on. How a link becomes a stream with yt-dlp, the managed yt-dlp and Deno runtimes and their updates, the DASH manifest builder for InputStream Adaptive, stream selection, headers, subtitles and the files in addon_data.
+description: Architecture of the SendToKodi Kodi add-on. How a link becomes a stream with yt-dlp, the managed yt-dlp and Deno runtimes and their updates, the DASH manifest builder for InputStream Adaptive, stream selection, headers, subtitles, SponsorBlock and the files in addon_data.
 ---
 
 # How it works
