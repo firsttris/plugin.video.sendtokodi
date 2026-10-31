@@ -1,0 +1,9 @@
+// Renovate (GitHub App, https://github.com/apps/renovate): the shared settings of
+// firsttris/workflows (renovate/default.json5), as in every project. The packages and the actions:
+// minor and patch updates once a month in one pull request that merges itself when CI is green,
+// majors on request in the "Dependency Dashboard" issue, security fixes at once.
+// Check with `npx --package renovate renovate-config-validator .github/renovate.json5`.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["github>firsttris/workflows//renovate/default.json5"],
+}
