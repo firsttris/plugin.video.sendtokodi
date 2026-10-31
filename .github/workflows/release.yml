@@ -21,14 +21,14 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: version
         name: Version from the tag
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       - name: Build addon
         run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ steps.version.outputs.version }}
       - name: Upload Addon-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Addon-artifacts
           path: "${{ runner.temp }}/*.zip"
@@ -40,8 +40,8 @@ jobs:
     env:
       TOKEN: ${{ secrets.PAT }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: Addon-artifacts
       - name: Publish addon
