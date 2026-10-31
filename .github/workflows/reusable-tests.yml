@@ -14,9 +14,9 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.15'
       - name: Install test dependencies
@@ -27,13 +27,13 @@ jobs:
         run: pytest
       - name: Upload coverage to Codecov
         if: ${{ inputs.upload_coverage }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
       - name: Upload coverage report
         if: ${{ inputs.upload_coverage }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.coverage_artifact_name }}
           path: |

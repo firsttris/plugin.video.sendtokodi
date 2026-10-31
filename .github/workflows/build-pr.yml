@@ -25,7 +25,7 @@ jobs:
     needs: [tests]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Read addon version
         id: addon_version
         run: |
@@ -34,7 +34,7 @@ jobs:
       - name: Build addon
         run: $GITHUB_WORKSPACE/.github/scripts/build-addon.sh ${{ steps.addon_version.outputs.version }}
       - name: Upload Addon-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Addon-artifacts
           path: "${{ runner.temp }}/*.zip"
