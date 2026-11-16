@@ -584,57 +584,142 @@ def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
     assert payload == b"manifest-v2"
 
 
-def test_stop_httpd_if_idle_keeps_recently_used_server(monkeypatch):
+def test_start_httpd_reuses_the_same_server_between_plays(monkeypatch):
     dash_builder._reset_httpd_state_for_tests()
-    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
 
-    class FakeHttpd:
-        closed = False
+    class FakeHTTPServer:
+        def __init__(self, _server_address, _handler):
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
 
-        def server_close(self):
-            self.closed = True
-
-    httpd = FakeHttpd()
-    dash_builder._HTTPD = httpd
-    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
-
-    assert dash_builder._stop_httpd_if_idle(httpd, now=105) is False
-    assert httpd.closed is False
-    assert dash_builder._HTTPD is httpd
-
-
-def test_stop_httpd_if_idle_stops_idle_server(monkeypatch):
-    dash_builder._reset_httpd_state_for_tests()
-    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
-
-    class FakeHttpd:
-        closed = False
-
-        def server_close(self):
-            self.closed = True
-
-    httpd = FakeHttpd()
-    dash_builder._HTTPD = httpd
-    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
-
-    assert dash_builder._stop_httpd_if_idle(httpd, now=111) is True
-    assert httpd.closed is True
-    assert dash_builder._HTTPD is None
-    assert dash_builder._MANIFESTS == {}
-
-
-def test_handle_request_returns_when_server_goes_idle(monkeypatch):
-    calls = []
-
-    class DummyHttpd:
         def handle_request(self):
-            calls.append(1)
+            raise TimeoutError()
 
-    monkeypatch.setattr(dash_builder, "_stop_httpd_if_idle", lambda _httpd: len(calls) >= 3)
+    class FakeThread:
+        def __init__(self, target, args):
+            self.target = target
+            self.args = args
 
-    dash_builder._handle_request(DummyHttpd())
+        def start(self):
+            return None
 
-    assert len(calls) == 3
+    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+
+    first = dash_builder.start_httpd(b"manifest-one")
+    second = dash_builder.start_httpd(b"manifest-two")
+
+    # The server is not shut down between plays: same port, two distinct manifests.
+    assert dash_builder._HTTPD is not None
+    assert first.split("/", 3)[2] == second.split("/", 3)[2]
+    first_id = dash_builder.parse_manifest_id(first)
+    second_id = dash_builder.parse_manifest_id(second)
+    assert first_id is not None and second_id is not None
+    assert first_id != second_id
+
+
+def test_old_manifest_is_still_served_after_a_new_one_is_registered():
+    dash_builder._reset_httpd_state_for_tests()
+
+    first = dash_builder.start_httpd(b"manifest-one")
+    second = dash_builder.start_httpd(b"manifest-two")
+
+    class DummyHandler:
+        def __init__(self, path):
+            self.path = path
+
+    first_path = "/manifest/{}.mpd".format(dash_builder.parse_manifest_id(first))
+    second_path = "/manifest/{}.mpd".format(dash_builder.parse_manifest_id(second))
+
+    assert dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(first_path)) == b"manifest-one"
+    assert dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(second_path)) == b"manifest-two"
+
+
+def test_manifest_cache_is_bounded_by_lru_eviction(monkeypatch):
+    from time import monotonic
+
+    dash_builder._reset_httpd_state_for_tests()
+
+    first_id = dash_builder.parse_manifest_id(dash_builder.start_httpd(b"first"))
+    for _index in range(dash_builder._MANIFEST_CACHE_SIZE - 1):
+        dash_builder.start_httpd(b"filler")
+    # Touch the first manifest so it becomes the most recently used entry.
+    dash_builder._MANIFESTS[first_id]["last_access_at"] = monotonic()
+    extra_id = dash_builder.parse_manifest_id(dash_builder.start_httpd(b"extra"))
+
+    # The touched entry survived; the server is still up (eviction never closes it).
+    assert first_id in dash_builder._MANIFESTS
+    assert extra_id in dash_builder._MANIFESTS
+    assert len(dash_builder._MANIFESTS) == dash_builder._MANIFEST_CACHE_SIZE
+    assert dash_builder._HTTPD is not None
+
+
+def test_manifest_cache_without_touch_evicts_the_oldest_entry():
+    dash_builder._reset_httpd_state_for_tests()
+
+    ids = [
+        dash_builder.parse_manifest_id(dash_builder.start_httpd(b"m"))
+        for _index in range(dash_builder._MANIFEST_CACHE_SIZE)
+    ]
+    dash_builder.start_httpd(b"new")
+
+    assert ids[0] not in dash_builder._MANIFESTS
+    assert len(dash_builder._MANIFESTS) == dash_builder._MANIFEST_CACHE_SIZE
+
+
+def test_parse_manifest_id_accepts_only_local_manifest_urls():
+    assert dash_builder.parse_manifest_id("http://127.0.0.1:12345/manifest/{}.mpd".format("a" * 32)) == "a" * 32
+    assert dash_builder.parse_manifest_id("https://example.com/manifest/{}.mpd".format("a" * 32)) is None
+    assert dash_builder.parse_manifest_id("http://127.0.0.1:12345/manifest/short.mpd") is None
+    assert dash_builder.parse_manifest_id("https://example.com/video") is None
+    assert dash_builder.parse_manifest_id(None) is None
+
+
+def test_playback_metadata_attach_and_fast_lookup(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
+
+    url = dash_builder.start_httpd(b"manifest")
+    manifest_id = dash_builder.parse_manifest_id(url)
+    assert dash_builder.get_fresh_playback(manifest_id) is None
+
+    metadata = {"manifest_url": url, "title": "Video", "kind": "video"}
+    assert dash_builder.attach_playback_metadata(manifest_id, metadata) is True
+    # The stored metadata is a copy; later changes to the source dict do not leak in.
+    metadata["title"] = "Changed"
+
+    assert dash_builder.get_fresh_playback(manifest_id) == {"manifest_url": url, "title": "Video", "kind": "video"}
+
+
+def test_playback_fast_lookup_is_stale_after_the_refresh_delay(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
+
+    url = dash_builder.start_httpd(b"manifest")
+    manifest_id = dash_builder.parse_manifest_id(url)
+    dash_builder.attach_playback_metadata(manifest_id, {"title": "Video"})
+    dash_builder._MANIFESTS[manifest_id]["refreshed_at"] = 0
+
+    assert dash_builder.get_fresh_playback(manifest_id) is None
+
+
+def test_playback_fast_lookup_unknown_or_missing_metadata():
+    dash_builder._reset_httpd_state_for_tests()
+
+    assert dash_builder.get_fresh_playback("unknown") is None
+    assert dash_builder.get_fresh_playback(None) is None
+
+    url = dash_builder.start_httpd(b"manifest")
+    manifest_id = dash_builder.parse_manifest_id(url)
+    # Registered but no metadata attached yet: not usable for the fast path.
+    assert dash_builder.get_fresh_playback(manifest_id) is None
+
+
+def test_attach_playback_metadata_ignores_unknown_manifest():
+    dash_builder._reset_httpd_state_for_tests()
+
+    assert dash_builder.attach_playback_metadata("unknown", {"title": "x"}) is False
 
 
 class FakeRangeResponse(FakeStreamResponse):
