@@ -494,6 +494,7 @@ def test_create_list_item_from_video_collects_local_dash_manifest_metadata(monke
             'subtitle_paths': ['/tmp/subs.vtt'],
             'webpage_url': 'https://example.invalid/watch',
             'extractor': 'test',
+            'sponsorblock_video_id': None,
         }
     ]
 
@@ -579,3 +580,45 @@ def test_create_list_item_from_playback_rejects_incomplete_metadata(monkeypatch)
         playback.create_list_item_from_playback({'title': 'no manifest url'})
     with pytest.raises(ValueError):
         playback.create_list_item_from_playback({'manifest_url': 'http://127.0.0.1:8123/manifest/x.mpd'})
+
+
+def test_collect_playback_metadata_keeps_the_youtube_id_for_sponsorblock(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+
+    metadata = playback._collect_playback_metadata(
+        {'extractor_key': 'Youtube', 'id': 'abc123', 'title': 'Video'},
+        'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32),
+        True,
+        'mpd',
+        {},
+        'video',
+        [],
+    )
+
+    assert metadata['sponsorblock_video_id'] == 'abc123'
+
+
+def test_create_list_item_from_playback_publishes_the_youtube_id_for_sponsorblock(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    window_properties = {}
+
+    class FakeWindow:
+        def setProperty(self, key, value):
+            window_properties[key] = value
+
+    monkeypatch.setattr(playback.xbmcgui, 'Window', lambda _id: FakeWindow(), raising=False)
+    manifest_url = 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32)
+
+    list_item = playback.create_list_item_from_playback(
+        {
+            'manifest_url': manifest_url,
+            'title': 'Video',
+            'kind': 'video',
+            'sponsorblock_video_id': 'abc123',
+            'headers': None,
+        }
+    )
+
+    assert list_item.properties[playback.sponsorblock.VIDEO_ID_PROPERTY] == 'abc123'
+    published = window_properties[playback.sponsorblock.PLAYBACK_PROPERTY]
+    assert playback.sponsorblock.resolve_playing_video_id('', list_item.path, published) == 'abc123'

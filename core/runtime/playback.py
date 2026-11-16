@@ -304,10 +304,9 @@ def create_list_item_from_video(
     return list_item
 
 
-def _publish_sponsorblock_video(result, list_item, log):
+def _publish_sponsorblock_video_id(video_id, list_item, log=None):
     """Tell sponsorblock_service.py which YouTube video the item plays."""
-    video_id = sponsorblock.resolve_youtube_video_id(result)
-    if video_id is None:
+    if not video_id:
         return
     list_item.setProperty(sponsorblock.VIDEO_ID_PROPERTY, video_id)
     # Not every Kodi version hands ListItem properties to the playing item, so the path is published too.
@@ -317,7 +316,12 @@ def _publish_sponsorblock_video(result, list_item, log):
             sponsorblock.encode_playback(list_item.getPath(), video_id),
         )
     except Exception as exc:
-        log("Could not publish the video for SponsorBlock: {}".format(exc), xbmc.LOGWARNING)
+        if log is not None:
+            log("Could not publish the video for SponsorBlock: {}".format(exc), xbmc.LOGWARNING)
+
+
+def _publish_sponsorblock_video(result, list_item, log):
+    _publish_sponsorblock_video_id(sponsorblock.resolve_youtube_video_id(result), list_item, log)
 
 
 def _collect_playback_metadata(result, url, isa, manifest_type, headers, stream_kind, subtitle_paths):
@@ -339,6 +343,7 @@ def _collect_playback_metadata(result, url, isa, manifest_type, headers, stream_
         'subtitle_paths': list(subtitle_paths),
         'webpage_url': result.get('webpage_url') or result.get('original_url') or result.get('url'),
         'extractor': result.get('extractor'),
+        'sponsorblock_video_id': sponsorblock.resolve_youtube_video_id(result),
     }
 
 
@@ -375,6 +380,7 @@ def create_list_item_from_playback(playback):
     if encoded_headers is not None:
         list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
         list_item.setProperty("inputstream.adaptive.stream_headers", encoded_headers)
+    _publish_sponsorblock_video_id(playback.get('sponsorblock_video_id'), list_item)
     return list_item
 
 
