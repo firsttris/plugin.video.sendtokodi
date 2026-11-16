@@ -34,6 +34,7 @@ class FakeListItem:
     def __init__(self, label=None, path=None):
         self.label = label
         self.path = path
+        self.context_menu_items = []
 
     def getVideoInfoTag(self):
         return FakeInfoTag()
@@ -59,8 +60,8 @@ class FakeListItem:
     def setSubtitles(self, _subtitles):
         pass
 
-    def addContextMenuItems(self, _items):
-        pass
+    def addContextMenuItems(self, items):
+        self.context_menu_items = list(items)
 
 
 class FakeProgress:
@@ -84,6 +85,12 @@ def kodi(monkeypatch, tmp_path):
     def notification(_title, message, *_args):
         calls.append(("notification", message))
 
+    directory_items = []
+
+    def add_directory_item(_handle, path, listitem, **_kwargs):
+        calls.append(("addDirectoryItem", path, listitem.label))
+        directory_items.append(listitem)
+
     fakes = {
         "xbmc": SimpleNamespace(
             LOGDEBUG=0,
@@ -106,9 +113,7 @@ def kodi(monkeypatch, tmp_path):
             setResolvedUrl=lambda _handle, ok, listitem: calls.append(("resolved", ok, listitem.getPath())),
             SORT_METHOD_NONE="none",
             addSortMethod=lambda *_args: None,
-            addDirectoryItem=lambda _handle, path, listitem, **_kwargs: calls.append(
-                ("addDirectoryItem", path, listitem.label)
-            ),
+            addDirectoryItem=add_directory_item,
             endOfDirectory=lambda _handle, **_kwargs: calls.append(("endOfDirectory",)),
         ),
         "xbmcaddon": SimpleNamespace(
@@ -155,7 +160,7 @@ def kodi(monkeypatch, tmp_path):
     for name in ("core.runtime.actions", "core.runtime.playback"):
         sys.modules.pop(name, None)
     actions = importlib.import_module("core.runtime.actions")
-    importlib.import_module("core.runtime.playback")
+    playback = importlib.import_module("core.runtime.playback")
     monkeypatch.setattr(actions, "configure_managed_ytdlp", lambda _handle, _log: calls.append(("configure",)))
     monkeypatch.setattr(actions, "refresh_runtime_displays", lambda _handle, _log: None)
     monkeypatch.setattr(
@@ -182,7 +187,14 @@ def kodi(monkeypatch, tmp_path):
             {"__name__": "__main__", "__file__": SERVICE_PATH},
         )
 
-    yield SimpleNamespace(calls=calls, extract=extract, run=run, history_path=history_path)
+    yield SimpleNamespace(
+        calls=calls,
+        extract=extract,
+        run=run,
+        history_path=history_path,
+        playback=playback,
+        directory_items=directory_items,
+    )
 
     for name in ("core.runtime.actions", "core.runtime.playback"):
         sys.modules.pop(name, None)
@@ -364,3 +376,97 @@ def test_failed_resolve_reports_and_still_checks_updates(kodi):
         ("resolved", False, None),
         ("update",),
     ]
+
+
+def test_history_entries_expose_a_download_context_menu(kodi, tmp_path):
+    _write_history(tmp_path, [_history_entry("abc")])
+
+    kodi.run("")
+
+    entry_item = next(
+        item for item in kodi.directory_items
+        if item.getPath() == PLUGIN_URL + "?action=replay&id=abc"
+    )
+    assert entry_item.context_menu_items == [
+        ("Download", "RunPlugin({})".format(PLUGIN_URL + "?action=download&id=abc")),
+    ]
+
+
+def test_download_action_downloads_the_video_and_marks_the_entry(kodi, tmp_path, monkeypatch):
+    _write_history(tmp_path, [_history_entry("abc")])
+    kodi.extract["result"] = _single_video_result()
+
+    def fake_download(_ydl, result):
+        kodi.calls.append(("download", result["title"]))
+        return dict(result, requested_downloads=[{"filepath": "/downloads/video.mp4"}])
+
+    monkeypatch.setattr(kodi.playback, "download_result_with_progress", fake_download)
+
+    kodi.run("?action=download&id=abc")
+
+    assert kodi.calls == [
+        ("configure",),
+        ("extract", "https://example.invalid/watch"),
+        ("download", "Video"),
+        ("notification", "Downloaded to /downloads/video.mp4"),
+        ("update",),
+    ]
+    entries = json.loads(_history_file(tmp_path).read_text())["entries"]
+    assert len(entries) == 1
+    assert entries[0]["downloaded_at"] is not None
+
+
+def test_download_action_refuses_playlists_without_touching_the_history(kodi, tmp_path, monkeypatch):
+    _write_history(tmp_path, [_history_entry("abc")])
+    kodi.extract["result"] = {
+        "webpage_url": "https://example.invalid/watch",
+        "title": "Playlist",
+        "entries": [{"url": "https://example.invalid/a"}, {"url": "https://example.invalid/b"}],
+    }
+
+    def must_not_download(*_args, **_kwargs):
+        raise AssertionError("a playlist must not be downloaded")
+
+    monkeypatch.setattr(kodi.playback, "download_result_with_progress", must_not_download)
+
+    kodi.run("?action=download&id=abc")
+
+    assert ("notification", "Playlists cannot be downloaded yet") in kodi.calls
+    assert not [call for call in kodi.calls if call[0] == "download"]
+    assert not [call for call in kodi.calls if call[0] == "resolved"]
+    entries = json.loads(_history_file(tmp_path).read_text())["entries"]
+    assert "downloaded_at" not in entries[0]
+
+
+def test_download_failure_leaves_the_history_untouched(kodi, tmp_path, monkeypatch):
+    _write_history(tmp_path, [_history_entry("abc")])
+    kodi.extract["result"] = _single_video_result()
+
+    def failing_download(_ydl, _result):
+        raise RuntimeError("ffmpeg missing")
+
+    monkeypatch.setattr(kodi.playback, "download_result_with_progress", failing_download)
+
+    kodi.run("?action=download&id=abc")
+
+    assert ("notification", "Could not download the video, check the log for more info") in kodi.calls
+    assert ("update",) in kodi.calls
+    entries = json.loads(_history_file(tmp_path).read_text())["entries"]
+    assert "downloaded_at" not in entries[0]
+
+
+def test_download_of_an_unknown_entry_reports_an_error(kodi, tmp_path):
+    _write_history(tmp_path, [_history_entry("abc")])
+
+    kodi.run("?action=download&id=unknown")
+
+    assert ("notification", "Unknown history entry") in kodi.calls
+    assert not [call for call in kodi.calls if call[0] == "download"]
+    assert ("update",) in kodi.calls
+
+
+def test_download_without_an_id_reports_an_error(kodi):
+    kodi.run("?action=download")
+
+    assert ("notification", "Missing history entry id") in kodi.calls
+    assert not [call for call in kodi.calls if call[0] == "download"]

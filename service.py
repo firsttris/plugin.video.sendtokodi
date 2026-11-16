@@ -29,6 +29,7 @@ from core.runtime.playback import (
     download_result_with_progress,
     extract_result_with_progress,
     play_playlist_result,
+    _resolve_downloaded_file_path,
 )
 from core.runtime.actions import (
     configure_managed_ytdlp,
@@ -182,9 +183,9 @@ def _load_config_ytdlp_opts(handle, yt_dlp_module):
         return None
 
 
-def _apply_media_download_settings(handle, ydl_opts):
+def _apply_media_download_settings(handle, ydl_opts, force=False):
     media_download_settings = resolve_media_download_settings(handle, xbmcplugin.getSetting)
-    if not media_download_settings['enabled']:
+    if not media_download_settings['enabled'] and not force:
         return False
 
     translated_media_download_path = xbmcvfs.translatePath(media_download_settings['path'])
@@ -199,7 +200,7 @@ def _apply_media_download_settings(handle, ydl_opts):
     return True
 
 
-def play(plugin_url, handle, paramstring, url_override=None):
+def play(plugin_url, handle, paramstring, url_override=None, download_only=False, history_id=None):
     """Resolve the sent url with yt-dlp and hand the result to Kodi."""
     configure_managed_ytdlp(handle, log)
 
@@ -229,7 +230,12 @@ def play(plugin_url, handle, paramstring, url_override=None):
         return
 
     ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
-    media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
+    if download_only:
+        # An explicit download always targets the configured media download
+        # folder, whether or not auto-download on play is enabled.
+        _apply_media_download_settings(handle, ydl_opts, force=True)
+    else:
+        media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
 
     usemanifest = xbmcplugin.getSetting(handle, "usemanifest") == 'true'
     usedashbuilder = xbmcplugin.getSetting(handle, "usedashbuilder") == 'true'
@@ -248,6 +254,9 @@ def play(plugin_url, handle, paramstring, url_override=None):
     with ydl:
         try:
             result = extract_result_with_progress(ydl, url)
+            if download_only:
+                _download_result(ydl, result, history_id, log)
+                return
             if media_download_enabled and 'entries' not in result:
                 result = download_result_with_progress(ydl, result)
         except Exception:
@@ -320,6 +329,34 @@ def _record_playback(playback_meta):
     history.record(playback_meta, manifest_id=manifest_id)
 
 
+def _download_result(ydl, result, history_id, log):
+    """Download a single video without playing it; reports via notifications.
+
+    Playlists are not downloadable yet: downloading a whole playlist would
+    require per-entry handling.
+    """
+    if 'entries' in result:
+        showErrorNotification("Playlists cannot be downloaded yet")
+        log("Download refused for a playlist result", xbmc.LOGWARNING)
+        return
+    try:
+        result = download_result_with_progress(ydl, result)
+    except Exception as exc:
+        log("Could not download: {}".format(exc), xbmc.LOGERROR)
+        showErrorNotification("Could not download the video, check the log for more info")
+        return
+    downloaded_file_path = _resolve_downloaded_file_path(result)
+    if not downloaded_file_path:
+        log("Download finished but no file path was reported", xbmc.LOGWARNING)
+        showErrorNotification("Could not download the video, check the log for more info")
+        return
+    showInfoNotification("Downloaded to {}".format(downloaded_file_path))
+    # A successful download refreshes the entry exactly like a successful play,
+    # setting its downloaded_at marker.
+    if history_id:
+        history.mark_downloaded(history_id)
+
+
 def _resolve_action_id(paramstring):
     parsed = parse_query_params(paramstring)
     values = parsed.get("id")
@@ -339,6 +376,9 @@ def _show_history_list(handle, plugin_url):
         title = entry.get('title') or entry.get('url') or ''
         item = xbmcgui.ListItem(title, path="{}?action=replay&id={}".format(plugin_url, entry['id']))
         item.setProperty("IsPlayable", "true")
+        item.addContextMenuItems([
+            ("Download", "RunPlugin({})".format(plugin_url + "?action=download&id=" + entry['id'])),
+        ])
         video_info = item.getVideoInfoTag()
         video_info.setTitle(title)
         if entry.get('thumbnail'):
@@ -369,6 +409,24 @@ def _handle_replay_action(handle, plugin_url, paramstring, history_id, log):
         except Exception as exc:
             log("Fast path replay failed ({}), re-resolving {}".format(exc, entry['url']), xbmc.LOGWARNING)
     play(plugin_url, handle, paramstring, url_override=entry['url'])
+
+
+def _handle_download_action(handle, plugin_url, paramstring, history_id):
+    """Download the video of a history entry without playing it."""
+    entry = history.get(history_id)
+    if entry is None:
+        showErrorNotification("Unknown history entry")
+        return
+    # The manifest cache never serves downloads: raw stream urls are required,
+    # so this always goes through a full re-resolution.
+    play(
+        plugin_url,
+        handle,
+        paramstring,
+        url_override=entry['url'],
+        download_only=True,
+        history_id=history_id,
+    )
 
 
 def main(argv):
@@ -409,6 +467,16 @@ def main(argv):
             return
         try:
             _handle_replay_action(handle, plugin_url, paramstring, history_id, log)
+        finally:
+            update_runtimes_after_playback(handle, log)
+        return
+    if action == 'download':
+        history_id = _resolve_action_id(paramstring)
+        if not history_id:
+            showErrorNotification("Missing history entry id")
+            return
+        try:
+            _handle_download_action(handle, plugin_url, paramstring, history_id)
         finally:
             update_runtimes_after_playback(handle, log)
         return
