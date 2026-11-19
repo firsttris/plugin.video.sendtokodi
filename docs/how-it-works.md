@@ -142,10 +142,12 @@ that manifest:
 - It writes an MPD with one adaptation set per kind: video, audio per language, with the codec, bandwidth, resolution
   and duration from yt-dlp. Descriptive audio tracks are marked so ISA does not pick them by default.
 - A small HTTP server on localhost, started on demand, serves the manifest. ISA requests it, and the stream URLs in it
-  point straight at the site; the add-on is not in the media path. The server shuts down after the idle timeout
-  (*DASH MPD server idle timeout*, 120 seconds by default).
-- Stream URLs expire, so when ISA requests the manifest again after the idle timeout (a resume after a pause, a seek
-  after a long time), the add-on re-resolves the page with yt-dlp and regenerates the manifest with fresh URLs.
+  point straight at the site; the add-on is not in the media path. The server lives for the whole Kodi session, so a
+  manifest url already handed to Kodi keeps working.
+- Stream URLs expire, so when ISA requests a cached manifest again after the refresh delay (*DASH manifest refresh
+  delay*, 120 seconds by default), the add-on re-resolves the page with yt-dlp and regenerates the manifest with fresh
+  URLs. Manifests are kept in a most-recently-used cache of 20 entries, and each entry also stores the metadata needed
+  to rebuild its list item without yt-dlp (see [Playback history](usage.md#playback-history)).
 
 ## Headers, subtitles and metadata
 

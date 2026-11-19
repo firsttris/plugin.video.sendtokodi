@@ -7,7 +7,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
-from core import dash_builder
+from core import dash_builder, history
 
 from core.addon_params import (
     parse_cli_paramstring,
@@ -24,10 +24,12 @@ from core.addon_params import (
     resolve_ytdlp_config_location,
 )
 from core.runtime.playback import (
+    create_list_item_from_playback,
     create_list_item_from_video,
     download_result_with_progress,
     extract_result_with_progress,
     play_playlist_result,
+    _resolve_downloaded_file_path,
 )
 from core.runtime.actions import (
     configure_managed_ytdlp,
@@ -181,9 +183,9 @@ def _load_config_ytdlp_opts(handle, yt_dlp_module):
         return None
 
 
-def _apply_media_download_settings(handle, ydl_opts):
+def _apply_media_download_settings(handle, ydl_opts, force=False):
     media_download_settings = resolve_media_download_settings(handle, xbmcplugin.getSetting)
-    if not media_download_settings['enabled']:
+    if not media_download_settings['enabled'] and not force:
         return False
 
     translated_media_download_path = xbmcvfs.translatePath(media_download_settings['path'])
@@ -198,7 +200,7 @@ def _apply_media_download_settings(handle, ydl_opts):
     return True
 
 
-def play(plugin_url, handle, paramstring):
+def play(plugin_url, handle, paramstring, url_override=None, download_only=False, history_id=None):
     """Resolve the sent url with yt-dlp and hand the result to Kodi."""
     configure_managed_ytdlp(handle, log)
 
@@ -212,8 +214,13 @@ def play(plugin_url, handle, paramstring):
         xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
         return
 
-    params = parse_cli_paramstring(paramstring)
-    url = str(params['url'])
+    if url_override is None:
+        params = parse_cli_paramstring(paramstring)
+        url = str(params['url'])
+    else:
+        # History replay fallback: the page url comes from the history entry.
+        params = {'url': url_override, 'ydlOpts': {}}
+        url = url_override
 
     js_runtime_opts = _resolve_js_runtime_opts(handle)
 
@@ -223,7 +230,12 @@ def play(plugin_url, handle, paramstring):
         return
 
     ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
-    media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
+    if download_only:
+        # An explicit download always targets the configured media download
+        # folder, whether or not auto-download on play is enabled.
+        _apply_media_download_settings(handle, ydl_opts, force=True)
+    else:
+        media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
 
     usemanifest = xbmcplugin.getSetting(handle, "usemanifest") == 'true'
     usedashbuilder = xbmcplugin.getSetting(handle, "usedashbuilder") == 'true'
@@ -233,7 +245,7 @@ def play(plugin_url, handle, paramstring):
     )
     dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(handle, xbmcplugin.getSetting)
     dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
-    log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
+    log("DASH manifest refresh delay: {}s".format(dash_httpd_idle_timeout_seconds))
     maxwidth, strict_max_resolution = resolve_max_resolution(handle, xbmcplugin.getSetting)
 
     ydl = YoutubeDL(ydl_opts)
@@ -242,11 +254,20 @@ def play(plugin_url, handle, paramstring):
     with ydl:
         try:
             result = extract_result_with_progress(ydl, url)
+            if download_only:
+                _download_result(ydl, result, history_id, log)
+                return
             if media_download_enabled and 'entries' not in result:
                 result = download_result_with_progress(ydl, result)
         except Exception:
             handle_resolve_failure(handle, set_resolved_false=True)
             return
+
+    playback_meta = {}
+
+    def capture_playback_meta(meta):
+        playback_meta.clear()
+        playback_meta.update(meta)
 
     if 'entries' in result:
         try:
@@ -268,9 +289,12 @@ def play(plugin_url, handle, paramstring):
                 YoutubeDL,
                 log,
                 showErrorNotification,
+                playback_meta_sink=capture_playback_meta,
             )
         except Exception:
             handle_resolve_failure(handle)
+            return
+        _record_playback(playback_meta)
     else:
         try:
             list_item = create_list_item_from_video(
@@ -286,10 +310,123 @@ def play(plugin_url, handle, paramstring):
                 YoutubeDL,
                 log,
                 showErrorNotification,
+                playback_meta_sink=capture_playback_meta,
             )
             xbmcplugin.setResolvedUrl(handle, True, listitem=list_item)
         except Exception:
             handle_resolve_failure(handle, set_resolved_false=True)
+            return
+        _record_playback(playback_meta)
+
+
+def _record_playback(playback_meta):
+    """Record a successful playback in the history and its DASH manifest cache."""
+    if not playback_meta.get('webpage_url'):
+        return
+    manifest_id = dash_builder.parse_manifest_id(playback_meta.get('manifest_url'))
+    if manifest_id:
+        dash_builder.attach_playback_metadata(manifest_id, playback_meta)
+    history.record(playback_meta, manifest_id=manifest_id)
+
+
+def _download_result(ydl, result, history_id, log):
+    """Download a single video without playing it; reports via notifications.
+
+    Playlists are not downloadable yet: downloading a whole playlist would
+    require per-entry handling.
+    """
+    if 'entries' in result:
+        showErrorNotification("Playlists cannot be downloaded yet")
+        log("Download refused for a playlist result", xbmc.LOGWARNING)
+        return
+    try:
+        result = download_result_with_progress(ydl, result)
+    except Exception as exc:
+        log("Could not download: {}".format(exc), xbmc.LOGERROR)
+        showErrorNotification("Could not download the video, check the log for more info")
+        return
+    downloaded_file_path = _resolve_downloaded_file_path(result)
+    if not downloaded_file_path:
+        log("Download finished but no file path was reported", xbmc.LOGWARNING)
+        showErrorNotification("Could not download the video, check the log for more info")
+        return
+    showInfoNotification("Downloaded to {}".format(downloaded_file_path))
+    # A successful download refreshes the entry exactly like a successful play,
+    # setting its downloaded_at marker.
+    if history_id:
+        history.mark_downloaded(history_id)
+
+
+def _resolve_action_id(paramstring):
+    parsed = parse_query_params(paramstring)
+    values = parsed.get("id")
+    if not values:
+        return None
+    return values[0]
+
+
+def _show_history_list(handle, plugin_url):
+    """Render the playback history list; always a directory, even when empty."""
+    entries = history.list_entries()
+    xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_NONE)
+    if not entries:
+        empty_item = xbmcgui.ListItem("No recent playback", path=plugin_url + "?action=noop")
+        xbmcplugin.addDirectoryItem(handle, empty_item.getPath(), empty_item)
+    for entry in entries:
+        title = entry.get('title') or entry.get('url') or ''
+        item = xbmcgui.ListItem(title, path="{}?action=replay&id={}".format(plugin_url, entry['id']))
+        item.setProperty("IsPlayable", "true")
+        item.addContextMenuItems([
+            ("Download", "RunPlugin({})".format(plugin_url + "?action=download&id=" + entry['id'])),
+        ])
+        video_info = item.getVideoInfoTag()
+        video_info.setTitle(title)
+        if entry.get('thumbnail'):
+            item.setArt({"thumb": entry['thumbnail']})
+        xbmcplugin.addDirectoryItem(handle, item.getPath(), item)
+    settings_item = xbmcgui.ListItem("Settings", path=plugin_url + "?action=settings")
+    xbmcplugin.addDirectoryItem(handle, settings_item.getPath(), settings_item)
+    xbmcplugin.endOfDirectory(handle, succeeded=True, cacheToDisc=False)
+
+
+def _handle_settings_action(handle, plugin_url):
+    # openSettings is modal; re-render the list on the same handle afterwards.
+    xbmcaddon.Addon().openSettings()
+    _show_history_list(handle, plugin_url)
+
+
+def _handle_replay_action(handle, plugin_url, paramstring, history_id, log):
+    entry = history.get(history_id)
+    if entry is None:
+        showErrorNotification("Unknown history entry")
+        return
+    playback = dash_builder.get_fresh_playback(entry.get('manifest_id'))
+    if playback is not None:
+        try:
+            list_item = create_list_item_from_playback(playback)
+            xbmcplugin.setResolvedUrl(handle, True, listitem=list_item)
+            return
+        except Exception as exc:
+            log("Fast path replay failed ({}), re-resolving {}".format(exc, entry['url']), xbmc.LOGWARNING)
+    play(plugin_url, handle, paramstring, url_override=entry['url'])
+
+
+def _handle_download_action(handle, plugin_url, paramstring, history_id):
+    """Download the video of a history entry without playing it."""
+    entry = history.get(history_id)
+    if entry is None:
+        showErrorNotification("Unknown history entry")
+        return
+    # The manifest cache never serves downloads: raw stream urls are required,
+    # so this always goes through a full re-resolution.
+    play(
+        plugin_url,
+        handle,
+        paramstring,
+        url_override=entry['url'],
+        download_only=True,
+        history_id=history_id,
+    )
 
 
 def main(argv):
@@ -306,17 +443,44 @@ def main(argv):
     # core/service_runtime.py, #177), so always patch it, before yt-dlp is used.
     patch_strptime()
 
-    # Open the settings if no parameters have been passed. Prevents crash.
-    # This happens when the addon is launched from within the Kodi OSD.
+    # Show the playback history when no parameters have been passed. Prevents
+    # crash. This happens when the addon is launched from within the Kodi OSD.
     if not paramstring:
         refresh_runtime_displays(handle, log)
-        xbmcaddon.Addon().openSettings()
+        _show_history_list(handle, plugin_url)
         return
 
     if handle_queue_action(plugin_url, paramstring):
         return
 
     action = resolve_action_param(paramstring)
+    if action == 'settings':
+        _handle_settings_action(handle, plugin_url)
+        return
+    if action == 'noop':
+        _show_history_list(handle, plugin_url)
+        return
+    if action == 'replay':
+        history_id = _resolve_action_id(paramstring)
+        if not history_id:
+            showErrorNotification("Missing history entry id")
+            return
+        try:
+            _handle_replay_action(handle, plugin_url, paramstring, history_id, log)
+        finally:
+            update_runtimes_after_playback(handle, log)
+        return
+    if action == 'download':
+        history_id = _resolve_action_id(paramstring)
+        if not history_id:
+            showErrorNotification("Missing history entry id")
+            return
+        try:
+            _handle_download_action(handle, plugin_url, paramstring, history_id)
+        finally:
+            update_runtimes_after_playback(handle, log)
+        return
+
     if action is not None and handle_runtime_action(
         action,
         handle,
