@@ -20,6 +20,7 @@ from core.addon_params import (
     resolve_local_ytdlp_config_path,
     resolve_media_download_settings,
     resolve_dash_httpd_idle_timeout,
+    resolve_avoided_video_codecs,
     resolve_max_resolution,
     resolve_ytdlp_config_location,
 )
@@ -235,6 +236,7 @@ def play(plugin_url, handle, paramstring):
     dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
     log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
     maxwidth, strict_max_resolution = resolve_max_resolution(handle, xbmcplugin.getSetting)
+    avoided_video_codecs = resolve_avoided_video_codecs(handle, xbmcplugin.getSetting)
 
     ydl = YoutubeDL(ydl_opts)
     ydl.add_default_info_extractors()
@@ -286,6 +288,7 @@ def play(plugin_url, handle, paramstring):
                 YoutubeDL,
                 log,
                 showErrorNotification,
+                avoided_video_codecs=avoided_video_codecs,
             )
             xbmcplugin.setResolvedUrl(handle, True, listitem=list_item)
         except Exception:

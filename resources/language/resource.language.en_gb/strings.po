@@ -128,6 +128,10 @@ msgctxt "#33050"
 msgid "Enable legacy Python embed workarounds (advanced)"
 msgstr ""
 
+msgctxt "#33060"
+msgid "Skip DASH video codecs (comma-separated prefixes, e.g. av01)"
+msgstr ""
+
 msgctxt "#33011"
 msgid "Use original manifest (experimental)"
 msgstr ""
