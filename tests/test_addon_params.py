@@ -21,6 +21,7 @@ from core.addon_params import (
     resolve_js_runtime_opts,
     resolve_quickjs_opts,
     resolve_dash_httpd_idle_timeout,
+    resolve_avoided_video_codecs,
     resolve_max_resolution,
     resolve_media_download_settings,
     resolve_local_ytdlp_config_path,
@@ -767,3 +768,13 @@ def test_resolve_max_resolution_falls_back_to_default_when_invalid():
     assert resolve_max_resolution(1, lambda _handle, _name: "") == (1920, True)
     assert resolve_max_resolution(1, lambda _handle, _name: "abc") == (1920, True)
     assert resolve_max_resolution(1, lambda _handle, _name: None) == (1920, True)
+
+
+def test_resolve_avoided_video_codecs_parses_the_setting():
+    values = {'avoid_video_codecs': ' av01 , HEVC '}
+
+    assert resolve_avoided_video_codecs('handle', lambda _handle, key: values.get(key, '')) == ('av01', 'hevc')
+
+
+def test_resolve_avoided_video_codecs_is_empty_by_default():
+    assert resolve_avoided_video_codecs('handle', lambda _handle, _key: '') == ()

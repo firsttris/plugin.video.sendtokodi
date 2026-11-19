@@ -181,6 +181,7 @@ def create_list_item_from_video(
     youtube_dl_cls,
     log,
     show_error_notification,
+    avoided_video_codecs=(),
 ):
     def resolve_fresh_result():
         refresh_url = result.get("webpage_url") or result.get("original_url") or result.get("url")
@@ -210,6 +211,7 @@ def create_list_item_from_video(
         preferred_format_id=preferred_stream.get("format_id") if preferred_stream is not None else None,
         disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
         strict_max_resolution=strict_max_resolution,
+        avoided_video_codecs=avoided_video_codecs,
     )
 
     if selected_source is None and preferred_stream is not None:
@@ -223,6 +225,7 @@ def create_list_item_from_video(
             dash_builder,
             disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
             strict_max_resolution=strict_max_resolution,
+            avoided_video_codecs=avoided_video_codecs,
         )
 
     if selected_source is not None:
