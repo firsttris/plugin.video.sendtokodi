@@ -168,3 +168,46 @@ def test_malformed_entries_are_dropped(history_setup):
     entries = history_setup.history.list_entries()
 
     assert [entry["id"] for entry in entries] == ["ok"]
+
+
+def test_record_keeps_at_most_the_maximum_number_of_entries(history_setup):
+    history = history_setup.history
+
+    for index in range(history.HISTORY_MAX_ENTRIES + 5):
+        history.record(_metadata(url="https://example.invalid/watch/{}".format(index)), timestamp=1000 + index)
+
+    entries = history.list_entries()
+    assert len(entries) == history.HISTORY_MAX_ENTRIES
+    assert entries[0]["url"] == "https://example.invalid/watch/{}".format(history.HISTORY_MAX_ENTRIES + 4)
+    assert entries[-1]["url"] == "https://example.invalid/watch/5"
+
+
+def test_load_trims_an_oversized_file_from_the_tail(history_setup):
+    oversized = {
+        "version": 1,
+        "entries": [
+            {"id": "id{}".format(index), "url": "https://example.invalid/watch/{}".format(index)}
+            for index in range(40)
+        ],
+    }
+    history_setup.write_file(json.dumps(oversized))
+
+    entries = history_setup.history.list_entries()
+
+    assert len(entries) == history_setup.history.HISTORY_MAX_ENTRIES
+    assert entries[0]["url"] == "https://example.invalid/watch/0"
+
+
+def test_mark_downloaded_keeps_the_history_bounded(history_setup):
+    history = history_setup.history
+    ids = []
+    for index in range(history.HISTORY_MAX_ENTRIES):
+        ids.append(history.record(_metadata(url="https://example.invalid/watch/{}".format(index)), timestamp=1000 + index))
+    history.record(_metadata(url="https://example.invalid/watch/extra"), timestamp=2000)
+
+    # ids[0] was pushed out by the trim; ids[10] is still there and moves to the top.
+    assert history.mark_downloaded(ids[10]) is True
+
+    entries = history.list_entries()
+    assert len(entries) == history.HISTORY_MAX_ENTRIES
+    assert entries[0]["id"] == ids[10]

@@ -19,6 +19,12 @@ import xbmcvfs
 HISTORY_FILE = 'special://profile/addon_data/plugin.video.sendtokodi/history.json'
 HISTORY_VERSION = 1
 
+# The file is rewritten as a whole on every change (~200 bytes per entry), so it
+# has to stay small: 30 entries is a few screens of history and a few kilobytes.
+# Trimming happens on write and, for an oversized file left by an older version,
+# on read (in memory; the file itself is bounded at the next write).
+HISTORY_MAX_ENTRIES = 30
+
 _LOCK = threading.Lock()
 
 
@@ -57,6 +63,9 @@ def _load_unlocked():
     valid = [entry for entry in entries if isinstance(entry, dict) and entry.get('url')]
     if len(valid) != len(entries):
         _log("Dropped {} malformed history entries".format(len(entries) - len(valid)))
+    if len(valid) > HISTORY_MAX_ENTRIES:
+        # Entries are stored newest first, so the tail is what falls off.
+        valid = valid[:HISTORY_MAX_ENTRIES]
     return {'version': document.get('version', HISTORY_VERSION), 'entries': valid}
 
 
@@ -133,7 +142,7 @@ def record(metadata, manifest_id=None, timestamp=None):
                 remaining.append(existing)
         if previous is not None and previous.get('downloaded_at') is not None:
             entry['downloaded_at'] = previous['downloaded_at']
-        document['entries'] = [entry] + remaining
+        document['entries'] = ([entry] + remaining)[:HISTORY_MAX_ENTRIES]
         _write_unlocked(document)
     return entry_id
 
@@ -153,6 +162,6 @@ def mark_downloaded(history_id, timestamp=None):
         if target is None:
             return False
         target['downloaded_at'] = timestamp
-        document['entries'] = [target] + kept
+        document['entries'] = ([target] + kept)[:HISTORY_MAX_ENTRIES]
         _write_unlocked(document)
         return True
