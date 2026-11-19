@@ -147,7 +147,7 @@
                 </setting>
                 <setting type="string" id="avoid_video_codecs" label="33060">
                     <level>2</level>
-                    <default></default>
+                    <default>none</default>
                     <control type="edit" format="string"/>
                 </setting>
                 <setting id="maxresolution" type="integer" label="33030">

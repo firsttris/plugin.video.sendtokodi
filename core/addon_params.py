@@ -313,11 +313,13 @@ def resolve_dash_httpd_idle_timeout(handle, get_setting):
 def resolve_avoided_video_codecs(handle, get_setting):
     """Return the DASH video codec prefixes to skip, from avoid_video_codecs.
 
-    Empty by default: no filtering. The setting exists because what a player can
+    "none" (the default) means no filtering. The setting exists because what a player can
     decode depends on the device (a box whose VPU has no AV1 shows a black
     picture), and Kodi exposes no API to query it.
     """
     raw_value = (get_setting(handle, "avoid_video_codecs") or '').strip()
+    if raw_value.lower() in ('', 'none'):
+        return ()
     return tuple(entry.strip().lower() for entry in raw_value.split(',') if entry.strip())
 
 

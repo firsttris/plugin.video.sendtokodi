@@ -778,3 +778,7 @@ def test_resolve_avoided_video_codecs_parses_the_setting():
 
 def test_resolve_avoided_video_codecs_is_empty_by_default():
     assert resolve_avoided_video_codecs('handle', lambda _handle, _key: '') == ()
+
+
+def test_resolve_avoided_video_codecs_treats_none_as_no_filtering():
+    assert resolve_avoided_video_codecs('handle', lambda _handle, _key: 'none') == ()
