@@ -35,7 +35,9 @@ from core.runtime.actions import (
     refresh_runtime_displays,
     update_runtimes_after_playback,
 )
+from core.kodi_settings import get_setting
 from core.service_runtime import install_stderr_workaround, patch_strptime
+
 
 def debug(content):
     log(content, xbmc.LOGDEBUG)
@@ -88,7 +90,7 @@ YTDLP_CONFIG_LOCAL_COPY_PATH = 'special://profile/addon_data/plugin.video.sendto
 
 def _legacy_python_workarounds_enabled(handle):
     try:
-        return xbmcplugin.getSetting(handle, "enable_legacy_python_workarounds") == 'true'
+        return get_setting(handle, "enable_legacy_python_workarounds") == 'true'
     except Exception:
         return False
 
@@ -153,7 +155,7 @@ def _resolve_js_runtime_opts(handle):
             # An installed Deno is used right away; updates run after playback started.
             return get_ydl_opts(prefer_installed=True, **kwargs)
 
-        return resolve_js_runtime_opts(handle, xbmcplugin.getSetting, get_deno_ydl_opts)
+        return resolve_js_runtime_opts(handle, get_setting, get_deno_ydl_opts)
     except Exception as e:
         log("Failed to configure JavaScript runtime: {}".format(str(e)), xbmc.LOGWARNING)
         return {}
@@ -161,7 +163,7 @@ def _resolve_js_runtime_opts(handle):
 
 def _load_config_ytdlp_opts(handle, yt_dlp_module):
     """Return the options of the configured yt-dlp config file, or None if it cannot be loaded."""
-    ytdlp_config_location = resolve_ytdlp_config_location(handle, xbmcplugin.getSetting)
+    ytdlp_config_location = resolve_ytdlp_config_location(handle, get_setting)
     if not ytdlp_config_location:
         return {}
     try:
@@ -182,7 +184,7 @@ def _load_config_ytdlp_opts(handle, yt_dlp_module):
 
 
 def _apply_media_download_settings(handle, ydl_opts):
-    media_download_settings = resolve_media_download_settings(handle, xbmcplugin.getSetting)
+    media_download_settings = resolve_media_download_settings(handle, get_setting)
     if not media_download_settings['enabled']:
         return False
 
@@ -225,16 +227,16 @@ def play(plugin_url, handle, paramstring):
     ydl_opts = build_ydl_opts(params, config_ytdlp_opts, js_runtime_opts)
     media_download_enabled = _apply_media_download_settings(handle, ydl_opts)
 
-    usemanifest = xbmcplugin.getSetting(handle, "usemanifest") == 'true'
-    usedashbuilder = xbmcplugin.getSetting(handle, "usedashbuilder") == 'true'
-    askstream = xbmcplugin.getSetting(handle, "askstream") == 'true'
+    usemanifest = get_setting(handle, "usemanifest") == 'true'
+    usedashbuilder = get_setting(handle, "usedashbuilder") == 'true'
+    askstream = get_setting(handle, "askstream") == 'true'
     disable_opus_for_audio_only_hls_native = (
-        xbmcplugin.getSetting(handle, "audio_only_hls_disable_opus_native") == 'true'
+        get_setting(handle, "audio_only_hls_disable_opus_native") == 'true'
     )
-    dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(handle, xbmcplugin.getSetting)
+    dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(handle, get_setting)
     dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
     log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
-    maxwidth, strict_max_resolution = resolve_max_resolution(handle, xbmcplugin.getSetting)
+    maxwidth, strict_max_resolution = resolve_max_resolution(handle, get_setting)
 
     ydl = YoutubeDL(ydl_opts)
     ydl.add_default_info_extractors()

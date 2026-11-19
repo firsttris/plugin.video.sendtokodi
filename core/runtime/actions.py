@@ -6,6 +6,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
+from core.kodi_settings import get_setting
 from core.addon_params import (
     resolve_deno_settings,
     resolve_js_runtime_mode,
@@ -21,9 +22,9 @@ from core.runtime_management import (
 
 def _runtime_settings(runtime_name, handle):
     if runtime_name == "deno":
-        return resolve_deno_settings(handle, xbmcplugin.getSetting)
+        return resolve_deno_settings(handle, get_setting)
     if runtime_name == "ytdlp":
-        return resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+        return resolve_ytdlp_settings(handle, get_setting)
     raise ValueError("Unknown runtime {}".format(runtime_name))
 
 
@@ -378,7 +379,7 @@ def handle_runtime_action(action, handle, run_with_progress, show_info_notificat
 
 
 def configure_managed_ytdlp(handle, log):
-    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    settings = resolve_ytdlp_settings(handle, get_setting)
     manager_module = _runtime_module("ytdlp")
     source = settings["source"]
 
@@ -471,7 +472,7 @@ def configure_managed_ytdlp(handle, log):
 
 
 def _update_ytdlp_after_playback(handle, log):
-    settings = resolve_ytdlp_settings(handle, xbmcplugin.getSetting)
+    settings = resolve_ytdlp_settings(handle, get_setting)
     manager_module = _runtime_module("ytdlp")
     source = settings["source"]
     if not settings["auto_update"] or not manager_module.is_managed_source(source):
@@ -490,9 +491,9 @@ def _update_ytdlp_after_playback(handle, log):
 
 
 def _update_deno_after_playback(handle, log):
-    if resolve_js_runtime_mode(handle, xbmcplugin.getSetting) in ("quickjs", "disabled"):
+    if resolve_js_runtime_mode(handle, get_setting) in ("quickjs", "disabled"):
         return
-    if not resolve_deno_settings(handle, xbmcplugin.getSetting)["auto_update"]:
+    if not resolve_deno_settings(handle, get_setting)["auto_update"]:
         return
 
     new_version = _runtime_module("deno").update_installed_runtime(show_progress=False)
