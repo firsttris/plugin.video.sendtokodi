@@ -317,6 +317,45 @@ def test_resolve_subtitle_paths_clears_files_from_the_previous_playback(monkeypa
     assert not stale_file.exists()
 
 
+def test_resolve_subtitle_paths_ignores_files_that_cannot_be_removed(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+    (tmp_path / 'stale.srt').write_text('x', encoding='utf-8')
+
+    def refuse(_path):
+        raise OSError('busy')
+
+    monkeypatch.setattr(playback.os, 'remove', refuse)
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+
+    subtitles = {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}]}
+
+    paths = playback._resolve_subtitle_paths(subtitles, {}, lambda *_args: None)
+
+    assert paths == [str(tmp_path / 'en.vtt')]
+
+
+def test_resolve_subtitle_paths_logs_when_the_directory_cannot_be_listed(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+
+    def refuse(_path):
+        raise OSError('denied')
+
+    monkeypatch.setattr(playback.os, 'listdir', refuse)
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+    logs = []
+
+    paths = playback._resolve_subtitle_paths(
+        {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}]},
+        {},
+        lambda message, *_args: logs.append(message),
+    )
+
+    assert any('Failed to clear subtitle directory' in message for message in logs)
+    assert paths == [str(tmp_path / 'en.vtt')]
+
+
 class _FakePlaylist:
     def __init__(self):
         self.items = []
