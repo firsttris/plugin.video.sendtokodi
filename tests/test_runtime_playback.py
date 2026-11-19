@@ -23,6 +23,7 @@ class DummyListItem:
         self.path = path
         self.properties = {}
         self.mime_type = None
+        self.content_lookup = None
         self.art = None
         self.subtitles = None
         self.video_info = DummyInfoTag()
@@ -48,6 +49,9 @@ class DummyListItem:
 
     def setMimeType(self, mime_type):
         self.mime_type = mime_type
+
+    def setContentLookup(self, enabled):
+        self.content_lookup = enabled
 
     def getPath(self):
         return self.path
@@ -151,6 +155,7 @@ def test_create_list_item_from_video_sets_hls_manifest_type_for_isa(monkeypatch)
     assert list_item.properties['inputstream.adaptive.manifest_headers'] == 'User-Agent=UA'
     assert list_item.properties['inputstream.adaptive.stream_headers'] == 'User-Agent=UA'
     assert list_item.mime_type == 'application/vnd.apple.mpegurl'
+    assert list_item.content_lookup is False
 
 
 def test_create_list_item_from_video_uses_selected_manifest_type_instead_of_url(monkeypatch):
@@ -185,6 +190,7 @@ def test_create_list_item_from_video_uses_selected_manifest_type_instead_of_url(
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'hls'
     assert list_item.mime_type == 'application/vnd.apple.mpegurl'
+    assert list_item.content_lookup is False
 
 
 def test_create_list_item_from_video_skips_manifest_type_unknown_to_isa(monkeypatch):
@@ -262,6 +268,7 @@ def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'mpd'
     assert list_item.mime_type == 'application/dash+xml'
+    assert list_item.content_lookup is False
 
 def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatch, tmp_path):
     import threading
