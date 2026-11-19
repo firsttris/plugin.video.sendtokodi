@@ -75,6 +75,18 @@ def _resolve_subtitle_paths(subtitles, http_headers, log):
         log('Failed to create subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
         return collect_subtitle_urls(subtitles)
 
+    # Files left by the previous playback: when a download fails, a name built
+    # from the language alone (e.g. 'English - en.srt') is reused as-is, so Kodi
+    # displays the subtitles of another video. Start from an empty directory.
+    try:
+        for stale_name in os.listdir(subtitle_directory):
+            try:
+                os.remove(os.path.join(subtitle_directory, stale_name))
+            except OSError:
+                pass
+    except OSError as exc:
+        log('Failed to clear subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
+
     # (url, local path or None); file names are assigned up front so they stay unique and stable.
     planned = []
     used_file_names = set()

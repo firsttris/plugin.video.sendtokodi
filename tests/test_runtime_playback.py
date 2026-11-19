@@ -303,6 +303,20 @@ def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatc
     assert any('Failed to download subtitle https://example.invalid/fr.vtt' in msg for msg in logs)
 
 
+def test_resolve_subtitle_paths_clears_files_from_the_previous_playback(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+    stale_file = tmp_path / 'English - en.srt'
+    stale_file.write_text('subtitles of the previous video', encoding='utf-8')
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+
+    subtitles = {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt', 'name': 'English'}]}
+
+    playback._resolve_subtitle_paths(subtitles, {}, lambda *_args: None)
+
+    assert not stale_file.exists()
+
+
 class _FakePlaylist:
     def __init__(self):
         self.items = []
