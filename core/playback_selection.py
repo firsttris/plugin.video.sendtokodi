@@ -234,9 +234,28 @@ def should_replace_raw_candidate(current_format, candidate_format):
     return candidate_width > current_width
 
 
-def pick_best_dash_video_format(dash_video, maxwidth):
+def filter_avoided_video_codecs(dash_video, avoided_codecs):
+    """Drop renditions whose vcodec starts with one of avoided_codecs.
+
+    What a player can decode depends on the device (a box whose VPU has no AV1
+    shows a black picture with sound), so the caller says which codec prefixes
+    to skip. If nothing else is offered, the original list is kept.
+    """
+    if not avoided_codecs or not dash_video:
+        return dash_video
+    decodable_video = [
+        format_info
+        for format_info in dash_video
+        if not str(format_info.get('vcodec') or '').lower().startswith(tuple(avoided_codecs))
+    ]
+    return decodable_video or dash_video
+
+
+def pick_best_dash_video_format(dash_video, maxwidth, avoided_codecs=()):
     if not dash_video:
         return None
+
+    dash_video = filter_avoided_video_codecs(dash_video, avoided_codecs)
 
     best_within_limit = None
     for format_info in dash_video:
@@ -670,6 +689,7 @@ def select_playback_source(
     preferred_format_id=None,
     disable_opus_for_audio_only_hls_native=False,
     strict_max_resolution=True,
+    avoided_video_codecs=(),
 ):
     dash_manifest_factory = None
     dash_start_httpd = None
@@ -772,7 +792,12 @@ def select_playback_source(
         ):
             dash_result = None
             if dash_manifest_factory is not None and dash_start_httpd is not None:
-                selected_dash_video = pick_best_dash_video_format(dash_video, maxwidth) if strict_max_resolution else None
+                dash_video = filter_avoided_video_codecs(dash_video, avoided_video_codecs)
+                selected_dash_video = (
+                    pick_best_dash_video_format(dash_video, maxwidth, avoided_video_codecs)
+                    if strict_max_resolution
+                    else None
+                )
                 preferred_dash_video = selected_dash_video
                 if preferred_dash_video is None and dash_video:
                     preferred_dash_video = dash_video[-1]

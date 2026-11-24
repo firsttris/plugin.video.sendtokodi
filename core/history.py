@@ -106,11 +106,12 @@ def get(history_id):
     return None
 
 
-def record(metadata, manifest_id=None, timestamp=None):
+def record(metadata, timestamp=None):
     """Record a successful playback; returns the entry id, or None when skipped.
 
-    *metadata* carries at least webpage_url (the page url used for a later full
-    re-resolution) plus the display fields; see playback._collect_playback_metadata.
+    *metadata* carries at least webpage_url (the page url a replay re-resolves)
+    plus the display fields; see playback._collect_playback_metadata. Only the
+    fields below are stored, never HTTP headers or stream urls.
     An existing entry for the same url is moved to the top and refreshed, keeping
     its downloaded_at marker.
     """
@@ -129,7 +130,6 @@ def record(metadata, manifest_id=None, timestamp=None):
         'duration': metadata.get('duration'),
         'kind': metadata.get('kind') or 'video',
         'played_at': timestamp,
-        'manifest_id': manifest_id,
     }
     with _LOCK:
         document = _load_unlocked()

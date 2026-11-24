@@ -294,6 +294,13 @@ def resolve_ytdlp_settings(handle, get_setting):
 
 
 def resolve_dash_httpd_idle_timeout(handle, get_setting):
+    """Return the DASH manifest refresh delay in seconds, clamped to 10..600.
+
+    The setting keeps its historic id (dash_httpd_idle_timeout) so existing user
+    values survive. It no longer stops the local manifest server: after this many
+    seconds without a request, the next request for a cached manifest
+    regenerates it with fresh stream urls.
+    """
     raw_value = (get_setting(handle, "dash_httpd_idle_timeout") or '').strip()
     if not raw_value:
         return DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
@@ -308,6 +315,19 @@ def resolve_dash_httpd_idle_timeout(handle, get_setting):
     if timeout_seconds > MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
         return MAX_DASH_HTTPD_IDLE_TIMEOUT_SECONDS
     return timeout_seconds
+
+
+def resolve_avoided_video_codecs(handle, get_setting):
+    """Return the DASH video codec prefixes to skip, from avoid_video_codecs.
+
+    "none" (the default) means no filtering. The setting exists because what a player can
+    decode depends on the device (a box whose VPU has no AV1 shows a black
+    picture), and Kodi exposes no API to query it.
+    """
+    raw_value = (get_setting(handle, "avoid_video_codecs") or '').strip()
+    if raw_value.lower() in ('', 'none'):
+        return ()
+    return tuple(entry.strip().lower() for entry in raw_value.split(',') if entry.strip())
 
 
 def resolve_max_resolution(handle, get_setting):

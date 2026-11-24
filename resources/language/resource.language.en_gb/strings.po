@@ -128,6 +128,10 @@ msgctxt "#33050"
 msgid "Enable legacy Python embed workarounds (advanced)"
 msgstr ""
 
+msgctxt "#33060"
+msgid "Skip DASH video codecs (comma-separated prefixes, e.g. av01)"
+msgstr ""
+
 msgctxt "#33011"
 msgid "Use original manifest (experimental)"
 msgstr ""
@@ -137,7 +141,7 @@ msgid "Use DASH manifest builder (kodi 19+ only) (experimental)"
 msgstr ""
 
 msgctxt "#33040"
-msgid "DASH MPD server idle timeout (seconds)"
+msgid "DASH manifest refresh delay (seconds)"
 msgstr ""
 
 msgctxt "#33045"
