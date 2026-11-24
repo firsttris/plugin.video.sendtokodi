@@ -284,6 +284,13 @@ def create_list_item_from_video(
         if mime_type is not None:
             list_item.setProperty("inputstream.adaptive.manifest_type", manifest_type)
             list_item.setMimeType(mime_type)
+            # The URL handed to Kodi is resolved at playback time, so its
+            # extension says nothing about the content. Left to itself, Kodi
+            # probes it (CFileItem::SetMimeTypeForInternetFile -> HEAD request),
+            # which blocks behind our local manifest server: measured 7.8 s
+            # before "Creating InputStream" on a H618 box, versus 10-13 ms when
+            # the probe is skipped.
+            list_item.setContentLookup(False)
         encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
