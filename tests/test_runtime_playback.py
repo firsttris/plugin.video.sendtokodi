@@ -658,3 +658,13 @@ def test_download_result_with_progress_closes_the_dialog_on_errors(monkeypatch):
 
     assert progress.closed is True
     assert ydl._progress_hooks == []
+
+
+def test_resolve_downloaded_file_path_prefers_requested_downloads(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+
+    assert playback.resolve_downloaded_file_path(
+        {'requested_downloads': [{'filename': ''}, {'filepath': '/media/a.mp4'}], '_filename': '/media/b.mp4'}
+    ) == '/media/a.mp4'
+    assert playback.resolve_downloaded_file_path({'_filename': '/media/b.mp4'}) == '/media/b.mp4'
+    assert playback.resolve_downloaded_file_path({}) is None

@@ -37,7 +37,7 @@ _INPUTSTREAM_MIME_TYPES = {
 }
 
 
-def _resolve_downloaded_file_path(result):
+def resolve_downloaded_file_path(result):
     requested_downloads = result.get("requested_downloads", [])
     for downloaded_item in requested_downloads:
         file_path = downloaded_item.get("filepath") or downloaded_item.get("filename")
@@ -259,7 +259,7 @@ def create_list_item_from_video(
         show_error_notification(msg)
         raise Exception("Error: " + msg)
 
-    downloaded_file_path = _resolve_downloaded_file_path(result)
+    downloaded_file_path = resolve_downloaded_file_path(result)
     if downloaded_file_path is not None and xbmcvfs.exists(downloaded_file_path):
         log("using downloaded file {}".format(downloaded_file_path))
         url = downloaded_file_path

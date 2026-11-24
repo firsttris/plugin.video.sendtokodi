@@ -29,7 +29,7 @@ from core.runtime.playback import (
     download_result_with_progress,
     extract_result_with_progress,
     play_playlist_result,
-    _resolve_downloaded_file_path,
+    resolve_downloaded_file_path,
 )
 from core.runtime.actions import (
     configure_managed_ytdlp,
@@ -347,7 +347,7 @@ def _download_result(ydl, result, history_id, log):
         log("Could not download: {}".format(exc), xbmc.LOGERROR)
         showErrorNotification("Could not download the video, check the log for more info")
         return
-    downloaded_file_path = _resolve_downloaded_file_path(result)
+    downloaded_file_path = resolve_downloaded_file_path(result)
     if not downloaded_file_path:
         log("Download finished but no file path was reported", xbmc.LOGWARNING)
         showErrorNotification("Could not download the video, check the log for more info")
