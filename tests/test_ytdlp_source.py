@@ -236,6 +236,12 @@ def test_install_uses_the_tarball_of_the_requested_source(monkeypatch, tmp_path)
         "download_with_progress",
         lambda url, *_a, **_k: downloaded.append(url) or b"",
     )
+    verified = []
+    monkeypatch.setattr(
+        managed_runtime,
+        "verify_download",
+        lambda _path, checksum_url, filename, *_a: verified.append((checksum_url, filename)),
+    )
     monkeypatch.setattr(
         ytdlp_manager, "_extract_yt_dlp_from_tarball", lambda data, destination: None
     )
@@ -245,6 +251,13 @@ def test_install_uses_the_tarball_of_the_requested_source(monkeypatch, tmp_path)
     assert downloaded == [
         "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/"
         "2026.09.27.232945/yt-dlp.tar.gz"
+    ]
+    assert verified == [
+        (
+            "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/"
+            "2026.09.27.232945/SHA2-256SUMS",
+            "yt-dlp.tar.gz",
+        )
     ]
 
 

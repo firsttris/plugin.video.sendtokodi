@@ -73,12 +73,17 @@ runtimes.
   `yt_dlp` package of each installed version, `deno/versions/<version>/` the Deno binary. A version file next to them
   (`ytdlp_version.txt`, `deno_version.txt`) names the active version. Up to three versions are kept per runtime, so going back after a bad release is one click
   in *Manage … version*.
-- **Sources.** Stable yt-dlp comes from the tag archives of
-  [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp/releases), nightly from the release assets of
+- **Sources.** Stable yt-dlp comes from the `yt-dlp.tar.gz` release assets of
+  [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) (very old releases without that asset fall back to the
+  tag archive), nightly from the release assets of
   [yt-dlp/yt-dlp-nightly-builds](https://github.com/yt-dlp/yt-dlp-nightly-builds/releases). Deno comes from the
   [denoland/deno](https://github.com/denoland/deno/releases) releases, with builds for Linux and macOS on x86_64 and
   ARM64 and for Windows on x86_64. Archives are extracted with path checks, so a crafted archive cannot write outside
   the version folder.
+- **Integrity.** Every download is checked against the SHA-256 published with the same release (`SHA2-256SUMS` for
+  yt-dlp, `<asset>.sha256sum` for Deno) before it is extracted. A mismatch aborts the install and nothing is changed.
+  Only a release that publishes no checksum at all (very old ones, and the tag-archive fallback) is installed
+  unverified, with a warning in the log.
 - **Update timing.** An installed yt-dlp or Deno is used right away. The update check runs after the stream has been
   handed to Kodi (also after a failed resolve, since an outdated yt-dlp is the usual cause), so it never delays
   playback; a newer release is used from the next playback on.

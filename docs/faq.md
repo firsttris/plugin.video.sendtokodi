@@ -45,6 +45,20 @@ through the official repository's release process. The
 [SendToKodi repository](installation.md#install-from-the-sendtokodi-repository-recommended) gives you automatic
 updates anyway.
 
+## Can I use my distribution's yt-dlp and QuickJS instead of the downloads?
+
+Yes. On Linux you can let your package manager provide both and the add-on downloads nothing:
+
+1. Install a recent yt-dlp and QuickJS, for example on Debian 13 (trixie) `yt-dlp` from trixie-backports (the
+   version in stable is usually too old for YouTube) and `quickjs`.
+2. In the add-on settings, set **yt-dlp release channel** to *System*.
+3. Set **JavaScript runtime mode** to `quickjs` and enter the path of the binary, usually `/usr/bin/qjs`, under
+   **QuickJS binary path**.
+
+Keep in mind that YouTube changes often: if videos stop playing, the system yt-dlp is the first thing to update.
+When the add-on does download yt-dlp or Deno itself, it checks each download against the SHA-256 checksum published
+with the release, see [Managed runtimes](how-it-works.md#managed-runtimes).
+
 ## Do I need the browser extension?
 
 No. The extension is the most convenient way to send links from a desktop browser, but Kore on Android, the Shortcut on
