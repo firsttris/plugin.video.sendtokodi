@@ -1,3 +1,4 @@
+import hashlib
 import pytest
 import io
 import os
@@ -350,7 +351,12 @@ def test_download_deno_extracts_binary_and_sets_executable(monkeypatch, tmp_path
             return False
 
     monkeypatch.setattr(deno_manager, "_detect_platform", lambda: ("linux", "x86_64"))
-    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
+    checksum = "{}  deno-x86_64-unknown-linux-gnu.zip\n".format(hashlib.sha256(zip_data).hexdigest()).encode()
+    monkeypatch.setattr(
+        managed_runtime.urllib.request,
+        "urlopen",
+        lambda url, *_args, **_kwargs: FakeResponse(checksum if url.endswith(".sha256sum") else zip_data),
+    )
     monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
     monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
@@ -396,7 +402,12 @@ def test_download_deno_raises_if_binary_missing(monkeypatch, tmp_path):
             return False
 
     monkeypatch.setattr(deno_manager, "_detect_platform", lambda: ("linux", "x86_64"))
-    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse(zip_data))
+    checksum = "{}  deno-x86_64-unknown-linux-gnu.zip\n".format(hashlib.sha256(zip_data).hexdigest()).encode()
+    monkeypatch.setattr(
+        managed_runtime.urllib.request,
+        "urlopen",
+        lambda url, *_args, **_kwargs: FakeResponse(checksum if url.endswith(".sha256sum") else zip_data),
+    )
     monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
     monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
 
@@ -619,3 +630,56 @@ def test_resolve_latest_version_handles_429_with_retry_after(monkeypatch, tmp_pa
     assert state["consecutive_failures"] == 1
     assert state["cooldown_until"] == 1120
     assert state["next_check_at"] == 1120
+
+
+def _fake_deno_download(monkeypatch, tmp_path, checksum_body):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zf:
+        zf.writestr("deno", b"binary-content")
+    zip_data = zip_buffer.getvalue()
+
+    class FakeResponse(io.BytesIO):
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    def fake_urlopen(url, *_args, **_kwargs):
+        if url.endswith(".sha256sum"):
+            if checksum_body is None:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return FakeResponse(checksum_body(zip_data))
+        return FakeResponse(zip_data)
+
+    monkeypatch.setattr(deno_manager, "_detect_platform", lambda: ("linux", "x86_64"))
+    monkeypatch.setattr(managed_runtime.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(deno_manager.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(deno_manager, "_deno_binary_name", lambda: "deno")
+    monkeypatch.setattr(deno_manager, "_addon_data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(deno_manager, "_set_installed_version", lambda _version: None)
+
+
+def test_download_deno_refuses_an_archive_with_a_wrong_checksum(monkeypatch, tmp_path):
+    _fake_deno_download(
+        monkeypatch, tmp_path, lambda _data: b"0" * 64 + b"  deno-x86_64-unknown-linux-gnu.zip\n"
+    )
+
+    with pytest.raises(managed_runtime.ChecksumMismatchError):
+        deno_manager._download_deno(show_progress=False, version="v-test")
+
+    # Nothing is installed and the archive is removed.
+    assert os.listdir(tmp_path / "versions") == []
+
+
+def test_download_deno_installs_unverified_when_no_checksum_is_published(monkeypatch, tmp_path):
+    _fake_deno_download(monkeypatch, tmp_path, None)
+    warnings = []
+    monkeypatch.setattr(deno_manager, "_warn", warnings.append)
+
+    dest = deno_manager._download_deno(show_progress=False, version="v-old")
+
+    assert open(dest, "rb").read() == b"binary-content"
+    assert any("unverified" in message for message in warnings)

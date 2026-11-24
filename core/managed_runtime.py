@@ -5,6 +5,7 @@ The runtime modules keep their own thin module-level wrappers so callers and
 tests can patch per-runtime paths; everything runtime-independent lives here.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -316,6 +317,65 @@ def download_with_progress(url, destination, runtime_label, version, show_progre
     finally:
         if progress is not None:
             progress.close()
+
+
+class ChecksumMismatchError(RuntimeError):
+    """A downloaded file does not match the checksum published with the release."""
+
+
+def fetch_expected_sha256(checksum_url, filename, timeout=30):
+    """Return the SHA-256 published for filename in a checksum file, or None.
+
+    Reads the "<hex digest>  <file name>" format used by both yt-dlp
+    (SHA2-256SUMS) and Deno (<asset>.sha256sum). Returns None when the release
+    publishes no checksum file (HTTP 404, e.g. very old releases); any other
+    error is raised so an install never goes ahead unverified by accident.
+    """
+    try:
+        with urllib.request.urlopen(checksum_url, timeout=timeout) as response:
+            content = response.read(1024 * 1024).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+    for line in content.splitlines():
+        parts = line.strip().split()
+        if len(parts) < 2:
+            continue
+        digest, name = parts[0].lower(), parts[-1].lstrip("*")
+        if os.path.basename(name) == filename and len(digest) == 64:
+            try:
+                int(digest, 16)
+            except ValueError:
+                continue
+            return digest
+    raise ChecksumMismatchError("No SHA-256 for {} in {}".format(filename, checksum_url))
+
+
+def sha256_of_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for chunk in iter(lambda: source.read(_DOWNLOAD_CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_download(path, checksum_url, filename, log_info, warn):
+    """Check path against the release's published SHA-256; raise on mismatch.
+
+    When the release has no checksum file the download is kept, with a warning.
+    """
+    expected = fetch_expected_sha256(checksum_url, filename)
+    if expected is None:
+        warn("No checksum published at {}, installing {} unverified".format(checksum_url, filename))
+        return False
+    actual = sha256_of_file(path)
+    if actual != expected:
+        raise ChecksumMismatchError(
+            "Checksum mismatch for {}: expected {}, got {}".format(filename, expected, actual)
+        )
+    log_info("Verified SHA-256 of {}".format(filename))
+    return True
 
 
 def remove_download(path):

@@ -315,6 +315,14 @@ def _download_deno(show_progress=True, version=None):
             target_version,
             show_progress=show_progress,
         )
+        # Each Deno release asset has a "<asset>.sha256sum" next to it.
+        managed_runtime.verify_download(
+            archive_path,
+            url + ".sha256sum",
+            filename,
+            _log,
+            _warn,
+        )
 
         # Extract the zip — it contains a single "deno" (or "deno.exe") binary
         if os.path.isdir(tmp_runtime_dir):
