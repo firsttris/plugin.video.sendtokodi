@@ -528,7 +528,7 @@ def test_start_httpd_uses_server_and_thread(monkeypatch):
         def start(self):
             started["called"] = True
 
-    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
     monkeypatch.setattr(dash_builder, "Thread", FakeThread)
 
     url = dash_builder.start_httpd(b"manifest")
@@ -559,7 +559,7 @@ def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
         def start(self):
             return None
 
-    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
     monkeypatch.setattr(dash_builder, "Thread", FakeThread)
     monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 1)
 
@@ -604,7 +604,7 @@ def test_start_httpd_reuses_the_same_server_between_plays(monkeypatch):
         def start(self):
             return None
 
-    monkeypatch.setattr(dash_builder, "HTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
     monkeypatch.setattr(dash_builder, "Thread", FakeThread)
 
     first = dash_builder.start_httpd(b"manifest-one")

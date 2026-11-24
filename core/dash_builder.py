@@ -5,7 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from threading import Thread, Lock
-from http.server import BaseHTTPRequestHandler, HTTPServer
+# One request at a time blocked Kodi's MIME probe behind us (7.8 s before
+# 'Creating InputStream' measured on a H618 box): serve each request in its
+# own thread.
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import time
 from time import monotonic
 from uuid import uuid4
@@ -496,7 +499,7 @@ def _ensure_httpd_started_locked():
         return _HTTPD
 
     server_address = ('127.0.0.1', 0)
-    httpd = HTTPServer(server_address, HttpHandler)
+    httpd = ThreadingHTTPServer(server_address, HttpHandler)
     # Block between requests instead of polling; the thread is a daemon and dies
     # with the interpreter.
 

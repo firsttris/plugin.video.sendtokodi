@@ -75,6 +75,18 @@ def _resolve_subtitle_paths(subtitles, http_headers, log):
         log('Failed to create subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
         return collect_subtitle_urls(subtitles)
 
+    # Files left by the previous playback: when a download fails, a name built
+    # from the language alone (e.g. 'English - en.srt') is reused as-is, so Kodi
+    # displays the subtitles of another video. Start from an empty directory.
+    try:
+        for stale_name in os.listdir(subtitle_directory):
+            try:
+                os.remove(os.path.join(subtitle_directory, stale_name))
+            except OSError:
+                pass
+    except OSError as exc:
+        log('Failed to clear subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
+
     # (url, local path or None); file names are assigned up front so they stay unique and stable.
     planned = []
     used_file_names = set()
@@ -284,6 +296,13 @@ def create_list_item_from_video(
         if mime_type is not None:
             list_item.setProperty("inputstream.adaptive.manifest_type", manifest_type)
             list_item.setMimeType(mime_type)
+            # The URL handed to Kodi is resolved at playback time, so its
+            # extension says nothing about the content. Left to itself, Kodi
+            # probes it (CFileItem::SetMimeTypeForInternetFile -> HEAD request),
+            # which blocks behind our local manifest server: measured 7.8 s
+            # before "Creating InputStream" on a H618 box, versus 10-13 ms when
+            # the probe is skipped.
+            list_item.setContentLookup(False)
         encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
