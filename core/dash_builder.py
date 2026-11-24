@@ -1,6 +1,5 @@
 import requests
 import struct
-import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from xml.etree.ElementTree import ElementTree, Element, SubElement
@@ -14,11 +13,12 @@ from time import monotonic
 from uuid import uuid4
 
 
-DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 # Doubles as the manifest refresh delay: after this many seconds without a
 # request, a request on a cached manifest re-resolves it with fresh stream urls.
 # The local server itself stays up for the whole Kodi session.
+DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 
+# Bounded LRU of served manifests; the least recently used one is evicted.
 _MANIFEST_CACHE_SIZE = 20
 
 _HTTPD_STATE_LOCK = Lock()
@@ -486,11 +486,8 @@ def _handle_request(httpd):
     # The server lives until the interpreter exits (reuselanguageinvoker keeps
     # the module state between calls), so old localhost manifest urls handed to
     # Kodi keep working during the session.
-    try:
-        while True:
-            httpd.handle_request()
-    except TimeoutError:
-        return
+    while True:
+        httpd.handle_request()
 
 
 def _ensure_httpd_started_locked():
@@ -512,7 +509,7 @@ def _ensure_httpd_started_locked():
     return _HTTPD
 
 
-def _register_manifest_locked(manifest, refresh_manifest=None, playback=None):
+def _register_manifest_locked(manifest, refresh_manifest=None):
     global _LATEST_MANIFEST_ID
     manifest_id = uuid4().hex
     now = monotonic()
@@ -527,57 +524,17 @@ def _register_manifest_locked(manifest, refresh_manifest=None, playback=None):
         'refreshed_at': now,
         'last_access_at': now,
     }
-    if playback is not None:
-        entry['playback'] = dict(playback)
     _MANIFESTS[manifest_id] = entry
     _LATEST_MANIFEST_ID = manifest_id
     return manifest_id
 
 
-def start_httpd(manifest, refresh_manifest=None, playback=None):
+def start_httpd(manifest, refresh_manifest=None):
     # Start and register atomically so the eviction cannot race the registration.
     with _HTTPD_STATE_LOCK:
         httpd = _ensure_httpd_started_locked()
-        manifest_id = _register_manifest_locked(manifest, refresh_manifest=refresh_manifest, playback=playback)
+        manifest_id = _register_manifest_locked(manifest, refresh_manifest=refresh_manifest)
     return "http://127.0.0.1:{}/manifest/{}.mpd".format(httpd.server_port, manifest_id)
-
-
-def parse_manifest_id(url):
-    """Return the manifest id of a local manifest url, or None for anything else."""
-    if not isinstance(url, str):
-        return None
-    match = re.match(r'^http://127\.0\.0\.1:\d+/manifest/([0-9a-f]{32})\.mpd$', url)
-    if match is None:
-        return None
-    return match.group(1)
-
-
-def attach_playback_metadata(manifest_id, playback):
-    """Store the fast-path playback metadata of a registered manifest (memory only)."""
-    with _HTTPD_STATE_LOCK:
-        entry = _MANIFESTS.get(manifest_id)
-        if entry is None:
-            return False
-        entry['playback'] = dict(playback)
-        return True
-
-
-def get_fresh_playback(manifest_id, refresh_delay=None):
-    """Return the cached fast-path metadata, or None when unknown or stale."""
-    if not manifest_id:
-        return None
-    refresh_delay = DASH_HTTPD_IDLE_TIMEOUT_SECONDS if refresh_delay is None else refresh_delay
-    now = monotonic()
-    with _HTTPD_STATE_LOCK:
-        entry = _MANIFESTS.get(manifest_id)
-        if entry is None:
-            return None
-        playback = entry.get('playback')
-        if not playback:
-            return None
-        if now - entry.get('refreshed_at', 0) >= refresh_delay:
-            return None
-        return dict(playback)
 
 
 def _reset_httpd_state_for_tests():
