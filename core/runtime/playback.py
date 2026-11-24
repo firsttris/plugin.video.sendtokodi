@@ -194,6 +194,7 @@ def create_list_item_from_video(
     log,
     show_error_notification,
     avoided_video_codecs=(),
+    playback_meta_sink=None,
 ):
     def resolve_fresh_result():
         refresh_url = result.get("webpage_url") or result.get("original_url") or result.get("url")
@@ -314,8 +315,27 @@ def create_list_item_from_video(
         url = append_headers_to_url(url, effective_headers)
         list_item.setPath(url)
 
+    if playback_meta_sink is not None:
+        playback_meta_sink(_collect_playback_metadata(result, stream_kind))
+
     _publish_sponsorblock_video(result, list_item, log)
     return list_item
+
+
+def _collect_playback_metadata(result, stream_kind):
+    """Display fields and the page url of a resolved item, for the playback history.
+
+    Never includes HTTP headers, cookies or stream urls: a history replay
+    re-resolves the page url with yt-dlp.
+    """
+    return {
+        'webpage_url': result.get('webpage_url') or result.get('original_url') or result.get('url'),
+        'title': result.get('title'),
+        'thumbnail': result.get('thumbnail'),
+        'extractor': result.get('extractor'),
+        'duration': result.get('duration'),
+        'kind': stream_kind,
+    }
 
 
 def _publish_sponsorblock_video(result, list_item, log):
@@ -381,6 +401,7 @@ def play_playlist_result(
     youtube_dl_cls,
     log,
     show_error_notification,
+    playback_meta_sink=None,
 ):
     playlist = xbmc.PlayList(1)
     playlist.clear()
@@ -420,6 +441,7 @@ def play_playlist_result(
         youtube_dl_cls,
         log,
         show_error_notification,
+        playback_meta_sink=playback_meta_sink,
     )
     playlist.add(starting_item.getPath(), starting_item, index_to_start_at)
     xbmc.executebuiltin("Playlist.PlayOffset(%s,%d)" % ("video", index_to_start_at))

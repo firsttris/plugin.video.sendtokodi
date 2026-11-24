@@ -7,7 +7,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
-from core import dash_builder
+from core import dash_builder, history
 
 from core.addon_params import (
     parse_cli_paramstring,
@@ -201,7 +201,7 @@ def _apply_media_download_settings(handle, ydl_opts):
     return True
 
 
-def play(plugin_url, handle, paramstring):
+def play(plugin_url, handle, paramstring, url_override=None):
     """Resolve the sent url with yt-dlp and hand the result to Kodi."""
     configure_managed_ytdlp(handle, log)
 
@@ -215,8 +215,13 @@ def play(plugin_url, handle, paramstring):
         xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
         return
 
-    params = parse_cli_paramstring(paramstring)
-    url = str(params['url'])
+    if url_override is None:
+        params = parse_cli_paramstring(paramstring)
+        url = str(params['url'])
+    else:
+        # History replay: the page url comes from the history entry.
+        params = {'url': url_override, 'ydlOpts': {}}
+        url = url_override
 
     js_runtime_opts = _resolve_js_runtime_opts(handle)
 
@@ -252,6 +257,12 @@ def play(plugin_url, handle, paramstring):
             handle_resolve_failure(handle, set_resolved_false=True)
             return
 
+    playback_meta = {}
+
+    def capture_playback_meta(meta):
+        playback_meta.clear()
+        playback_meta.update(meta)
+
     if 'entries' in result:
         try:
             play_playlist_result(
@@ -272,9 +283,12 @@ def play(plugin_url, handle, paramstring):
                 YoutubeDL,
                 log,
                 showErrorNotification,
+                playback_meta_sink=capture_playback_meta,
             )
         except Exception:
             handle_resolve_failure(handle)
+            return
+        _record_playback(playback_meta)
     else:
         try:
             list_item = create_list_item_from_video(
@@ -291,10 +305,69 @@ def play(plugin_url, handle, paramstring):
                 log,
                 showErrorNotification,
                 avoided_video_codecs=avoided_video_codecs,
+                playback_meta_sink=capture_playback_meta,
             )
             xbmcplugin.setResolvedUrl(handle, True, listitem=list_item)
         except Exception:
             handle_resolve_failure(handle, set_resolved_false=True)
+            return
+        _record_playback(playback_meta)
+
+
+def _record_playback(playback_meta):
+    """Record a successful playback in the history."""
+    if not playback_meta.get('webpage_url'):
+        return
+    history.record(playback_meta)
+
+
+def _resolve_action_id(paramstring):
+    parsed = parse_query_params(paramstring)
+    values = parsed.get("id")
+    if not values:
+        return None
+    return values[0]
+
+
+def _show_history_list(handle, plugin_url):
+    """Render the playback history list; always a directory, even when empty."""
+    entries = history.list_entries()
+    xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_NONE)
+    if not entries:
+        empty_item = xbmcgui.ListItem("No recent playback", path=plugin_url + "?action=noop")
+        # A folder, so selecting it re-renders the list instead of trying to play it.
+        xbmcplugin.addDirectoryItem(handle, empty_item.getPath(), empty_item, isFolder=True)
+    for entry in entries:
+        title = entry.get('title') or entry.get('url') or ''
+        if entry.get('downloaded_at') is not None:
+            title += " [downloaded]"
+        item = xbmcgui.ListItem(title, path="{}?action=replay&id={}".format(plugin_url, entry['id']))
+        item.setProperty("IsPlayable", "true")
+        video_info = item.getVideoInfoTag()
+        video_info.setTitle(title)
+        if entry.get('thumbnail'):
+            item.setArt({"thumb": entry['thumbnail']})
+        xbmcplugin.addDirectoryItem(handle, item.getPath(), item, isFolder=False)
+    settings_item = xbmcgui.ListItem("Settings", path=plugin_url + "?action=settings")
+    # A folder: the settings action re-renders the list after the modal dialog.
+    xbmcplugin.addDirectoryItem(handle, settings_item.getPath(), settings_item, isFolder=True)
+    xbmcplugin.endOfDirectory(handle, succeeded=True, cacheToDisc=False)
+
+
+def _handle_settings_action(handle, plugin_url):
+    # openSettings is modal; re-render the list on the same handle afterwards.
+    xbmcaddon.Addon().openSettings()
+    _show_history_list(handle, plugin_url)
+
+
+def _handle_replay_action(handle, plugin_url, paramstring, history_id):
+    """Play a history entry: its page url goes through the normal resolve path."""
+    entry = history.get(history_id)
+    if entry is None:
+        showErrorNotification("Unknown history entry")
+        xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
+        return
+    play(plugin_url, handle, paramstring, url_override=entry['url'])
 
 
 def main(argv):
@@ -311,17 +384,35 @@ def main(argv):
     # core/service_runtime.py, #177), so always patch it, before yt-dlp is used.
     patch_strptime()
 
-    # Open the settings if no parameters have been passed. Prevents crash.
-    # This happens when the addon is launched from within the Kodi OSD.
+    # Show the playback history when no parameters have been passed. Prevents
+    # crash. This happens when the addon is launched from within the Kodi OSD.
     if not paramstring:
         refresh_runtime_displays(handle, log)
-        xbmcaddon.Addon().openSettings()
+        _show_history_list(handle, plugin_url)
         return
 
     if handle_queue_action(plugin_url, paramstring):
         return
 
     action = resolve_action_param(paramstring)
+    if action == 'settings':
+        _handle_settings_action(handle, plugin_url)
+        return
+    if action == 'noop':
+        _show_history_list(handle, plugin_url)
+        return
+    if action == 'replay':
+        history_id = _resolve_action_id(paramstring)
+        if not history_id:
+            showErrorNotification("Missing history entry id")
+            xbmcplugin.setResolvedUrl(handle, False, listitem=xbmcgui.ListItem())
+            return
+        try:
+            _handle_replay_action(handle, plugin_url, paramstring, history_id)
+        finally:
+            update_runtimes_after_playback(handle, log)
+        return
+
     if action is not None and handle_runtime_action(
         action,
         handle,

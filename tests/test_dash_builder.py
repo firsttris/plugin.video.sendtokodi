@@ -490,6 +490,23 @@ def test_http_handler_head_and_get_methods_write_headers_and_body():
     assert handler.wfile.written == b"manifest"
 
 
+@pytest.fixture
+def fake_clock(monkeypatch):
+    """Deterministic dash_builder.monotonic: starts far from 0, +1 per call.
+
+    The real monotonic clock counts from boot, so on a freshly booted machine it
+    can be smaller than the refresh delay; tests must not depend on it.
+    """
+    state = {"now": 10_000.0}
+
+    def monotonic():
+        state["now"] += 1
+        return state["now"]
+
+    monkeypatch.setattr(dash_builder, "monotonic", monotonic)
+    return state
+
+
 def _manifest_id(url):
     return url.rsplit("/", 1)[-1][:-len(".mpd")]
 
@@ -659,7 +676,7 @@ def test_start_httpd_uses_server_and_thread(monkeypatch):
     assert url.endswith(".mpd")
 
 
-def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
+def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch, fake_clock):
     dash_builder._reset_httpd_state_for_tests()
 
     class FakeHTTPServer:
@@ -757,16 +774,14 @@ def test_old_manifest_is_still_served_after_a_new_one_is_registered():
     assert dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(second_path)) == b"manifest-two"
 
 
-def test_manifest_cache_is_bounded_by_lru_eviction(monkeypatch):
-    from time import monotonic
-
+def test_manifest_cache_is_bounded_by_lru_eviction(fake_clock):
     dash_builder._reset_httpd_state_for_tests()
 
     first_id = _manifest_id(dash_builder.start_httpd(b"first"))
     for _index in range(dash_builder._MANIFEST_CACHE_SIZE - 1):
         dash_builder.start_httpd(b"filler")
     # Touch the first manifest so it becomes the most recently used entry.
-    dash_builder._MANIFESTS[first_id]["last_access_at"] = monotonic()
+    dash_builder._MANIFESTS[first_id]["last_access_at"] = dash_builder.monotonic()
     extra_id = _manifest_id(dash_builder.start_httpd(b"extra"))
 
     # The touched entry survived; the server is still up (eviction never closes it).
@@ -776,7 +791,7 @@ def test_manifest_cache_is_bounded_by_lru_eviction(monkeypatch):
     assert dash_builder._HTTPD is not None
 
 
-def test_manifest_cache_without_touch_evicts_the_oldest_entry():
+def test_manifest_cache_without_touch_evicts_the_oldest_entry(fake_clock):
     dash_builder._reset_httpd_state_for_tests()
 
     ids = [
@@ -789,7 +804,7 @@ def test_manifest_cache_without_touch_evicts_the_oldest_entry():
     assert len(dash_builder._MANIFESTS) == dash_builder._MANIFEST_CACHE_SIZE
 
 
-def test_manifest_is_not_refreshed_before_the_refresh_delay(monkeypatch):
+def test_manifest_is_not_refreshed_before_the_refresh_delay(monkeypatch, fake_clock):
     dash_builder._reset_httpd_state_for_tests()
     monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
     calls = []
@@ -804,7 +819,7 @@ def test_manifest_is_not_refreshed_before_the_refresh_delay(monkeypatch):
     assert calls == []
 
 
-def test_stale_manifest_refresh_updates_the_cache_and_resets_the_delay(monkeypatch):
+def test_stale_manifest_refresh_updates_the_cache_and_resets_the_delay(monkeypatch, fake_clock):
     dash_builder._reset_httpd_state_for_tests()
     monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
     calls = []
@@ -822,7 +837,7 @@ def test_stale_manifest_refresh_updates_the_cache_and_resets_the_delay(monkeypat
     assert len(calls) == 1
 
 
-def test_failed_refresh_keeps_serving_the_cached_manifest(monkeypatch):
+def test_failed_refresh_keeps_serving_the_cached_manifest(monkeypatch, fake_clock):
     dash_builder._reset_httpd_state_for_tests()
     monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
 
@@ -835,7 +850,7 @@ def test_failed_refresh_keeps_serving_the_cached_manifest(monkeypatch):
     assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v1"
 
 
-def test_serving_a_manifest_marks_it_recently_used_for_eviction():
+def test_serving_a_manifest_marks_it_recently_used_for_eviction(fake_clock):
     dash_builder._reset_httpd_state_for_tests()
 
     urls = [dash_builder.start_httpd(b"m") for _index in range(dash_builder._MANIFEST_CACHE_SIZE)]

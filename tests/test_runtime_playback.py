@@ -399,7 +399,7 @@ def test_play_playlist_resolves_starting_entry_with_progress(monkeypatch, media_
     monkeypatch.setattr(
         playback,
         'create_list_item_from_video',
-        lambda result, *_args: DummyListItem(path='resolved:' + result['url']),
+        lambda result, *_args, **_kwargs: DummyListItem(path='resolved:' + result['url']),
     )
 
     class FakeYdl:
@@ -452,7 +452,7 @@ def test_play_playlist_resolves_starting_entry_with_progress(monkeypatch, media_
     assert playlist.items[1] == 'resolved:https://example.invalid/b'
 
 
-def _create_list_item_for_sponsorblock(playback, result):
+def _create_list_item_for_sponsorblock(playback, result, **extra):
     return playback.create_list_item_from_video(
         result=result,
         ydl_opts={},
@@ -466,6 +466,7 @@ def _create_list_item_for_sponsorblock(playback, result):
         youtube_dl_cls=None,
         log=lambda *_args, **_kwargs: None,
         show_error_notification=lambda *_args, **_kwargs: None,
+        **extra,
     )
 
 
@@ -504,3 +505,59 @@ def test_create_list_item_from_video_does_not_publish_other_sites(monkeypatch):
     )
 
     assert playback.sponsorblock.VIDEO_ID_PROPERTY not in list_item.properties
+
+
+def test_create_list_item_from_video_collects_history_metadata_without_headers(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: ['/tmp/subs.vtt'])
+    monkeypatch.setattr(
+        playback,
+        'select_playback_source',
+        lambda *_args, **_kwargs: {
+            'url': 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32),
+            'isa': True,
+            'headers': {'User-Agent': 'UA', 'Cookie': 'secret=1'},
+            'manifest_type': 'mpd',
+        },
+    )
+    captured = []
+
+    _create_list_item_for_sponsorblock(
+        playback,
+        {
+            'title': 'Video',
+            'description': 'Plot',
+            'thumbnail': 'https://example.invalid/thumb.jpg',
+            'webpage_url': 'https://example.invalid/watch',
+            'extractor': 'test',
+            'duration': 12.5,
+            'formats': [],
+            'subtitles': {'en': ['https://example.invalid/sub.vtt']},
+            'http_headers': {'User-Agent': 'UA', 'Cookie': 'secret=1'},
+        },
+        playback_meta_sink=captured.append,
+    )
+
+    # Only display fields and the page url: no headers, cookies or stream urls.
+    assert captured == [
+        {
+            'webpage_url': 'https://example.invalid/watch',
+            'title': 'Video',
+            'thumbnail': 'https://example.invalid/thumb.jpg',
+            'extractor': 'test',
+            'duration': 12.5,
+            'kind': 'video',
+        }
+    ]
+
+
+def test_collect_playback_metadata_falls_back_to_the_original_url(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+
+    metadata = playback._collect_playback_metadata(
+        {'original_url': 'https://example.invalid/page', 'url': 'https://cdn.invalid/v.mp4'},
+        'audio',
+    )
+
+    assert metadata['webpage_url'] == 'https://example.invalid/page'
+    assert metadata['kind'] == 'audio'
