@@ -218,7 +218,6 @@ def _history_entry(entry_id, **overrides):
         "duration": 12.0,
         "kind": "video",
         "played_at": 1,
-        "manifest_id": None,
     }
     entry.update(overrides)
     return entry
@@ -270,29 +269,7 @@ def test_settings_action_opens_settings_and_rerenders_the_list(kodi):
     ]
 
 
-def test_replay_uses_the_cached_manifest_without_resolving(kodi, monkeypatch, tmp_path):
-    from core import dash_builder
-
-    manifest_id = "0" * 32
-    _write_history(tmp_path, [_history_entry("abc", manifest_id=manifest_id)])
-    manifest_url = "http://127.0.0.1:8123/manifest/{}.mpd".format(manifest_id)
-    monkeypatch.setattr(dash_builder, "get_fresh_playback", lambda _manifest_id: {
-        "manifest_url": manifest_url,
-        "title": "Video",
-        "plot": None,
-        "thumbnail": None,
-        "kind": "video",
-        "duration": 12.0,
-        "subtitle_paths": [],
-        "headers": {"User-Agent": "UA"},
-    })
-
-    kodi.run("?action=replay&id=abc")
-
-    assert kodi.calls == [("resolved", True, manifest_url), ("update",)]
-
-
-def test_replay_falls_back_to_a_full_resolution_when_the_cache_is_cold(kodi, tmp_path):
+def test_replay_resolves_the_stored_page_url_through_the_normal_path(kodi, tmp_path):
     _write_history(tmp_path, [_history_entry("abc")])
     kodi.extract["result"] = _single_video_result()
 
@@ -310,7 +287,8 @@ def test_replay_without_an_id_reports_an_error(kodi):
     kodi.run("?action=replay")
 
     assert ("notification", "Missing history entry id") in kodi.calls
-    assert not [call for call in kodi.calls if call[0] == "resolved"]
+    # The playable item is resolved as failed so Kodi does not wait for it.
+    assert [call for call in kodi.calls if call[0] == "resolved"] == [("resolved", False, None)]
 
 
 def test_replay_of_an_unknown_entry_reports_an_error(kodi, tmp_path):
@@ -319,7 +297,8 @@ def test_replay_of_an_unknown_entry_reports_an_error(kodi, tmp_path):
     kodi.run("?action=replay&id=unknown")
 
     assert ("notification", "Unknown history entry") in kodi.calls
-    assert not [call for call in kodi.calls if call[0] == "resolved"]
+    assert [call for call in kodi.calls if call[0] == "resolved"] == [("resolved", False, None)]
+    assert not [call for call in kodi.calls if call[0] == "extract"]
     assert ("update",) in kodi.calls
 
 
@@ -334,7 +313,7 @@ def test_a_successful_play_is_recorded_in_the_history(kodi, tmp_path):
     assert entries[0]["title"] == "Recorded"
     assert entries[0]["extractor"] == "test"
     assert entries[0]["duration"] == 33.0
-    assert entries[0]["manifest_id"] is None
+    assert set(entries[0]) == {"id", "url", "title", "thumbnail", "extractor", "duration", "kind", "played_at"}
 
 
 def test_a_failed_play_records_nothing(kodi, tmp_path):

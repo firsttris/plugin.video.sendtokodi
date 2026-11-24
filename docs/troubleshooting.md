@@ -76,8 +76,8 @@ The add-on could not import yt-dlp:
   or turn on **Ask which stream to play** and pick an `avc1`/`mp4a` combination.
 - **Audio-only HLS stream is silent:** keep **Audio-only HLS: disable Opus for native m3u streams** on; Kodi's HLS
   demuxer cannot play Opus.
-- **Playback stops after a pause or a seek:** stream URLs expire. The DASH builder regenerates its manifest after the
-  refresh delay; a lower **DASH manifest refresh delay** makes it refresh sooner.
+- **Playback stops after a pause or a seek:** stream URLs expire. The DASH builder regenerates its manifest with fresh
+  URLs when it was not requested for the refresh delay; a lower **DASH manifest refresh delay** makes it refresh sooner.
 - **Stutter at high resolutions:** the device cannot decode or the network cannot deliver it. Cap **Maximum
   resolution**, or choose *Adaptive* so InputStream Adaptive adapts to the bandwidth.
 - **Stream fails after a few seconds with a 403 in the log:** the site checks headers. A yt-dlp update usually fixes

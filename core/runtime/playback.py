@@ -75,6 +75,18 @@ def _resolve_subtitle_paths(subtitles, http_headers, log):
         log('Failed to create subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
         return collect_subtitle_urls(subtitles)
 
+    # Files left by the previous playback: when a download fails, a name built
+    # from the language alone (e.g. 'English - en.srt') is reused as-is, so Kodi
+    # displays the subtitles of another video. Start from an empty directory.
+    try:
+        for stale_name in os.listdir(subtitle_directory):
+            try:
+                os.remove(os.path.join(subtitle_directory, stale_name))
+            except OSError:
+                pass
+    except OSError as exc:
+        log('Failed to clear subtitle directory {}: {}'.format(subtitle_directory, exc), xbmc.LOGWARNING)
+
     # (url, local path or None); file names are assigned up front so they stay unique and stable.
     planned = []
     used_file_names = set()
@@ -181,6 +193,7 @@ def create_list_item_from_video(
     youtube_dl_cls,
     log,
     show_error_notification,
+    avoided_video_codecs=(),
     playback_meta_sink=None,
 ):
     def resolve_fresh_result():
@@ -211,6 +224,7 @@ def create_list_item_from_video(
         preferred_format_id=preferred_stream.get("format_id") if preferred_stream is not None else None,
         disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
         strict_max_resolution=strict_max_resolution,
+        avoided_video_codecs=avoided_video_codecs,
     )
 
     if selected_source is None and preferred_stream is not None:
@@ -224,6 +238,7 @@ def create_list_item_from_video(
             dash_builder,
             disable_opus_for_audio_only_hls_native=disable_opus_for_audio_only_hls_native,
             strict_max_resolution=strict_max_resolution,
+            avoided_video_codecs=avoided_video_codecs,
         )
 
     if selected_source is not None:
@@ -270,10 +285,8 @@ def create_list_item_from_video(
         list_item.setArt({"thumb": result["thumbnail"]})
 
     subtitles = result.get("subtitles", {})
-    subtitle_paths = []
     if subtitles:
-        subtitle_paths = _resolve_subtitle_paths(subtitles, result.get("http_headers"), log)
-        list_item.setSubtitles(subtitle_paths)
+        list_item.setSubtitles(_resolve_subtitle_paths(subtitles, result.get("http_headers"), log))
 
     # Many sites will throw a 403 unless the http headers (e.g. user agent and referer)
     # sent when downloading a manifest and streaming match those originally sent by yt-dlp.
@@ -287,6 +300,13 @@ def create_list_item_from_video(
         if mime_type is not None:
             list_item.setProperty("inputstream.adaptive.manifest_type", manifest_type)
             list_item.setMimeType(mime_type)
+            # The URL handed to Kodi is resolved at playback time, so its
+            # extension says nothing about the content. Left to itself, Kodi
+            # probes it (CFileItem::SetMimeTypeForInternetFile -> HEAD request),
+            # which blocks behind our local manifest server: measured 7.8 s
+            # before "Creating InputStream" on a H618 box, versus 10-13 ms when
+            # the probe is skipped.
+            list_item.setContentLookup(False)
         encoded_headers = encode_inputstream_headers(effective_headers)
         if encoded_headers is not None:
             list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
@@ -296,17 +316,32 @@ def create_list_item_from_video(
         list_item.setPath(url)
 
     if playback_meta_sink is not None:
-        playback_meta_sink(_collect_playback_metadata(
-            result, url, isa, manifest_type, effective_headers, stream_kind, subtitle_paths,
-        ))
+        playback_meta_sink(_collect_playback_metadata(result, stream_kind))
 
     _publish_sponsorblock_video(result, list_item, log)
     return list_item
 
 
-def _publish_sponsorblock_video_id(video_id, list_item, log=None):
+def _collect_playback_metadata(result, stream_kind):
+    """Display fields and the page url of a resolved item, for the playback history.
+
+    Never includes HTTP headers, cookies or stream urls: a history replay
+    re-resolves the page url with yt-dlp.
+    """
+    return {
+        'webpage_url': result.get('webpage_url') or result.get('original_url') or result.get('url'),
+        'title': result.get('title'),
+        'thumbnail': result.get('thumbnail'),
+        'extractor': result.get('extractor'),
+        'duration': result.get('duration'),
+        'kind': stream_kind,
+    }
+
+
+def _publish_sponsorblock_video(result, list_item, log):
     """Tell sponsorblock_service.py which YouTube video the item plays."""
-    if not video_id:
+    video_id = sponsorblock.resolve_youtube_video_id(result)
+    if video_id is None:
         return
     list_item.setProperty(sponsorblock.VIDEO_ID_PROPERTY, video_id)
     # Not every Kodi version hands ListItem properties to the playing item, so the path is published too.
@@ -316,72 +351,7 @@ def _publish_sponsorblock_video_id(video_id, list_item, log=None):
             sponsorblock.encode_playback(list_item.getPath(), video_id),
         )
     except Exception as exc:
-        if log is not None:
-            log("Could not publish the video for SponsorBlock: {}".format(exc), xbmc.LOGWARNING)
-
-
-def _publish_sponsorblock_video(result, list_item, log):
-    _publish_sponsorblock_video_id(sponsorblock.resolve_youtube_video_id(result), list_item, log)
-
-
-def _collect_playback_metadata(result, url, isa, manifest_type, headers, stream_kind, subtitle_paths):
-    """Playback metadata for the manifest cache fast path and the playback history."""
-    local_manifest = (
-        isa
-        and manifest_type == 'mpd'
-        and isinstance(url, str)
-        and url.startswith('http://127.0.0.1:')
-    )
-    return {
-        'manifest_url': url if local_manifest else None,
-        'headers': headers,
-        'title': result.get('title'),
-        'plot': result.get('description'),
-        'thumbnail': result.get('thumbnail'),
-        'kind': stream_kind,
-        'duration': result.get('duration'),
-        'subtitle_paths': list(subtitle_paths),
-        'webpage_url': result.get('webpage_url') or result.get('original_url') or result.get('url'),
-        'extractor': result.get('extractor'),
-        'sponsorblock_video_id': sponsorblock.resolve_youtube_video_id(result),
-    }
-
-
-def create_list_item_from_playback(playback):
-    """Build the ListItem of a cached DASH manifest (fast path), without yt-dlp."""
-    manifest_url = playback.get('manifest_url')
-    title = playback.get('title')
-    if not manifest_url or not title:
-        raise ValueError("playback metadata incomplete")
-
-    list_item = xbmcgui.ListItem(title, path=manifest_url)
-    if playback.get('kind') == 'audio':
-        music_info = list_item.getMusicInfoTag()
-        music_info.setTitle(title)
-    else:
-        video_info = list_item.getVideoInfoTag()
-        video_info.setTitle(title)
-        if playback.get('plot'):
-            video_info.setPlot(playback['plot'])
-        duration = playback.get('duration')
-        if isinstance(duration, (int, float)) and duration > 0:
-            video_info.setDuration(int(duration))
-    if playback.get('thumbnail'):
-        list_item.setArt({"thumb": playback['thumbnail']})
-
-    subtitle_paths = [path for path in (playback.get('subtitle_paths') or []) if path and xbmcvfs.exists(path)]
-    if subtitle_paths:
-        list_item.setSubtitles(subtitle_paths)
-
-    list_item.setProperty("inputstream", "inputstream.adaptive")
-    list_item.setProperty("inputstream.adaptive.manifest_type", "mpd")
-    list_item.setMimeType("application/dash+xml")
-    encoded_headers = encode_inputstream_headers(playback.get('headers'))
-    if encoded_headers is not None:
-        list_item.setProperty("inputstream.adaptive.manifest_headers", encoded_headers)
-        list_item.setProperty("inputstream.adaptive.stream_headers", encoded_headers)
-    _publish_sponsorblock_video_id(playback.get('sponsorblock_video_id'), list_item)
-    return list_item
+        log("Could not publish the video for SponsorBlock: {}".format(exc), xbmc.LOGWARNING)
 
 
 def _create_list_item_from_flat_playlist_item(video, plugin_url, paramstring):

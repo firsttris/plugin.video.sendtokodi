@@ -61,7 +61,7 @@ def test_invalid_json_means_empty_history(history_setup):
 
 
 def test_record_adds_an_entry_with_the_documented_fields(history_setup):
-    entry_id = history_setup.history.record(_metadata(), manifest_id="a" * 32, timestamp=1000)
+    entry_id = history_setup.history.record(_metadata(), timestamp=1000)
 
     assert entry_id == history_setup.history._entry_id("https://example.invalid/watch")
     entries = history_setup.history.list_entries()
@@ -75,8 +75,21 @@ def test_record_adds_an_entry_with_the_documented_fields(history_setup):
         "duration": 61.5,
         "kind": "video",
         "played_at": 1000,
-        "manifest_id": "a" * 32,
     }
+
+
+def test_record_never_stores_headers_or_stream_urls(history_setup):
+    history_setup.history.record(_metadata(
+        headers={"Cookie": "secret=1"},
+        http_headers={"User-Agent": "UA"},
+        manifest_url="http://127.0.0.1:8123/manifest/x.mpd",
+    ))
+
+    with open(history_setup.history._history_path(), encoding="utf-8") as history_file:
+        raw = history_file.read()
+    entry = history_setup.history.list_entries()[0]
+    assert set(entry) == {"id", "url", "title", "thumbnail", "extractor", "duration", "kind", "played_at"}
+    assert "secret=1" not in raw and "User-Agent" not in raw and "127.0.0.1" not in raw
 
 
 def test_record_without_a_page_url_is_skipped(history_setup):

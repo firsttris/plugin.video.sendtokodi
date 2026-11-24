@@ -70,13 +70,12 @@ If anything fails, a notification *Could not resolve the url* appears and the re
 
 ## Playback history
 
-Every video you play successfully is recorded in the add-on's data folder (`history.json`), newest first. Playing the
-same page again moves its entry back to the top instead of duplicating it.
+Every video you play successfully is recorded in the add-on's data folder (`history.json`), newest first, with its
+page URL, title, thumbnail and duration; no HTTP headers, cookies or stream URLs are stored. Playing the same page
+again moves its entry back to the top instead of duplicating it. The list keeps the 30 most recent entries.
 
-Opening the add-on shows this list. Selecting an entry replays it: while the DASH manifest of the video is still in the
-add-on's cache (see [The DASH manifest builder](how-it-works.md#the-dash-manifest-builder)), the list item is rebuilt
-from the cached metadata and plays immediately, without re-resolving the page with yt-dlp. Otherwise the entry is
-re-resolved like any other sent link.
+Opening the add-on shows this list. Selecting an entry replays it: the stored page URL is resolved with yt-dlp like any
+other sent link, so the streams are always fresh.
 
 The context menu of each entry has a **Download** command. It downloads the video into the configured media download
 folder (*Settings → Media → Media download path*) without playing it, then reports the final file path and marks the

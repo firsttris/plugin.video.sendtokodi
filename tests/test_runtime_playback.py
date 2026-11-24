@@ -9,16 +9,12 @@ class DummyInfoTag:
     def __init__(self):
         self.title = None
         self.plot = None
-        self.duration = None
 
     def setTitle(self, title):
         self.title = title
 
     def setPlot(self, plot):
         self.plot = plot
-
-    def setDuration(self, duration):
-        self.duration = duration
 
 
 class DummyListItem:
@@ -27,6 +23,7 @@ class DummyListItem:
         self.path = path
         self.properties = {}
         self.mime_type = None
+        self.content_lookup = None
         self.art = None
         self.subtitles = None
         self.video_info = DummyInfoTag()
@@ -52,6 +49,9 @@ class DummyListItem:
 
     def setMimeType(self, mime_type):
         self.mime_type = mime_type
+
+    def setContentLookup(self, enabled):
+        self.content_lookup = enabled
 
     def getPath(self):
         return self.path
@@ -155,6 +155,7 @@ def test_create_list_item_from_video_sets_hls_manifest_type_for_isa(monkeypatch)
     assert list_item.properties['inputstream.adaptive.manifest_headers'] == 'User-Agent=UA'
     assert list_item.properties['inputstream.adaptive.stream_headers'] == 'User-Agent=UA'
     assert list_item.mime_type == 'application/vnd.apple.mpegurl'
+    assert list_item.content_lookup is False
 
 
 def test_create_list_item_from_video_uses_selected_manifest_type_instead_of_url(monkeypatch):
@@ -189,6 +190,7 @@ def test_create_list_item_from_video_uses_selected_manifest_type_instead_of_url(
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'hls'
     assert list_item.mime_type == 'application/vnd.apple.mpegurl'
+    assert list_item.content_lookup is False
 
 
 def test_create_list_item_from_video_skips_manifest_type_unknown_to_isa(monkeypatch):
@@ -266,6 +268,7 @@ def test_create_list_item_from_video_sets_dash_manifest_type_for_isa(monkeypatch
 
     assert list_item.properties['inputstream.adaptive.manifest_type'] == 'mpd'
     assert list_item.mime_type == 'application/dash+xml'
+    assert list_item.content_lookup is False
 
 def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatch, tmp_path):
     import threading
@@ -305,6 +308,59 @@ def test_resolve_subtitle_paths_downloads_in_parallel_and_keeps_order(monkeypatc
         'https://example.invalid/fr.vtt',
     ]
     assert any('Failed to download subtitle https://example.invalid/fr.vtt' in msg for msg in logs)
+
+
+def test_resolve_subtitle_paths_clears_files_from_the_previous_playback(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+    stale_file = tmp_path / 'English - en.srt'
+    stale_file.write_text('subtitles of the previous video', encoding='utf-8')
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+
+    subtitles = {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt', 'name': 'English'}]}
+
+    playback._resolve_subtitle_paths(subtitles, {}, lambda *_args: None)
+
+    assert not stale_file.exists()
+
+
+def test_resolve_subtitle_paths_ignores_files_that_cannot_be_removed(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+    (tmp_path / 'stale.srt').write_text('x', encoding='utf-8')
+
+    def refuse(_path):
+        raise OSError('busy')
+
+    monkeypatch.setattr(playback.os, 'remove', refuse)
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+
+    subtitles = {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}]}
+
+    paths = playback._resolve_subtitle_paths(subtitles, {}, lambda *_args: None)
+
+    assert paths == [str(tmp_path / 'en.vtt')]
+
+
+def test_resolve_subtitle_paths_logs_when_the_directory_cannot_be_listed(monkeypatch, tmp_path):
+    playback = _load_playback_module(monkeypatch)
+    monkeypatch.setattr(playback, '_subtitle_download_dir', lambda: str(tmp_path))
+
+    def refuse(_path):
+        raise OSError('denied')
+
+    monkeypatch.setattr(playback.os, 'listdir', refuse)
+    monkeypatch.setattr(playback, '_download_subtitle_file', lambda *_args: None)
+    logs = []
+
+    paths = playback._resolve_subtitle_paths(
+        {'en': [{'url': 'https://example.invalid/en.vtt', 'ext': 'vtt'}]},
+        {},
+        lambda message, *_args: logs.append(message),
+    )
+
+    assert any('Failed to clear subtitle directory' in message for message in logs)
+    assert paths == [str(tmp_path / 'en.vtt')]
 
 
 class _FakePlaylist:
@@ -451,17 +507,16 @@ def test_create_list_item_from_video_does_not_publish_other_sites(monkeypatch):
     assert playback.sponsorblock.VIDEO_ID_PROPERTY not in list_item.properties
 
 
-def test_create_list_item_from_video_collects_local_dash_manifest_metadata(monkeypatch):
+def test_create_list_item_from_video_collects_history_metadata_without_headers(monkeypatch):
     playback = _load_playback_module(monkeypatch)
     monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: ['/tmp/subs.vtt'])
-    manifest_url = 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32)
     monkeypatch.setattr(
         playback,
         'select_playback_source',
         lambda *_args, **_kwargs: {
-            'url': manifest_url,
+            'url': 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32),
             'isa': True,
-            'headers': {'User-Agent': 'UA'},
+            'headers': {'User-Agent': 'UA', 'Cookie': 'secret=1'},
             'manifest_type': 'mpd',
         },
     )
@@ -478,147 +533,31 @@ def test_create_list_item_from_video_collects_local_dash_manifest_metadata(monke
             'duration': 12.5,
             'formats': [],
             'subtitles': {'en': ['https://example.invalid/sub.vtt']},
+            'http_headers': {'User-Agent': 'UA', 'Cookie': 'secret=1'},
         },
         playback_meta_sink=captured.append,
     )
 
+    # Only display fields and the page url: no headers, cookies or stream urls.
     assert captured == [
         {
-            'manifest_url': manifest_url,
-            'headers': {'User-Agent': 'UA'},
-            'title': 'Video',
-            'plot': 'Plot',
-            'thumbnail': 'https://example.invalid/thumb.jpg',
-            'kind': 'video',
-            'duration': 12.5,
-            'subtitle_paths': ['/tmp/subs.vtt'],
             'webpage_url': 'https://example.invalid/watch',
+            'title': 'Video',
+            'thumbnail': 'https://example.invalid/thumb.jpg',
             'extractor': 'test',
-            'sponsorblock_video_id': None,
+            'duration': 12.5,
+            'kind': 'video',
         }
     ]
 
 
-def test_create_list_item_from_video_ignores_non_local_manifests(monkeypatch):
-    playback = _load_playback_module(monkeypatch)
-    monkeypatch.setattr(playback, '_resolve_subtitle_paths', lambda *_args, **_kwargs: [])
-    monkeypatch.setattr(
-        playback,
-        'select_playback_source',
-        lambda *_args, **_kwargs: {'url': 'https://example.com/v.mp4', 'isa': False, 'headers': None},
-    )
-    captured = []
-
-    _create_list_item_for_sponsorblock(
-        playback,
-        {'title': 'Video', 'webpage_url': 'https://example.invalid/watch', 'formats': []},
-        playback_meta_sink=captured.append,
-    )
-
-    assert captured[0]['manifest_url'] is None
-    assert captured[0]['webpage_url'] == 'https://example.invalid/watch'
-
-
-def test_create_list_item_from_playback_builds_a_dash_item(monkeypatch):
-    playback = _load_playback_module(monkeypatch)
-    monkeypatch.setattr(playback.xbmcvfs, 'exists', lambda path: 'keep' in path, raising=False)
-    manifest_url = 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32)
-
-    list_item = playback.create_list_item_from_playback(
-        {
-            'manifest_url': manifest_url,
-            'title': 'Video',
-            'plot': 'Plot',
-            'thumbnail': 'https://example.invalid/thumb.jpg',
-            'kind': 'video',
-            'duration': 12.5,
-            'subtitle_paths': ['/tmp/keep.vtt', '/tmp/missing.vtt'],
-            'headers': {'User-Agent': 'UA'},
-        }
-    )
-
-    assert list_item.path == manifest_url
-    assert list_item.label == 'Video'
-    assert list_item.video_info.title == 'Video'
-    assert list_item.video_info.plot == 'Plot'
-    assert list_item.video_info.duration == 12
-    assert list_item.art == {'thumb': 'https://example.invalid/thumb.jpg'}
-    # Only subtitles that still exist on disk are handed back to Kodi.
-    assert list_item.subtitles == ['/tmp/keep.vtt']
-    assert list_item.mime_type == 'application/dash+xml'
-    assert list_item.properties['inputstream'] == 'inputstream.adaptive'
-    assert list_item.properties['inputstream.adaptive.manifest_type'] == 'mpd'
-    assert list_item.properties['inputstream.adaptive.manifest_headers'] == 'User-Agent=UA'
-    assert list_item.properties['inputstream.adaptive.stream_headers'] == 'User-Agent=UA'
-
-
-def test_create_list_item_from_playback_uses_the_music_tag_for_audio(monkeypatch):
-    playback = _load_playback_module(monkeypatch)
-    manifest_url = 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32)
-
-    list_item = playback.create_list_item_from_playback(
-        {
-            'manifest_url': manifest_url,
-            'title': 'Audio',
-            'kind': 'audio',
-            'duration': None,
-            'subtitle_paths': [],
-            'headers': None,
-        }
-    )
-
-    assert list_item.music_info.title == 'Audio'
-    assert list_item.video_info.title is None
-    assert list_item.properties['inputstream'] == 'inputstream.adaptive'
-    assert list_item.mime_type == 'application/dash+xml'
-
-
-def test_create_list_item_from_playback_rejects_incomplete_metadata(monkeypatch):
-    playback = _load_playback_module(monkeypatch)
-
-    with pytest.raises(ValueError):
-        playback.create_list_item_from_playback({'title': 'no manifest url'})
-    with pytest.raises(ValueError):
-        playback.create_list_item_from_playback({'manifest_url': 'http://127.0.0.1:8123/manifest/x.mpd'})
-
-
-def test_collect_playback_metadata_keeps_the_youtube_id_for_sponsorblock(monkeypatch):
+def test_collect_playback_metadata_falls_back_to_the_original_url(monkeypatch):
     playback = _load_playback_module(monkeypatch)
 
     metadata = playback._collect_playback_metadata(
-        {'extractor_key': 'Youtube', 'id': 'abc123', 'title': 'Video'},
-        'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32),
-        True,
-        'mpd',
-        {},
-        'video',
-        [],
+        {'original_url': 'https://example.invalid/page', 'url': 'https://cdn.invalid/v.mp4'},
+        'audio',
     )
 
-    assert metadata['sponsorblock_video_id'] == 'abc123'
-
-
-def test_create_list_item_from_playback_publishes_the_youtube_id_for_sponsorblock(monkeypatch):
-    playback = _load_playback_module(monkeypatch)
-    window_properties = {}
-
-    class FakeWindow:
-        def setProperty(self, key, value):
-            window_properties[key] = value
-
-    monkeypatch.setattr(playback.xbmcgui, 'Window', lambda _id: FakeWindow(), raising=False)
-    manifest_url = 'http://127.0.0.1:8123/manifest/{}.mpd'.format('0' * 32)
-
-    list_item = playback.create_list_item_from_playback(
-        {
-            'manifest_url': manifest_url,
-            'title': 'Video',
-            'kind': 'video',
-            'sponsorblock_video_id': 'abc123',
-            'headers': None,
-        }
-    )
-
-    assert list_item.properties[playback.sponsorblock.VIDEO_ID_PROPERTY] == 'abc123'
-    published = window_properties[playback.sponsorblock.PLAYBACK_PROPERTY]
-    assert playback.sponsorblock.resolve_playing_video_id('', list_item.path, published) == 'abc123'
+    assert metadata['webpage_url'] == 'https://example.invalid/page'
+    assert metadata['kind'] == 'audio'

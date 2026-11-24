@@ -145,6 +145,11 @@
                     <default>120</default>
                     <control type="edit" format="string"/>
                 </setting>
+                <setting type="string" id="avoid_video_codecs" label="33060">
+                    <level>2</level>
+                    <default>none</default>
+                    <control type="edit" format="string"/>
+                </setting>
                 <setting id="maxresolution" type="integer" label="33030">
                     <level>0</level>
                     <default>1920</default>
