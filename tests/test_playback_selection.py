@@ -10,6 +10,8 @@ from core.playback_selection import (
     evaluate_raw_format_candidate,
     guess_manifest_type,
     normalize_dash_audio_streams,
+    filter_avoided_video_codecs,
+    pick_best_dash_video_format,
     should_allow_native_hls_without_isa,
     add_dash_formats_to_builder,
     build_dash_manifest_candidate,
@@ -1970,3 +1972,43 @@ def test_select_playback_source_keeps_progressive_id_for_other_extractors():
 
     assert selected["source"] == "raw_format"
     assert selected["format_label"] == "18"
+
+
+def test_pick_best_dash_video_format_skips_configured_codecs_when_another_one_is_offered():
+    dash_video = [
+        {'format_id': '399', 'width': 1920, 'height': 1080, 'vcodec': 'av01.0.08M.08'},
+        {'format_id': '248', 'width': 1920, 'height': 1080, 'vcodec': 'vp9'},
+        {'format_id': '136', 'width': 1280, 'height': 720, 'vcodec': 'avc1.4d401f'},
+    ]
+
+    assert pick_best_dash_video_format(dash_video, 1920, ('av01',))['format_id'] == '248'
+
+
+def test_pick_best_dash_video_format_keeps_everything_without_configuration():
+    dash_video = [
+        {'format_id': '399', 'width': 1920, 'height': 1080, 'vcodec': 'av01.0.08M.08'},
+        {'format_id': '248', 'width': 1280, 'height': 720, 'vcodec': 'vp9'},
+    ]
+
+    assert pick_best_dash_video_format(dash_video, 1920)['format_id'] == '399'
+
+
+def test_pick_best_dash_video_format_keeps_the_only_codec_offered():
+    dash_video = [
+        {'format_id': '399', 'width': 1920, 'height': 1080, 'vcodec': 'av01.0.08M.08'},
+    ]
+
+    assert pick_best_dash_video_format(dash_video, 1920, ('av01',))['format_id'] == '399'
+
+
+def test_filter_avoided_video_codecs_drops_matching_prefixes_whatever_the_case():
+    dash_video = [
+        {'format_id': '399', 'vcodec': 'AV01.0.08M.08'},
+        {'format_id': '248', 'vcodec': 'vp9'},
+        {'format_id': '137', 'vcodec': None},
+    ]
+
+    filtered = filter_avoided_video_codecs(dash_video, ('av01',))
+
+    assert [f['format_id'] for f in filtered] == ['248', '137']
+    assert filter_avoided_video_codecs(dash_video, ()) is dash_video
