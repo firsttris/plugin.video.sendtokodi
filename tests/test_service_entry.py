@@ -20,8 +20,8 @@ class FakeInfoTag:
         self.plot = None
         self.duration = None
 
-    def setTitle(self, _title):
-        pass
+    def setTitle(self, title):
+        self.title = title
 
     def setPlot(self, _plot):
         pass
@@ -35,9 +35,10 @@ class FakeListItem:
         self.label = label
         self.path = path
         self.context_menu_items = []
+        self.video_info = FakeInfoTag()
 
     def getVideoInfoTag(self):
-        return FakeInfoTag()
+        return self.video_info
 
     def getMusicInfoTag(self):
         return FakeInfoTag()
@@ -87,8 +88,8 @@ def kodi(monkeypatch, tmp_path):
 
     directory_items = []
 
-    def add_directory_item(_handle, path, listitem, **_kwargs):
-        calls.append(("addDirectoryItem", path, listitem.label))
+    def add_directory_item(_handle, path, listitem, isFolder=False):
+        calls.append(("addDirectoryItem", path, listitem.label, isFolder))
         directory_items.append(listitem)
 
     fakes = {
@@ -239,8 +240,8 @@ def test_without_parameters_shows_the_history_list(kodi):
     kodi.run("")
 
     assert kodi.calls == [
-        ("addDirectoryItem", PLUGIN_URL + "?action=noop", "No recent playback"),
-        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings"),
+        ("addDirectoryItem", PLUGIN_URL + "?action=noop", "No recent playback", True),
+        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings", True),
         ("endOfDirectory",),
     ]
 
@@ -251,10 +252,33 @@ def test_history_entries_are_listed_in_file_order(kodi, tmp_path):
     kodi.run("")
 
     assert kodi.calls == [
-        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=second", "Video"),
-        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=first", "Video"),
-        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings"),
+        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=second", "Video", False),
+        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=first", "Video", False),
+        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings", True),
         ("endOfDirectory",),
+    ]
+
+
+def test_downloaded_entries_are_marked_in_the_list(kodi, monkeypatch, tmp_path):
+    import xbmcplugin
+
+    _write_history(tmp_path, [_history_entry("done", downloaded_at=5), _history_entry("new")])
+    items = []
+    original_add = xbmcplugin.addDirectoryItem
+
+    def add_directory_item(handle, path, listitem, isFolder=False):
+        items.append(listitem)
+        return original_add(handle, path, listitem, isFolder=isFolder)
+
+    monkeypatch.setattr(xbmcplugin, "addDirectoryItem", add_directory_item)
+
+    kodi.run("")
+
+    assert [item.video_info.title for item in items[:2]] == ["Video [downloaded]", "Video"]
+
+    assert kodi.calls[:2] == [
+        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=done", "Video [downloaded]", False),
+        ("addDirectoryItem", PLUGIN_URL + "?action=replay&id=new", "Video", False),
     ]
 
 
@@ -263,8 +287,8 @@ def test_settings_action_opens_settings_and_rerenders_the_list(kodi):
 
     assert kodi.calls == [
         ("openSettings",),
-        ("addDirectoryItem", PLUGIN_URL + "?action=noop", "No recent playback"),
-        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings"),
+        ("addDirectoryItem", PLUGIN_URL + "?action=noop", "No recent playback", True),
+        ("addDirectoryItem", PLUGIN_URL + "?action=settings", "Settings", True),
         ("endOfDirectory",),
     ]
 
