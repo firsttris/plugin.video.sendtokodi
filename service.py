@@ -335,18 +335,22 @@ def _show_history_list(handle, plugin_url):
     xbmcplugin.addSortMethod(handle, xbmcplugin.SORT_METHOD_NONE)
     if not entries:
         empty_item = xbmcgui.ListItem("No recent playback", path=plugin_url + "?action=noop")
-        xbmcplugin.addDirectoryItem(handle, empty_item.getPath(), empty_item)
+        # A folder, so selecting it re-renders the list instead of trying to play it.
+        xbmcplugin.addDirectoryItem(handle, empty_item.getPath(), empty_item, isFolder=True)
     for entry in entries:
         title = entry.get('title') or entry.get('url') or ''
+        if entry.get('downloaded_at') is not None:
+            title += " [downloaded]"
         item = xbmcgui.ListItem(title, path="{}?action=replay&id={}".format(plugin_url, entry['id']))
         item.setProperty("IsPlayable", "true")
         video_info = item.getVideoInfoTag()
         video_info.setTitle(title)
         if entry.get('thumbnail'):
             item.setArt({"thumb": entry['thumbnail']})
-        xbmcplugin.addDirectoryItem(handle, item.getPath(), item)
+        xbmcplugin.addDirectoryItem(handle, item.getPath(), item, isFolder=False)
     settings_item = xbmcgui.ListItem("Settings", path=plugin_url + "?action=settings")
-    xbmcplugin.addDirectoryItem(handle, settings_item.getPath(), settings_item)
+    # A folder: the settings action re-renders the list after the modal dialog.
+    xbmcplugin.addDirectoryItem(handle, settings_item.getPath(), settings_item, isFolder=True)
     xbmcplugin.endOfDirectory(handle, succeeded=True, cacheToDisc=False)
 
 
