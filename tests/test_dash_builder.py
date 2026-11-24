@@ -499,24 +499,130 @@ class _ManifestRequest:
         self.path = "/" + url.split("/", 3)[3]
 
 
-def test_handle_request_keeps_serving_for_the_session():
+class _LoopHttpd:
+    """Fake server: counts handle_request calls and records server_close."""
+
+    def __init__(self, on_request=None):
+        self.calls = 0
+        self.closed = False
+        self._on_request = on_request
+
+    def handle_request(self):
+        self.calls += 1
+        if self._on_request is not None:
+            self._on_request(self.calls)
+
+    def server_close(self):
+        self.closed = True
+
+
+def _install_fake_monitor(monkeypatch, abort_after):
+    import sys
+    import types
+
+    state = {"checks": 0}
+
+    class FakeMonitor:
+        def abortRequested(self):
+            state["checks"] += 1
+            return state["checks"] > abort_after
+
+    monkeypatch.setitem(sys.modules, "xbmc", types.SimpleNamespace(Monitor=FakeMonitor))
+
+
+def test_handle_request_stops_and_resets_state_when_kodi_aborts(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    _install_fake_monitor(monkeypatch, abort_after=3)
+    httpd = _LoopHttpd()
+    with dash_builder._HTTPD_STATE_LOCK:
+        dash_builder._HTTPD = httpd
+        dash_builder._HTTPD_THREAD = object()
+        dash_builder._register_manifest_locked(b"manifest")
+
+    dash_builder._handle_request(httpd)
+
+    assert httpd.calls == 3
+    assert httpd.closed is True
+    assert dash_builder._HTTPD is None
+    assert dash_builder._HTTPD_THREAD is None
+    assert dash_builder._LATEST_MANIFEST_ID is None
+    assert dash_builder._MANIFESTS == {}
+
+
+def test_handle_request_keeps_serving_without_xbmc(monkeypatch):
+    import sys
+
     class StopServing(Exception):
         pass
 
-    class DummyHttpd:
-        def __init__(self):
-            self.calls = 0
+    def stop_after_five(calls):
+        if calls == 5:
+            raise StopServing()
 
-        def handle_request(self):
-            self.calls += 1
-            if self.calls == 3:
-                raise StopServing()
+    # A None entry makes "import xbmc" raise ImportError.
+    monkeypatch.setitem(sys.modules, "xbmc", None)
+    dash_builder._reset_httpd_state_for_tests()
+    httpd = _LoopHttpd(on_request=stop_after_five)
 
-    httpd = DummyHttpd()
     with pytest.raises(StopServing):
         dash_builder._handle_request(httpd)
-    # No idle timeout ends the loop: it keeps handling requests.
-    assert httpd.calls == 3
+    # No abort signal and no idle timeout: only the forced error ended the loop.
+    assert httpd.calls == 5
+    assert httpd.closed is True
+
+
+def test_abort_requested_factory_without_monitor_never_aborts(monkeypatch):
+    import sys
+    import types
+
+    monkeypatch.setitem(sys.modules, "xbmc", types.SimpleNamespace())
+    assert dash_builder._abort_requested_factory()() is False
+
+
+def test_stopping_an_old_server_keeps_the_state_of_a_newer_one(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    _install_fake_monitor(monkeypatch, abort_after=0)
+    old_httpd = _LoopHttpd()
+    new_httpd = _LoopHttpd()
+    new_thread = object()
+    with dash_builder._HTTPD_STATE_LOCK:
+        dash_builder._HTTPD = new_httpd
+        dash_builder._HTTPD_THREAD = new_thread
+        manifest_id = dash_builder._register_manifest_locked(b"manifest")
+
+    dash_builder._handle_request(old_httpd)
+
+    assert old_httpd.closed is True
+    assert new_httpd.closed is False
+    assert dash_builder._HTTPD is new_httpd
+    assert dash_builder._HTTPD_THREAD is new_thread
+    assert dash_builder._LATEST_MANIFEST_ID == manifest_id
+    assert manifest_id in dash_builder._MANIFESTS
+
+
+def test_started_server_returns_from_handle_request_periodically(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+
+    class FakeHTTPServer:
+        def __init__(self, _server_address, _handler):
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
+
+    class FakeThread:
+        def __init__(self, target, args):
+            self.daemon = False
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+
+    dash_builder.start_httpd(b"manifest")
+
+    assert dash_builder._HTTPD.timeout == 1
+    assert dash_builder._HTTPD.handle_timeout() is None
 
 
 def test_start_httpd_uses_server_and_thread(monkeypatch):

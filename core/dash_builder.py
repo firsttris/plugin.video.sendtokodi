@@ -15,7 +15,8 @@ from uuid import uuid4
 
 # Doubles as the manifest refresh delay: after this many seconds without a
 # request, a request on a cached manifest re-resolves it with fresh stream urls.
-# The local server itself stays up for the whole Kodi session.
+# The local server itself stays up for the whole Kodi session and stops when
+# Kodi requests an abort.
 DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
 
 # Bounded LRU of served manifests; the least recently used one is evicted.
@@ -482,12 +483,46 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
+def _abort_requested_factory():
+    """Return a callable that reports whether Kodi is shutting the add-on down.
+
+    Outside Kodi (tests, no xbmc module or no Monitor) it always returns False.
+    """
+    try:
+        import xbmc
+        monitor = xbmc.Monitor()
+    except Exception:
+        return lambda: False
+    return monitor.abortRequested
+
+
 def _handle_request(httpd):
-    # The server lives until the interpreter exits (reuselanguageinvoker keeps
-    # the module state between calls), so old localhost manifest urls handed to
-    # Kodi keep working during the session.
-    while True:
-        httpd.handle_request()
+    # The server lives for the Kodi session (reuselanguageinvoker keeps the
+    # module state between calls), so old localhost manifest urls handed to
+    # Kodi keep working. handle_request returns every httpd.timeout seconds, so
+    # the loop notices when Kodi requests an abort and the add-on can unload
+    # without a thread stuck in a blocking accept.
+    abort_requested = _abort_requested_factory()
+    try:
+        while not abort_requested():
+            httpd.handle_request()
+    finally:
+        _stop_httpd(httpd)
+
+
+def _stop_httpd(httpd):
+    global _HTTPD, _HTTPD_THREAD, _LATEST_MANIFEST_ID
+    with _HTTPD_STATE_LOCK:
+        # A newer server may have replaced this one; never reset its state.
+        if _HTTPD is httpd:
+            _HTTPD = None
+            _HTTPD_THREAD = None
+            _LATEST_MANIFEST_ID = None
+            _MANIFESTS.clear()
+    try:
+        httpd.server_close()
+    except Exception:
+        pass
 
 
 def _ensure_httpd_started_locked():
@@ -497,8 +532,10 @@ def _ensure_httpd_started_locked():
 
     server_address = ('127.0.0.1', 0)
     httpd = ThreadingHTTPServer(server_address, HttpHandler)
-    # Block between requests instead of polling; the thread is a daemon and dies
-    # with the interpreter.
+    # Return from handle_request every second so the serving loop can check
+    # for a Kodi abort; there is no idle shutdown.
+    httpd.timeout = 1
+    httpd.handle_timeout = lambda: None
 
     thread = Thread(target=_handle_request, args=(httpd,))
     thread.daemon = True
