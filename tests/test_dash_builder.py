@@ -490,18 +490,139 @@ def test_http_handler_head_and_get_methods_write_headers_and_body():
     assert handler.wfile.written == b"manifest"
 
 
-def test_handle_request_stops_after_timeout():
-    class DummyHttpd:
-        def __init__(self):
-            self.calls = 0
+def _manifest_id(url):
+    return url.rsplit("/", 1)[-1][:-len(".mpd")]
 
-        def handle_request(self):
-            self.calls += 1
-            raise TimeoutError()
 
-    httpd = DummyHttpd()
+class _ManifestRequest:
+    def __init__(self, url):
+        self.path = "/" + url.split("/", 3)[3]
+
+
+class _LoopHttpd:
+    """Fake server: counts handle_request calls and records server_close."""
+
+    def __init__(self, on_request=None):
+        self.calls = 0
+        self.closed = False
+        self._on_request = on_request
+
+    def handle_request(self):
+        self.calls += 1
+        if self._on_request is not None:
+            self._on_request(self.calls)
+
+    def server_close(self):
+        self.closed = True
+
+
+def _install_fake_monitor(monkeypatch, abort_after):
+    import sys
+    import types
+
+    state = {"checks": 0}
+
+    class FakeMonitor:
+        def abortRequested(self):
+            state["checks"] += 1
+            return state["checks"] > abort_after
+
+    monkeypatch.setitem(sys.modules, "xbmc", types.SimpleNamespace(Monitor=FakeMonitor))
+
+
+def test_handle_request_stops_and_resets_state_when_kodi_aborts(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    _install_fake_monitor(monkeypatch, abort_after=3)
+    httpd = _LoopHttpd()
+    with dash_builder._HTTPD_STATE_LOCK:
+        dash_builder._HTTPD = httpd
+        dash_builder._HTTPD_THREAD = object()
+        dash_builder._register_manifest_locked(b"manifest")
+
     dash_builder._handle_request(httpd)
-    assert httpd.calls == 1
+
+    assert httpd.calls == 3
+    assert httpd.closed is True
+    assert dash_builder._HTTPD is None
+    assert dash_builder._HTTPD_THREAD is None
+    assert dash_builder._LATEST_MANIFEST_ID is None
+    assert dash_builder._MANIFESTS == {}
+
+
+def test_handle_request_keeps_serving_without_xbmc(monkeypatch):
+    import sys
+
+    class StopServing(Exception):
+        pass
+
+    def stop_after_five(calls):
+        if calls == 5:
+            raise StopServing()
+
+    # A None entry makes "import xbmc" raise ImportError.
+    monkeypatch.setitem(sys.modules, "xbmc", None)
+    dash_builder._reset_httpd_state_for_tests()
+    httpd = _LoopHttpd(on_request=stop_after_five)
+
+    with pytest.raises(StopServing):
+        dash_builder._handle_request(httpd)
+    # No abort signal and no idle timeout: only the forced error ended the loop.
+    assert httpd.calls == 5
+    assert httpd.closed is True
+
+
+def test_abort_requested_factory_without_monitor_never_aborts(monkeypatch):
+    import sys
+    import types
+
+    monkeypatch.setitem(sys.modules, "xbmc", types.SimpleNamespace())
+    assert dash_builder._abort_requested_factory()() is False
+
+
+def test_stopping_an_old_server_keeps_the_state_of_a_newer_one(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    _install_fake_monitor(monkeypatch, abort_after=0)
+    old_httpd = _LoopHttpd()
+    new_httpd = _LoopHttpd()
+    new_thread = object()
+    with dash_builder._HTTPD_STATE_LOCK:
+        dash_builder._HTTPD = new_httpd
+        dash_builder._HTTPD_THREAD = new_thread
+        manifest_id = dash_builder._register_manifest_locked(b"manifest")
+
+    dash_builder._handle_request(old_httpd)
+
+    assert old_httpd.closed is True
+    assert new_httpd.closed is False
+    assert dash_builder._HTTPD is new_httpd
+    assert dash_builder._HTTPD_THREAD is new_thread
+    assert dash_builder._LATEST_MANIFEST_ID == manifest_id
+    assert manifest_id in dash_builder._MANIFESTS
+
+
+def test_started_server_returns_from_handle_request_periodically(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+
+    class FakeHTTPServer:
+        def __init__(self, _server_address, _handler):
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
+
+    class FakeThread:
+        def __init__(self, target, args):
+            self.daemon = False
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+
+    dash_builder.start_httpd(b"manifest")
+
+    assert dash_builder._HTTPD.timeout == 1
+    assert dash_builder._HTTPD.handle_timeout() is None
 
 
 def test_start_httpd_uses_server_and_thread(monkeypatch):
@@ -584,57 +705,150 @@ def test_start_httpd_refreshes_manifest_after_timeout(monkeypatch):
     assert payload == b"manifest-v2"
 
 
-def test_stop_httpd_if_idle_keeps_recently_used_server(monkeypatch):
+def test_start_httpd_reuses_the_same_server_between_plays(monkeypatch):
     dash_builder._reset_httpd_state_for_tests()
-    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
 
-    class FakeHttpd:
-        closed = False
+    class FakeHTTPServer:
+        def __init__(self, _server_address, _handler):
+            self.server_port = 8123
+            self.timeout = None
+            self.handle_timeout = None
 
-        def server_close(self):
-            self.closed = True
+        def handle_request(self):
+            raise TimeoutError()
 
-    httpd = FakeHttpd()
-    dash_builder._HTTPD = httpd
-    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
+    class FakeThread:
+        def __init__(self, target, args):
+            self.target = target
+            self.args = args
 
-    assert dash_builder._stop_httpd_if_idle(httpd, now=105) is False
-    assert httpd.closed is False
-    assert dash_builder._HTTPD is httpd
+        def start(self):
+            return None
+
+    monkeypatch.setattr(dash_builder, "ThreadingHTTPServer", FakeHTTPServer)
+    monkeypatch.setattr(dash_builder, "Thread", FakeThread)
+
+    first = dash_builder.start_httpd(b"manifest-one")
+    second = dash_builder.start_httpd(b"manifest-two")
+
+    # The server is not shut down between plays: same port, two distinct manifests.
+    assert dash_builder._HTTPD is not None
+    assert first.split("/", 3)[2] == second.split("/", 3)[2]
+    first_id = _manifest_id(first)
+    second_id = _manifest_id(second)
+    assert first_id is not None and second_id is not None
+    assert first_id != second_id
 
 
-def test_stop_httpd_if_idle_stops_idle_server(monkeypatch):
+def test_old_manifest_is_still_served_after_a_new_one_is_registered():
     dash_builder._reset_httpd_state_for_tests()
-    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 10)
 
-    class FakeHttpd:
-        closed = False
+    first = dash_builder.start_httpd(b"manifest-one")
+    second = dash_builder.start_httpd(b"manifest-two")
 
-        def server_close(self):
-            self.closed = True
+    class DummyHandler:
+        def __init__(self, path):
+            self.path = path
 
-    httpd = FakeHttpd()
-    dash_builder._HTTPD = httpd
-    dash_builder._MANIFESTS["a"] = {"manifest": b"", "last_access_at": 100}
+    first_path = "/manifest/{}.mpd".format(_manifest_id(first))
+    second_path = "/manifest/{}.mpd".format(_manifest_id(second))
 
-    assert dash_builder._stop_httpd_if_idle(httpd, now=111) is True
-    assert httpd.closed is True
-    assert dash_builder._HTTPD is None
-    assert dash_builder._MANIFESTS == {}
+    assert dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(first_path)) == b"manifest-one"
+    assert dash_builder.HttpHandler._resolve_manifest_payload(DummyHandler(second_path)) == b"manifest-two"
 
 
-def test_handle_request_returns_when_server_goes_idle(monkeypatch):
+def test_manifest_cache_is_bounded_by_lru_eviction(monkeypatch):
+    from time import monotonic
+
+    dash_builder._reset_httpd_state_for_tests()
+
+    first_id = _manifest_id(dash_builder.start_httpd(b"first"))
+    for _index in range(dash_builder._MANIFEST_CACHE_SIZE - 1):
+        dash_builder.start_httpd(b"filler")
+    # Touch the first manifest so it becomes the most recently used entry.
+    dash_builder._MANIFESTS[first_id]["last_access_at"] = monotonic()
+    extra_id = _manifest_id(dash_builder.start_httpd(b"extra"))
+
+    # The touched entry survived; the server is still up (eviction never closes it).
+    assert first_id in dash_builder._MANIFESTS
+    assert extra_id in dash_builder._MANIFESTS
+    assert len(dash_builder._MANIFESTS) == dash_builder._MANIFEST_CACHE_SIZE
+    assert dash_builder._HTTPD is not None
+
+
+def test_manifest_cache_without_touch_evicts_the_oldest_entry():
+    dash_builder._reset_httpd_state_for_tests()
+
+    ids = [
+        _manifest_id(dash_builder.start_httpd(b"m"))
+        for _index in range(dash_builder._MANIFEST_CACHE_SIZE)
+    ]
+    dash_builder.start_httpd(b"new")
+
+    assert ids[0] not in dash_builder._MANIFESTS
+    assert len(dash_builder._MANIFESTS) == dash_builder._MANIFEST_CACHE_SIZE
+
+
+def test_manifest_is_not_refreshed_before_the_refresh_delay(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
     calls = []
 
-    class DummyHttpd:
-        def handle_request(self):
-            calls.append(1)
+    def refresh_manifest():
+        calls.append(1)
+        return b"manifest-v2"
 
-    monkeypatch.setattr(dash_builder, "_stop_httpd_if_idle", lambda _httpd: len(calls) >= 3)
+    url = dash_builder.start_httpd(b"manifest-v1", refresh_manifest=refresh_manifest)
 
-    dash_builder._handle_request(DummyHttpd())
+    assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v1"
+    assert calls == []
 
-    assert len(calls) == 3
+
+def test_stale_manifest_refresh_updates_the_cache_and_resets_the_delay(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
+    calls = []
+
+    def refresh_manifest():
+        calls.append(1)
+        return "manifest-v{}".format(len(calls) + 1).encode("utf-8")
+
+    url = dash_builder.start_httpd(b"manifest-v1", refresh_manifest=refresh_manifest)
+    dash_builder._MANIFESTS[_manifest_id(url)]["refreshed_at"] = 0
+
+    assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v2"
+    # Fresh again: the next request is served from the cache without re-resolving.
+    assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v2"
+    assert len(calls) == 1
+
+
+def test_failed_refresh_keeps_serving_the_cached_manifest(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
+
+    def refresh_manifest():
+        raise RuntimeError("resolve failed")
+
+    url = dash_builder.start_httpd(b"manifest-v1", refresh_manifest=refresh_manifest)
+    dash_builder._MANIFESTS[_manifest_id(url)]["refreshed_at"] = 0
+
+    assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v1"
+
+
+def test_serving_a_manifest_marks_it_recently_used_for_eviction():
+    dash_builder._reset_httpd_state_for_tests()
+
+    urls = [dash_builder.start_httpd(b"m") for _index in range(dash_builder._MANIFEST_CACHE_SIZE)]
+    # Make the access order deterministic, then request the oldest entry.
+    for index, url in enumerate(urls):
+        dash_builder._MANIFESTS[_manifest_id(url)]["last_access_at"] = index
+    dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(urls[0]))
+
+    dash_builder.start_httpd(b"new")
+
+    assert _manifest_id(urls[0]) in dash_builder._MANIFESTS
+    assert _manifest_id(urls[1]) not in dash_builder._MANIFESTS
+    assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(urls[1])) is None
 
 
 class FakeRangeResponse(FakeStreamResponse):

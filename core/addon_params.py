@@ -294,6 +294,13 @@ def resolve_ytdlp_settings(handle, get_setting):
 
 
 def resolve_dash_httpd_idle_timeout(handle, get_setting):
+    """Return the DASH manifest refresh delay in seconds, clamped to 10..600.
+
+    The setting keeps its historic id (dash_httpd_idle_timeout) so existing user
+    values survive. It no longer stops the local manifest server: after this many
+    seconds without a request, the next request for a cached manifest
+    regenerates it with fresh stream urls.
+    """
     raw_value = (get_setting(handle, "dash_httpd_idle_timeout") or '').strip()
     if not raw_value:
         return DEFAULT_DASH_HTTPD_IDLE_TIMEOUT_SECONDS

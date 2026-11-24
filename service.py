@@ -236,7 +236,7 @@ def play(plugin_url, handle, paramstring):
     )
     dash_httpd_idle_timeout_seconds = resolve_dash_httpd_idle_timeout(handle, get_setting)
     dash_builder.DASH_HTTPD_IDLE_TIMEOUT_SECONDS = dash_httpd_idle_timeout_seconds
-    log("DASH MPD server idle timeout: {}s".format(dash_httpd_idle_timeout_seconds))
+    log("DASH manifest refresh delay: {}s".format(dash_httpd_idle_timeout_seconds))
     maxwidth, strict_max_resolution = resolve_max_resolution(handle, get_setting)
     avoided_video_codecs = resolve_avoided_video_codecs(handle, get_setting)
 

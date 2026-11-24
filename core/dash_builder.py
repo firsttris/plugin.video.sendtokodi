@@ -13,7 +13,14 @@ from time import monotonic
 from uuid import uuid4
 
 
+# Doubles as the manifest refresh delay: after this many seconds without a
+# request, a request on a cached manifest re-resolves it with fresh stream urls.
+# The local server itself stays up for the whole Kodi session and stops when
+# Kodi requests an abort.
 DASH_HTTPD_IDLE_TIMEOUT_SECONDS = 120
+
+# Bounded LRU of served manifests; the least recently used one is evicted.
+_MANIFEST_CACHE_SIZE = 20
 
 _HTTPD_STATE_LOCK = Lock()
 _HTTPD = None
@@ -476,38 +483,46 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
-def _stop_httpd_if_idle(httpd, now=None):
-    # Caller must not hold _HTTPD_STATE_LOCK.
+def _abort_requested_factory():
+    """Return a callable that reports whether Kodi is shutting the add-on down.
+
+    Outside Kodi (tests, no xbmc module or no Monitor) it always returns False.
+    """
+    try:
+        import xbmc
+        monitor = xbmc.Monitor()
+    except Exception:
+        return lambda: False
+    return monitor.abortRequested
+
+
+def _handle_request(httpd):
+    # The server lives for the Kodi session (reuselanguageinvoker keeps the
+    # module state between calls), so old localhost manifest urls handed to
+    # Kodi keep working. handle_request returns every httpd.timeout seconds, so
+    # the loop notices when Kodi requests an abort and the add-on can unload
+    # without a thread stuck in a blocking accept.
+    abort_requested = _abort_requested_factory()
+    try:
+        while not abort_requested():
+            httpd.handle_request()
+    finally:
+        _stop_httpd(httpd)
+
+
+def _stop_httpd(httpd):
     global _HTTPD, _HTTPD_THREAD, _LATEST_MANIFEST_ID
-    now = monotonic() if now is None else now
     with _HTTPD_STATE_LOCK:
-        if _HTTPD is not httpd:
-            return True
-        last_access_at = max(
-            (entry.get('last_access_at', 0) for entry in _MANIFESTS.values()),
-            default=0,
-        )
-        if now - last_access_at < DASH_HTTPD_IDLE_TIMEOUT_SECONDS:
-            return False
-        _HTTPD = None
-        _HTTPD_THREAD = None
-        _MANIFESTS.clear()
-        _LATEST_MANIFEST_ID = None
+        # A newer server may have replaced this one; never reset its state.
+        if _HTTPD is httpd:
+            _HTTPD = None
+            _HTTPD_THREAD = None
+            _LATEST_MANIFEST_ID = None
+            _MANIFESTS.clear()
     try:
         httpd.server_close()
     except Exception:
         pass
-    return True
-
-
-def _handle_request(httpd):
-    try:
-        while True:
-            httpd.handle_request()
-            if _stop_httpd_if_idle(httpd):
-                return
-    except TimeoutError:
-        return
 
 
 def _ensure_httpd_started_locked():
@@ -517,7 +532,8 @@ def _ensure_httpd_started_locked():
 
     server_address = ('127.0.0.1', 0)
     httpd = ThreadingHTTPServer(server_address, HttpHandler)
-    # Return from handle_request periodically so the idle check can stop the server.
+    # Return from handle_request every second so the serving loop can check
+    # for a Kodi abort; there is no idle shutdown.
     httpd.timeout = 1
     httpd.handle_timeout = lambda: None
 
@@ -534,18 +550,24 @@ def _register_manifest_locked(manifest, refresh_manifest=None):
     global _LATEST_MANIFEST_ID
     manifest_id = uuid4().hex
     now = monotonic()
-    _MANIFESTS[manifest_id] = {
+    # Bounded cache: evict the least recently used manifest. Eviction only
+    # removes the entry; it never closes the server.
+    while len(_MANIFESTS) >= _MANIFEST_CACHE_SIZE:
+        lru_id = min(_MANIFESTS, key=lambda key: _MANIFESTS[key].get('last_access_at', 0))
+        del _MANIFESTS[lru_id]
+    entry = {
         'manifest': bytes(manifest),
         'refresh_manifest': refresh_manifest,
         'refreshed_at': now,
         'last_access_at': now,
     }
+    _MANIFESTS[manifest_id] = entry
     _LATEST_MANIFEST_ID = manifest_id
     return manifest_id
 
 
 def start_httpd(manifest, refresh_manifest=None):
-    # Start and register atomically so the idle check cannot stop the server in between.
+    # Start and register atomically so the eviction cannot race the registration.
     with _HTTPD_STATE_LOCK:
         httpd = _ensure_httpd_started_locked()
         manifest_id = _register_manifest_locked(manifest, refresh_manifest=refresh_manifest)
