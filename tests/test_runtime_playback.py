@@ -561,3 +561,110 @@ def test_collect_playback_metadata_falls_back_to_the_original_url(monkeypatch):
 
     assert metadata['webpage_url'] == 'https://example.invalid/page'
     assert metadata['kind'] == 'audio'
+
+
+class _RecordingProgress:
+    def __init__(self):
+        self.updates = []
+        self.closed = False
+
+    def create(self, heading, *_args):
+        self.heading = heading
+
+    def update(self, percent, *_args):
+        self.updates.append(percent)
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.parametrize('status, expected', [
+    ({'status': 'downloading', 'downloaded_bytes': 50, 'total_bytes': 200}, [25]),
+    ({'status': 'downloading', 'downloaded_bytes': 30, 'total_bytes_estimate': 60}, [50]),
+    ({'status': 'downloading', 'downloaded_bytes': 500, 'total_bytes': 200}, [100]),
+    ({'status': 'downloading', 'downloaded_bytes': 50}, []),
+    ({'status': 'downloading', 'downloaded_bytes': 50, 'total_bytes': 0}, []),
+    ({'status': 'downloading', 'total_bytes': 200}, []),
+    ({'status': 'finished'}, [100]),
+    ({'status': 'error'}, []),
+])
+def test_download_progress_hook_updates_the_percent(monkeypatch, status, expected):
+    playback = _load_playback_module(monkeypatch)
+    progress = _RecordingProgress()
+
+    playback._make_download_progress_hook(progress)(status)
+
+    assert progress.updates == expected
+
+
+def test_download_progress_hook_ignores_dialog_errors(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+
+    class BrokenProgress:
+        def update(self, *_args):
+            raise RuntimeError("dialog gone")
+
+    playback._make_download_progress_hook(BrokenProgress())(
+        {'status': 'downloading', 'downloaded_bytes': 1, 'total_bytes': 2}
+    )
+
+
+class _HookYdl:
+    def __init__(self, statuses=(), error=None):
+        self._progress_hooks = []
+        self._statuses = statuses
+        self._error = error
+
+    def add_progress_hook(self, hook):
+        self._progress_hooks.append(hook)
+
+    def process_ie_result(self, result, download=False):
+        assert download is True
+        for status in self._statuses:
+            for hook in list(self._progress_hooks):
+                hook(status)
+        if self._error is not None:
+            raise self._error
+        return dict(result, _filename='/tmp/video.mp4')
+
+
+def test_download_result_with_progress_reports_progress_and_removes_the_hook(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    progress = _RecordingProgress()
+    monkeypatch.setattr(playback.xbmcgui, 'DialogProgressBG', lambda: progress)
+    ydl = _HookYdl(statuses=[
+        {'status': 'downloading', 'downloaded_bytes': 0, 'total_bytes': 100},
+        {'status': 'downloading', 'downloaded_bytes': 40, 'total_bytes': 100},
+        {'status': 'finished'},
+    ])
+
+    result = playback.download_result_with_progress(ydl, {'title': 'Video'})
+
+    assert result['_filename'] == '/tmp/video.mp4'
+    assert progress.heading == 'Downloading Video'
+    assert progress.updates == [0, 40, 100]
+    assert progress.closed is True
+    assert ydl._progress_hooks == []
+
+
+def test_download_result_with_progress_closes_the_dialog_on_errors(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+    progress = _RecordingProgress()
+    monkeypatch.setattr(playback.xbmcgui, 'DialogProgressBG', lambda: progress)
+    ydl = _HookYdl(error=RuntimeError("download failed"))
+
+    with pytest.raises(RuntimeError):
+        playback.download_result_with_progress(ydl, {'title': 'Video'})
+
+    assert progress.closed is True
+    assert ydl._progress_hooks == []
+
+
+def test_resolve_downloaded_file_path_prefers_requested_downloads(monkeypatch):
+    playback = _load_playback_module(monkeypatch)
+
+    assert playback.resolve_downloaded_file_path(
+        {'requested_downloads': [{'filename': ''}, {'filepath': '/media/a.mp4'}], '_filename': '/media/b.mp4'}
+    ) == '/media/a.mp4'
+    assert playback.resolve_downloaded_file_path({'_filename': '/media/b.mp4'}) == '/media/b.mp4'
+    assert playback.resolve_downloaded_file_path({}) is None

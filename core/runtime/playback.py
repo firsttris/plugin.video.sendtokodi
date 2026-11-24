@@ -37,7 +37,7 @@ _INPUTSTREAM_MIME_TYPES = {
 }
 
 
-def _resolve_downloaded_file_path(result):
+def resolve_downloaded_file_path(result):
     requested_downloads = result.get("requested_downloads", [])
     for downloaded_item in requested_downloads:
         file_path = downloaded_item.get("filepath") or downloaded_item.get("filename")
@@ -259,7 +259,7 @@ def create_list_item_from_video(
         show_error_notification(msg)
         raise Exception("Error: " + msg)
 
-    downloaded_file_path = _resolve_downloaded_file_path(result)
+    downloaded_file_path = resolve_downloaded_file_path(result)
     if downloaded_file_path is not None and xbmcvfs.exists(downloaded_file_path):
         log("using downloaded file {}".format(downloaded_file_path))
         url = downloaded_file_path
@@ -373,13 +373,48 @@ def extract_result_with_progress(ydl, target_url):
         progress.close()
 
 
+def _download_percent(status):
+    """Percent of a yt-dlp 'downloading' status, or None when the total is unknown."""
+    downloaded = status.get("downloaded_bytes")
+    total = status.get("total_bytes") or status.get("total_bytes_estimate")
+    if not isinstance(downloaded, (int, float)) or not isinstance(total, (int, float)) or total <= 0:
+        return None
+    return max(0, min(100, int(downloaded * 100 / total)))
+
+
+def _make_download_progress_hook(progress):
+    """yt-dlp progress hook that moves the background progress bar."""
+    def hook(status):
+        try:
+            state = status.get("status")
+            if state == "downloading":
+                percent = _download_percent(status)
+                if percent is not None:
+                    progress.update(percent)
+            elif state == "finished":
+                progress.update(100)
+        except Exception:
+            # A UI error must never abort the download.
+            pass
+    return hook
+
+
 def download_result_with_progress(ydl, result):
     progress = xbmcgui.DialogProgressBG()
     progress.create("Downloading " + (result.get("title") or result.get("webpage_url") or ""))
+    hook = _make_download_progress_hook(progress)
+    add_progress_hook = getattr(ydl, "add_progress_hook", None)
+    if add_progress_hook is not None:
+        add_progress_hook(hook)
     try:
         # Reuse the extracted info instead of resolving the url a second time.
         return ydl.process_ie_result(result, download=True)
     finally:
+        # The YoutubeDL instance can outlive this download (playlists), so the
+        # hook must not keep updating a closed dialog.
+        hooks = getattr(ydl, "_progress_hooks", None)
+        if isinstance(hooks, list) and hook in hooks:
+            hooks.remove(hook)
         progress.close()
 
 

@@ -50,9 +50,10 @@ works with any link yt-dlp supports.
 
 ## From Kodi itself
 
-Opening the add-on in Kodi's add-on list (*Add-ons → Video add-ons → SendToKodi*) opens its settings: the add-on has no
-browsing interface, since it only plays what it is given. To play a link from inside Kodi, put it into a playlist or a
-STRM file as described in [Playlists and STRM files](#playlists-and-strm-files).
+Opening the add-on in Kodi's add-on list (*Add-ons → Video add-ons → SendToKodi*) opens its playback history; a
+*Settings* entry at the bottom opens the settings. The add-on has no other browsing interface, since it only plays what
+it is given. To play a link from inside Kodi, put it into a playlist or a STRM file as described in
+[Playlists and STRM files](#playlists-and-strm-files).
 
 ## What happens on playback
 
@@ -66,6 +67,20 @@ STRM file as described in [Playlists and STRM files](#playlists-and-strm-files).
 
 If anything fails, a notification *Could not resolve the url* appears and the reason is in Kodi's log; see
 [Troubleshooting](troubleshooting.md).
+
+## Playback history
+
+Every video you play successfully is recorded in the add-on's data folder (`history.json`), newest first, with its
+page URL, title, thumbnail and duration; no HTTP headers, cookies or stream URLs are stored. Playing the same page
+again moves its entry back to the top instead of duplicating it. The list keeps the 30 most recent entries.
+
+Opening the add-on shows this list. Selecting an entry replays it: the stored page URL is resolved with yt-dlp like any
+other sent link, so the streams are always fresh.
+
+The context menu of each entry has a **Download** command. It downloads the video into the configured media download
+folder (*Settings → Media → Media download path*) without playing it, then reports the final file path and marks the
+entry as downloaded. A playlist cannot be downloaded yet; the download uses yt-dlp's own behaviour when the file is
+already present.
 
 ## Playlists and the queue
 
