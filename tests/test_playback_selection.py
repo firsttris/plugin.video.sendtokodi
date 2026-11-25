@@ -2012,3 +2012,77 @@ def test_filter_avoided_video_codecs_drops_matching_prefixes_whatever_the_case()
 
     assert [f['format_id'] for f in filtered] == ['248', '137']
     assert filter_avoided_video_codecs(dash_video, ()) is dash_video
+
+
+def test_select_playback_source_applies_avoided_codecs_when_resolution_is_not_strict():
+    """The setting must filter the DASH manifest on the auto-quality path too.
+
+    Kodi uses that path when the maximum resolution is "adaptive", and the
+    filter used to be applied only inside pick_best_dash_video_format(), which
+    is not called then.
+    """
+
+    class RecordingDashModule:
+        class Manifest:
+            def __init__(self, _duration):
+                self.video_formats = []
+
+            def add_video_format(self, format_info):
+                self.video_formats.append(format_info.get("format"))
+
+            def add_audio_format(self, _format_info):
+                return None
+
+            def emit(self):
+                return "manifest-" + ",".join(self.video_formats)
+
+        @staticmethod
+        def start_httpd(manifest):
+            return "http://dummy.local/" + manifest
+
+    result = {
+        "duration": "10",
+        "formats": [
+            {
+                "format": "av1-1080",
+                "format_id": "399",
+                "url": "https://example.com/av1",
+                "vcodec": "av01.0.08M.08",
+                "acodec": "none",
+                "container": "mp4_dash",
+                "width": 1920,
+            },
+            {
+                "format": "h264-720",
+                "format_id": "136",
+                "url": "https://example.com/h264",
+                "vcodec": "avc1.4d401f",
+                "acodec": "none",
+                "container": "mp4_dash",
+                "width": 1280,
+            },
+            {
+                "format": "audio",
+                "format_id": "140",
+                "url": "https://example.com/audio",
+                "vcodec": "none",
+                "acodec": "aac",
+                "container": "m4a_dash",
+            },
+        ],
+    }
+
+    selected = select_playback_source(
+        result=result,
+        usemanifest=False,
+        usedashbuilder=True,
+        maxwidth=1920,
+        isa_supports=lambda stream: stream == "mpd",
+        dashbuilder=RecordingDashModule,
+        strict_max_resolution=False,
+        avoided_video_codecs=("av01",),
+    )
+
+    assert selected["source"] == "dash_manifest"
+    assert "h264-720" in selected["url"]
+    assert "av1-1080" not in selected["url"]
