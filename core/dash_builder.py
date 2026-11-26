@@ -429,31 +429,42 @@ class HttpHandler(BaseHTTPRequestHandler):
             if entry is None:
                 return None
             refresh_manifest = entry.get('refresh_manifest')
-            refreshed_at = entry.get('refreshed_at', 0)
+
+        refreshed_payload = None
+        if refresh_manifest is not None:
+            # One refresh at a time per manifest: Kodi can ask for the same
+            # manifest from several threads, and without this lock every
+            # request called refresh_manifest() on its own (measured: four
+            # concurrent requests, four yt-dlp re-resolutions). The waiters
+            # read the result the first caller stored, then return it below.
+            with entry['refresh_lock']:
+                with _HTTPD_STATE_LOCK:
+                    entry = _MANIFESTS.get(manifest_id)
+                    if entry is None:
+                        return None
+                    stale = (
+                        monotonic() - entry.get('refreshed_at', 0)
+                        >= DASH_HTTPD_IDLE_TIMEOUT_SECONDS
+                    )
+                if stale:
+                    try:
+                        refreshed = refresh_manifest()
+                    except Exception:
+                        refreshed = None
+                    if refreshed is not None:
+                        refreshed_payload = bytes(refreshed)
+                        with _HTTPD_STATE_LOCK:
+                            current = _MANIFESTS.get(manifest_id)
+                            if current is not None:
+                                current['manifest'] = refreshed_payload
+                                current['refreshed_at'] = monotonic()
 
         now = monotonic()
-        refreshed_payload = None
-        should_refresh = (
-            refresh_manifest is not None
-            and now - refreshed_at >= DASH_HTTPD_IDLE_TIMEOUT_SECONDS
-        )
-        if should_refresh:
-            try:
-                refreshed = refresh_manifest()
-            except Exception:
-                refreshed = None
-            if refreshed is not None:
-                refreshed_payload = bytes(refreshed)
-
         with _HTTPD_STATE_LOCK:
             entry = _MANIFESTS.get(manifest_id)
             if entry is None:
-                return None
-
-            if refreshed_payload is not None:
-                entry['manifest'] = refreshed_payload
-                entry['refreshed_at'] = now
-
+                # Evicted while this request was refreshing: answer it anyway.
+                return refreshed_payload
             entry['last_access_at'] = now
             return entry['manifest']
 
@@ -560,6 +571,8 @@ def _register_manifest_locked(manifest, refresh_manifest=None):
         'refresh_manifest': refresh_manifest,
         'refreshed_at': now,
         'last_access_at': now,
+        # Coalesces refresh requests for this manifest (see HttpHandler).
+        'refresh_lock': Lock(),
     }
     _MANIFESTS[manifest_id] = entry
     _LATEST_MANIFEST_ID = manifest_id

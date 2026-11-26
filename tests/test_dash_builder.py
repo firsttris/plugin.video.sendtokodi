@@ -1,3 +1,6 @@
+import itertools
+import threading
+
 import pytest
 import requests
 
@@ -848,6 +851,55 @@ def test_failed_refresh_keeps_serving_the_cached_manifest(monkeypatch, fake_cloc
     dash_builder._MANIFESTS[_manifest_id(url)]["refreshed_at"] = 0
 
     assert dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url)) == b"manifest-v1"
+
+
+def test_concurrent_requests_refresh_a_stale_manifest_once(monkeypatch):
+    dash_builder._reset_httpd_state_for_tests()
+    monkeypatch.setattr(dash_builder, "DASH_HTTPD_IDLE_TIMEOUT_SECONDS", 30)
+    # Thread-safe fake clock: a fresh CI runner's real monotonic can be lower
+    # than the refresh delay.
+    clock = itertools.count(10_000)
+    monkeypatch.setattr(dash_builder, "monotonic", lambda: next(clock))
+
+    calls = []
+    calls_lock = threading.Lock()
+    four_calls_seen = threading.Event()
+
+    def refresh_manifest():
+        with calls_lock:
+            calls.append(1)
+            if len(calls) == 4:
+                four_calls_seen.set()
+        # On the fixed code only one caller enters; on the old code all four
+        # do, which is exactly what this test must catch.
+        four_calls_seen.wait(timeout=0.3)
+        return b"manifest-v2"
+
+    with dash_builder._HTTPD_STATE_LOCK:
+        manifest_id = dash_builder._register_manifest_locked(
+            b"manifest-v1", refresh_manifest=refresh_manifest
+        )
+    dash_builder._MANIFESTS[manifest_id]["refreshed_at"] = 0
+    url = "http://127.0.0.1:8123/manifest/{}.mpd".format(manifest_id)
+
+    barrier = threading.Barrier(4)
+    payloads = []
+
+    def fetch():
+        barrier.wait(timeout=5)
+        payloads.append(
+            dash_builder.HttpHandler._resolve_manifest_payload(_ManifestRequest(url))
+        )
+
+    threads = [threading.Thread(target=fetch) for _index in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    assert len(calls) == 1
+    assert payloads == [b"manifest-v2"] * 4
 
 
 def test_serving_a_manifest_marks_it_recently_used_for_eviction(fake_clock):
